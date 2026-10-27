@@ -1235,10 +1235,19 @@ public final class InputLogic {
             }
             inputTransaction.setRequiresUpdateSuggestions();
         } else {
+            final int prevCodePoint = mConnection.getCodePointBeforeCursor();
+            if (prevCodePoint == Constants.CODE_SPACE || prevCodePoint == ' ') {
+                mConnection.deleteTextBeforeCursor(1);
+                mLastComposedWord.deactivate();
+                mSpaceState = SpaceState.NONE;
+                inputTransaction.setRequiresUpdateSuggestions();
+                return;
+            }
             if (isAvroActive()) {
                 mConnection.deleteTextBeforeCursor(1);
                 mLastComposedWord.deactivate();
                 inputTransaction.setRequiresUpdateSuggestions();
+                return;
             } else if (mLastComposedWord.canRevertCommit()) {
                 final String lastComposedWord = mLastComposedWord.mTypedWord;
                 revertCommit(inputTransaction, inputTransaction.mSettingsValues);

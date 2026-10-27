@@ -12,10 +12,10 @@
                 <Key latin:keySpec="&#x0988;" latin:moreKeys="&#x09E9;,!noPanelAutoMoreKey!,3" />
                 <Key latin:keySpec="&#x09DC;" latin:moreKeys="&#x09EA;,!noPanelAutoMoreKey!,4" />
                 <Key latin:keySpec="&#x09A0;" latin:moreKeys="&#x09EB;,!noPanelAutoMoreKey!,5" />
-                <Key latin:keySpec="&#x0990;" latin:moreKeys="&#x09EC;,!noPanelAutoMoreKey!,6" />
+                <Key latin:keySpec="&#x09C8;" latin:moreKeys="&#x0990;,&#x09EC;,!noPanelAutoMoreKey!,6" />
                 <Key latin:keySpec="&#x0989;" latin:moreKeys="&#x09ED;,!noPanelAutoMoreKey!,7" />
                 <Key latin:keySpec="&#x0987;" latin:moreKeys="&#x09EE;,!noPanelAutoMoreKey!,8" />
-                <Key latin:keySpec="&#x0994;" latin:moreKeys="&#x09EF;,!noPanelAutoMoreKey!,9" />
+                <Key latin:keySpec="&#x09CC;" latin:moreKeys="&#x0994;,&#x09EF;,!noPanelAutoMoreKey!,9" />
                 <Key latin:keySpec="&#x09AB;" latin:moreKeys="&#x09E6;,!noPanelAutoMoreKey!,0" />
             </case>
             <default>
@@ -24,10 +24,10 @@
                 <Key latin:keySpec="&#x09C0;" latin:moreKeys="&#x09E9;,!noPanelAutoMoreKey!,&#x0988;,3" />
                 <Key latin:keySpec="&#x09B0;" latin:moreKeys="&#x09EA;,!noPanelAutoMoreKey!,&#x09DC;,4" />
                 <Key latin:keySpec="&#x099F;" latin:moreKeys="&#x09EB;,!noPanelAutoMoreKey!,&#x09A0;,5" />
-                <Key latin:keySpec="&#x098F;" latin:moreKeys="&#x09EC;,!noPanelAutoMoreKey!,&#x0990;,6" />
+                <Key latin:keySpec="&#x09C7;" latin:moreKeys="&#x098F;,&#x09C8;,&#x0990;,&#x09EC;,!noPanelAutoMoreKey!,6" />
                 <Key latin:keySpec="&#x09C1;" latin:moreKeys="&#x09ED;,!noPanelAutoMoreKey!,&#x0989;,7" />
                 <Key latin:keySpec="&#x09BF;" latin:moreKeys="&#x09EE;,!noPanelAutoMoreKey!,&#x0987;,8" />
-                <Key latin:keySpec="&#x0993;" latin:moreKeys="&#x09EF;,!noPanelAutoMoreKey!,&#x0994;,9" />
+                <Key latin:keySpec="&#x09CB;" latin:moreKeys="&#x0993;,&#x09CC;,&#x0994;,&#x09EF;,!noPanelAutoMoreKey!,9" />
                 <Key latin:keySpec="&#x09AA;" latin:moreKeys="&#x09E6;,!noPanelAutoMoreKey!,&#x09AB;,0" />
             </default>
         </switch>
@@ -45,18 +45,18 @@
                 <Key latin:keySpec="&#x0983;" />
                 <Key latin:keySpec="&#x099D;" />
                 <Key latin:keySpec="&#x0996;" />
-                <Key latin:keySpec="&#x0982;" />
+                <Key latin:keySpec="&#x0982;" latin:moreKeys="&#x0981;,!noPanelAutoMoreKey!" />
             </case>
             <default>
                 <Key latin:keySpec="&#x09BE;" latin:keyXPos="5%p" latin:moreKeys="&#x0985;,!noPanelAutoMoreKey!" />
                 <Key latin:keySpec="&#x09B8;" latin:moreKeys="&#x09B7;,!noPanelAutoMoreKey!" />
                 <Key latin:keySpec="&#x09A1;" latin:moreKeys="&#x09A2;,!noPanelAutoMoreKey!" />
-                <Key latin:keySpec="&#x09A4;" latin:moreKeys="&#x09A5;,!noPanelAutoMoreKey!,&#x09CE;" />
+                <Key latin:keySpec="&#x09A4;" latin:moreKeys="&#x09A5;,!noPanelAutoMoreKey!,&#x09CE;,&#x09CD;" />
                 <Key latin:keySpec="&#x0997;" latin:moreKeys="&#x0998;,!noPanelAutoMoreKey!" />
                 <Key latin:keySpec="&#x09B9;" latin:moreKeys="&#x0983;,!noPanelAutoMoreKey!" />
                 <Key latin:keySpec="&#x099C;" latin:moreKeys="&#x099D;,!noPanelAutoMoreKey!" />
                 <Key latin:keySpec="&#x0995;" latin:moreKeys="&#x0996;,!noPanelAutoMoreKey!" />
-                <Key latin:keySpec="&#x09B2;" latin:moreKeys="&#x0982;,!noPanelAutoMoreKey!" />
+                <Key latin:keySpec="&#x09B2;" latin:moreKeys="&#x0982;,!noPanelAutoMoreKey!,&#x0981;" />
             </default>
         </switch>
     </Row>
@@ -72,7 +72,7 @@
                 <Key latin:keySpec="&#x09AF;" />
                 <Key latin:keySpec="&#x09DD;" />
                 <Key latin:keySpec="&#x099B;" />
-                <Key latin:keySpec="&#x098B;" />
+                <Key latin:keySpec="&#x098B;" latin:moreKeys="&#x09C3;,!noPanelAutoMoreKey!" />
                 <Key latin:keySpec="&#x09AD;" />
                 <Key latin:keySpec="&#x09A3;" />
                 <Key latin:keySpec="&#x0999;" />
@@ -81,7 +81,7 @@
                 <Key latin:keySpec="&#x09DF;" latin:moreKeys="&#x09AF;,!noPanelAutoMoreKey!" />
                 <Key latin:keySpec="&#x09B6;" latin:moreKeys="&#x09DD;,!noPanelAutoMoreKey!" />
                 <Key latin:keySpec="&#x099A;" latin:moreKeys="&#x099B;,!noPanelAutoMoreKey!" />
-                <Key latin:keySpec="&#x0986;" latin:moreKeys="&#x098B;,!noPanelAutoMoreKey!" />
+                <Key latin:keySpec="&#x0986;" latin:moreKeys="&#x098B;,!noPanelAutoMoreKey!,&#x09C3;" />
                 <Key latin:keySpec="&#x09AC;" latin:moreKeys="&#x09AD;,!noPanelAutoMoreKey!" />
                 <Key latin:keySpec="&#x09A8;" latin:moreKeys="&#x09A3;,!noPanelAutoMoreKey!" />
                 <Key latin:keySpec="&#x09AE;" latin:moreKeys="&#x0999;,!noPanelAutoMoreKey!" />
@@ -108,7 +108,7 @@
             latin:keyWidth="42%p" />
         <Key
             latin:keySpec="&#x0964;"
-            latin:moreKeys=".,!noPanelAutoMoreKey!,?,!"
+            latin:moreKeys=".,!noPanelAutoMoreKey!,?,!,&#x09CD;,&#x0981;"
             latin:keyWidth="10%p"
             latin:backgroundType="functional" />
         <Key

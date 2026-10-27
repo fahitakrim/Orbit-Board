@@ -32,8 +32,7 @@ import kotlinx.coroutines.withContext
 import org.futo.inputmethod.latin.ActiveSubtype
 import org.futo.inputmethod.latin.Subtypes
 import org.futo.inputmethod.latin.SubtypesSetting
-import org.futo.inputmethod.latin.uix.theme.presets.ClassicMaterialDark
-import org.futo.inputmethod.latin.uix.theme.presets.DynamicSystemTheme
+import org.futo.inputmethod.latin.uix.theme.presets.OrbitTheme
 
 // Used before first unlock (direct boot)
 private object DefaultDataStore : DataStore<Preferences> {
@@ -45,7 +44,7 @@ private object DefaultDataStore : DataStore<Preferences> {
             "bn_BD:KeyboardLayoutSet=bengali_jatiyo:",
             "bn_BD:KeyboardLayoutSet=bengali_probhat:"
         ),
-        THEME_KEY.key to ClassicMaterialDark.key,
+        THEME_KEY.key to OrbitTheme.key,
         KeyHintsSetting.key to true
     )
 
@@ -234,7 +233,7 @@ fun <T> LifecycleOwner.deferSetSetting(key: SettingsKey<T>, value: T): Job {
 
 val THEME_KEY = SettingsKey(
     key = stringPreferencesKey("activeThemeOption"),
-    default = DynamicSystemTheme.key
+    default = OrbitTheme.key
 )
 
 val USE_SYSTEM_VOICE_INPUT = SettingsKey(

@@ -1314,7 +1314,11 @@ public class LatinIMELegacy implements KeyboardActionListener,
                     }
                 }
                 ic.performContextMenuAction(android.R.id.copy);
+                if (mInputLogic != null) {
+                    mInputLogic.sendDownUpKeyEvent(KeyEvent.KEYCODE_C, KeyEvent.META_CTRL_ON);
+                }
             }
+            android.widget.Toast.makeText(mInputMethodService, "Copied", android.widget.Toast.LENGTH_SHORT).show();
             AudioAndHapticFeedbackManager.getInstance().performHapticFeedback(
                     mKeyboardSwitcher.getMainKeyboardView(), false);
             AudioAndHapticFeedbackManager.getInstance().performAudioFeedback(Constants.CODE_UNSPECIFIED);
@@ -1337,8 +1341,12 @@ public class LatinIMELegacy implements KeyboardActionListener,
                     ic.commitText("", 1);
                 } else {
                     ic.performContextMenuAction(android.R.id.cut);
+                    if (mInputLogic != null) {
+                        mInputLogic.sendDownUpKeyEvent(KeyEvent.KEYCODE_X, KeyEvent.META_CTRL_ON);
+                    }
                 }
             }
+            android.widget.Toast.makeText(mInputMethodService, "Cut", android.widget.Toast.LENGTH_SHORT).show();
             AudioAndHapticFeedbackManager.getInstance().performHapticFeedback(
                     mKeyboardSwitcher.getMainKeyboardView(), false);
             AudioAndHapticFeedbackManager.getInstance().performAudioFeedback(Constants.CODE_UNSPECIFIED);
