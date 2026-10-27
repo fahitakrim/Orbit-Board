@@ -37,9 +37,9 @@ import org.futo.inputmethod.latin.uix.theme.presets.OrbitTheme
 // Used before first unlock (direct boot)
 private object DefaultDataStore : DataStore<Preferences> {
     private var activePreferences = preferencesOf(
-        ActiveSubtype.key to "en_US:",
+        ActiveSubtype.key to "en_US:KeyboardLayoutSet=qwerty:",
         SubtypesSetting.key to setOf(
-            "en_US:",
+            "en_US:KeyboardLayoutSet=qwerty:",
             "bn_BD:KeyboardLayoutSet=bengali_avro:",
             "bn_BD:KeyboardLayoutSet=bengali_jatiyo:",
             "bn_BD:KeyboardLayoutSet=bengali_probhat:"

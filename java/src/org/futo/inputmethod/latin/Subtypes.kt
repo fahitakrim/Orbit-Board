@@ -111,7 +111,7 @@ object Subtypes {
         }
 
         val locales = context.resources.configuration.locales
-        val initialSubtypes = mutableSetOf("en_US:")
+        val initialSubtypes = mutableSetOf("en_US:KeyboardLayoutSet=qwerty:")
         initialSubtypes.addAll(defaultBengali)
 
         if(locales.size() > 0) {
