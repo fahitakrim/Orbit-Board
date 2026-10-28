@@ -118,7 +118,16 @@ public final class InputLogic {
     private boolean isLogicSuppressedByExternalLogic = false;
     private final RidmikParser mRidmikParser = new RidmikParser();
 
+    private Boolean mAvroActiveOverrideForTest = null;
+
+    public void setAvroActiveForTest(final Boolean active) {
+        mAvroActiveOverrideForTest = active;
+    }
+
     public boolean isAvroActive() {
+        if (mAvroActiveOverrideForTest != null) {
+            return mAvroActiveOverrideForTest;
+        }
         if (mLatinIMELegacy != null && mLatinIMELegacy.mKeyboardSwitcher != null) {
             final Keyboard keyboard = mLatinIMELegacy.mKeyboardSwitcher.getKeyboard();
             if (keyboard != null && keyboard.mId != null && keyboard.mId.mSubtype != null) {
@@ -151,22 +160,66 @@ public final class InputLogic {
             candidates.add(primary);
         }
 
-        // Variation 1: if ends with 'o', try without 'o' (e.g., korbo -> korb -> করব vs করবো)
-        if (raw.length() > 2 && (raw.endsWith("o") || raw.endsWith("O"))) {
-            final String alt = parser.toBangla(raw.substring(0, raw.length() - 1));
-            if (alt != null && !alt.isEmpty() && !candidates.contains(alt)) {
-                candidates.add(alt);
+        // Variation 1: 'o' vs 'O' (inherent vowel vs o-kar \u09CB)
+        if (raw.contains("o")) {
+            final String altO = parser.toBangla(raw.replace('o', 'O'));
+            if (altO != null && !altO.isEmpty() && !candidates.contains(altO)) {
+                candidates.add(altO);
             }
-        }
-        // Variation 2: if ends with consonant, try with 'o' (e.g., bhal -> bhalo -> ভালো)
-        if (raw.length() > 1 && !raw.endsWith("o") && !raw.endsWith("O") && !raw.endsWith("a") && !raw.endsWith("i") && !raw.endsWith("e") && !raw.endsWith("u")) {
-            final String alt = parser.toBangla(raw + "o");
-            if (alt != null && !alt.isEmpty() && !candidates.contains(alt)) {
-                candidates.add(alt);
+        } else if (raw.contains("O")) {
+            final String alto = parser.toBangla(raw.replace('O', 'o'));
+            if (alto != null && !alto.isEmpty() && !candidates.contains(alto)) {
+                candidates.add(alto);
             }
         }
 
-        // Variation 3: 'r' vs 'R' (ro vs Dho/rho)
+        // Variation 2: trailing 'o' / without trailing 'o'
+        if (raw.endsWith("o") || raw.endsWith("O")) {
+            if (raw.length() > 2) {
+                final String alt = parser.toBangla(raw.substring(0, raw.length() - 1));
+                if (alt != null && !alt.isEmpty() && !candidates.contains(alt)) {
+                    candidates.add(alt);
+                }
+            }
+        } else if (raw.length() > 1 && !raw.endsWith("a") && !raw.endsWith("i") && !raw.endsWith("e") && !raw.endsWith("u")) {
+            final String altO = parser.toBangla(raw + "O");
+            if (altO != null && !altO.isEmpty() && !candidates.contains(altO)) {
+                candidates.add(altO);
+            }
+            final String alto = parser.toBangla(raw + "o");
+            if (alto != null && !alto.isEmpty() && !candidates.contains(alto)) {
+                candidates.add(alto);
+            }
+        }
+
+        // Variation 3: 's' vs 'sh' / 'S' (donto-sho vs talobbo-sho)
+        if (raw.contains("sh")) {
+            final String sWord = raw.replace("sh", "s");
+            final String alt = parser.toBangla(sWord);
+            if (alt != null && !alt.isEmpty() && !candidates.contains(alt)) {
+                candidates.add(alt);
+            }
+            if (sWord.contains("o")) {
+                final String altSO = parser.toBangla(sWord.replace('o', 'O'));
+                if (altSO != null && !altSO.isEmpty() && !candidates.contains(altSO)) {
+                    candidates.add(altSO);
+                }
+            }
+        } else if (raw.contains("s")) {
+            final String shWord = raw.replace("s", "sh");
+            final String alt = parser.toBangla(shWord);
+            if (alt != null && !alt.isEmpty() && !candidates.contains(alt)) {
+                candidates.add(alt);
+            }
+            if (shWord.contains("o")) {
+                final String altShO = parser.toBangla(shWord.replace('o', 'O'));
+                if (altShO != null && !altShO.isEmpty() && !candidates.contains(altShO)) {
+                    candidates.add(altShO);
+                }
+            }
+        }
+
+        // Variation 4: 'r' vs 'R' (ro vs Dho/rho)
         if (raw.contains("r")) {
             final String alt = parser.toBangla(raw.replace('r', 'R'));
             if (alt != null && !alt.isEmpty() && !candidates.contains(alt)) {
@@ -174,19 +227,6 @@ public final class InputLogic {
             }
         } else if (raw.contains("R")) {
             final String alt = parser.toBangla(raw.replace('R', 'r'));
-            if (alt != null && !alt.isEmpty() && !candidates.contains(alt)) {
-                candidates.add(alt);
-            }
-        }
-
-        // Variation 4: 's' vs 'sh' / 'S' (donto-sho vs talobbo-sho)
-        if (raw.contains("sh")) {
-            final String alt = parser.toBangla(raw.replace("sh", "s"));
-            if (alt != null && !alt.isEmpty() && !candidates.contains(alt)) {
-                candidates.add(alt);
-            }
-        } else if (raw.contains("s")) {
-            final String alt = parser.toBangla(raw.replace("s", "sh"));
             if (alt != null && !alt.isEmpty() && !candidates.contains(alt)) {
                 candidates.add(alt);
             }
@@ -205,8 +245,73 @@ public final class InputLogic {
             }
         }
 
-        // Keep maximum 4 candidates
-        while (candidates.size() > 4) {
+        // Variation 6: 't' vs 'T' (to vs To)
+        if (raw.contains("t")) {
+            final String alt = parser.toBangla(raw.replace('t', 'T'));
+            if (alt != null && !alt.isEmpty() && !candidates.contains(alt)) {
+                candidates.add(alt);
+            }
+        } else if (raw.contains("T")) {
+            final String alt = parser.toBangla(raw.replace('T', 't'));
+            if (alt != null && !alt.isEmpty() && !candidates.contains(alt)) {
+                candidates.add(alt);
+            }
+        }
+
+        // Variation 7: 'd' vs 'D' (do vs Do)
+        if (raw.contains("d")) {
+            final String alt = parser.toBangla(raw.replace('d', 'D'));
+            if (alt != null && !alt.isEmpty() && !candidates.contains(alt)) {
+                candidates.add(alt);
+            }
+        } else if (raw.contains("D")) {
+            final String alt = parser.toBangla(raw.replace('D', 'd'));
+            if (alt != null && !alt.isEmpty() && !candidates.contains(alt)) {
+                candidates.add(alt);
+            }
+        }
+
+        // Variation 8: 'n' vs 'N' (donto-no vs murdho-no)
+        if (raw.contains("n")) {
+            final String alt = parser.toBangla(raw.replace('n', 'N'));
+            if (alt != null && !alt.isEmpty() && !candidates.contains(alt)) {
+                candidates.add(alt);
+            }
+        } else if (raw.contains("N")) {
+            final String alt = parser.toBangla(raw.replace('N', 'n'));
+            if (alt != null && !alt.isEmpty() && !candidates.contains(alt)) {
+                candidates.add(alt);
+            }
+        }
+
+        // Variation 9: 'i' vs 'I' (hrosho-i vs dirgho-i)
+        if (raw.contains("i")) {
+            final String alt = parser.toBangla(raw.replace('i', 'I'));
+            if (alt != null && !alt.isEmpty() && !candidates.contains(alt)) {
+                candidates.add(alt);
+            }
+        } else if (raw.contains("I")) {
+            final String alt = parser.toBangla(raw.replace('I', 'i'));
+            if (alt != null && !alt.isEmpty() && !candidates.contains(alt)) {
+                candidates.add(alt);
+            }
+        }
+
+        // Variation 10: 'u' vs 'U' (hrosho-u vs dirgho-u)
+        if (raw.contains("u")) {
+            final String alt = parser.toBangla(raw.replace('u', 'U'));
+            if (alt != null && !alt.isEmpty() && !candidates.contains(alt)) {
+                candidates.add(alt);
+            }
+        } else if (raw.contains("U")) {
+            final String alt = parser.toBangla(raw.replace('U', 'u'));
+            if (alt != null && !alt.isEmpty() && !candidates.contains(alt)) {
+                candidates.add(alt);
+            }
+        }
+
+        // Keep maximum 5 candidates
+        while (candidates.size() > 5) {
             candidates.remove(candidates.size() - 1);
         }
 
@@ -2045,6 +2150,9 @@ public final class InputLogic {
      * @return a caps mode from TextUtils.CAP_MODE_* or Constants.TextUtils.CAP_MODE_OFF.
      */
     public int getCurrentAutoCapsState(final SettingsValues settingsValues) {
+        if (isAvroActive()) {
+            return Constants.TextUtils.CAP_MODE_OFF;
+        }
         if (!settingsValues.mAutoCap) return Constants.TextUtils.CAP_MODE_OFF;
 
         final EditorInfo ei = getCurrentInputEditorInfo();
@@ -2544,15 +2652,18 @@ public final class InputLogic {
             final String raw = mWordComposer.getTypedWord();
             final java.util.List<String> candidates = getBanglaCandidates(raw, mRidmikParser);
             final ArrayList<SuggestedWordInfo> list = new ArrayList<>();
+            // Index 0: KIND_TYPED raw typed word (enables ActionBar offset=1 to center primary candidate)
+            list.add(new SuggestedWordInfo(raw, "", 1, SuggestedWordInfo.KIND_TYPED, null, 0, 0));
             int score = SuggestedWordInfo.MAX_SCORE;
             for (final String candidate : candidates) {
-                list.add(new SuggestedWordInfo(candidate, "", score, SuggestedWordInfo.KIND_CORRECTION, null, 0, 0));
-                score--;
+                if (!candidate.equals(raw)) {
+                    list.add(new SuggestedWordInfo(candidate, "", score, SuggestedWordInfo.KIND_CORRECTION, null, 0, 0));
+                    score--;
+                }
             }
-            list.add(new SuggestedWordInfo(raw, "", score, SuggestedWordInfo.KIND_TYPED, null, 0, 0));
-            final SuggestedWordInfo recommendedInfo = list.isEmpty() ? null : list.get(0);
+            final SuggestedWordInfo recommendedInfo = list.size() > 1 ? list.get(1) : list.get(0);
             final boolean willAutoCorrect = list.size() > 1;
-            final SuggestedWords words = new SuggestedWords(list, null, recommendedInfo, true, willAutoCorrect, false, inputStyle, sequenceNumber);
+            final SuggestedWords words = new SuggestedWords(list, null, list.get(0), true, willAutoCorrect, false, inputStyle, sequenceNumber);
             callback.onGetSuggestedWords(words);
             return;
         }

@@ -36,6 +36,7 @@ import org.futo.inputmethod.latin.LatinIMELegacy;
 import org.futo.inputmethod.latin.R;
 import org.futo.inputmethod.latin.RichInputMethodManager;
 import org.futo.inputmethod.latin.Subtypes;
+import org.futo.inputmethod.latin.common.Constants;
 import org.futo.inputmethod.latin.WordComposer;
 import org.futo.inputmethod.latin.define.ProductionFlags;
 import org.futo.inputmethod.latin.settings.Settings;
@@ -117,6 +118,21 @@ public final class KeyboardSwitcher implements KeyboardState.SwitchActions {
         return false;
     }
 
+    private boolean isAvroSubtype() {
+        if (mRichImm != null && mRichImm.getCurrentSubtype() != null) {
+            final String layout = mRichImm.getCurrentSubtype().getKeyboardLayoutSetName();
+            return "bengali_avro".equalsIgnoreCase(layout);
+        }
+        return false;
+    }
+
+    private int filterAutoCaps(final int autoCapsFlags) {
+        if (isAvroSubtype()) {
+            return Constants.TextUtils.CAP_MODE_OFF;
+        }
+        return autoCapsFlags;
+    }
+
     public void loadKeyboard(final EditorInfo editorInfo, final SettingsValues settingsValues,
             final int currentAutoCapsState, final int currentRecapitalizeState) {
         final KeyboardLayoutSet.Builder builder = new KeyboardLayoutSet.Builder(
@@ -134,7 +150,7 @@ public final class KeyboardSwitcher implements KeyboardState.SwitchActions {
 
         mKeyboardLayoutSet = builder.build();
         try {
-            mState.onLoadKeyboard(currentAutoCapsState, currentRecapitalizeState);
+            mState.onLoadKeyboard(filterAutoCaps(currentAutoCapsState), currentRecapitalizeState);
             mKeyboardTextsSet.setLocale(mRichImm.getCurrentSubtypeLocale(), mThemeContext);
         } catch (KeyboardLayoutSetException e) {
             Log.w(TAG, "loading keyboard failed: " + e.mKeyboardId, e.getCause());
@@ -215,22 +231,22 @@ public final class KeyboardSwitcher implements KeyboardState.SwitchActions {
     // when a keyboard layout set doesn't get reloaded in LatinIME.onStartInputViewInternal().
     public void resetKeyboardStateToAlphabet(final int currentAutoCapsState,
             final int currentRecapitalizeState) {
-        mState.onResetKeyboardStateToAlphabet(currentAutoCapsState, currentRecapitalizeState);
+        mState.onResetKeyboardStateToAlphabet(filterAutoCaps(currentAutoCapsState), currentRecapitalizeState);
     }
 
     public void onPressKey(final int code, final boolean isSinglePointer,
             final int currentAutoCapsState, final int currentRecapitalizeState) {
-        mState.onPressKey(code, isSinglePointer, currentAutoCapsState, currentRecapitalizeState);
+        mState.onPressKey(code, isSinglePointer, filterAutoCaps(currentAutoCapsState), currentRecapitalizeState);
     }
 
     public void onReleaseKey(final int code, final boolean withSliding,
             final int currentAutoCapsState, final int currentRecapitalizeState) {
-        mState.onReleaseKey(code, withSliding, currentAutoCapsState, currentRecapitalizeState);
+        mState.onReleaseKey(code, withSliding, filterAutoCaps(currentAutoCapsState), currentRecapitalizeState);
     }
 
     public void onFinishSlidingInput(final int currentAutoCapsState,
             final int currentRecapitalizeState) {
-        mState.onFinishSlidingInput(currentAutoCapsState, currentRecapitalizeState);
+        mState.onFinishSlidingInput(filterAutoCaps(currentAutoCapsState), currentRecapitalizeState);
     }
 
     // Implements {@link KeyboardState.SwitchActions}.
@@ -296,6 +312,21 @@ public final class KeyboardSwitcher implements KeyboardState.SwitchActions {
         setKeyboard(KeyboardId.ELEMENT_SYMBOLS_SHIFTED, KeyboardSwitchState.SYMBOLS_SHIFTED);
     }
 
+    // Implements {@link KeyboardState.SwitchActions}.
+    @Override
+    public void setSymbols3Keyboard() {
+        if (DEBUG_ACTION) {
+            Log.d(TAG, "setSymbols3Keyboard");
+        }
+        setKeyboard(KeyboardId.ELEMENT_SYMBOLS_3, KeyboardSwitchState.SYMBOLS_3);
+    }
+
+    @Override
+    public boolean isShowingAlphabetKeyboard() {
+        final Keyboard keyboard = getKeyboard();
+        return keyboard != null && keyboard.mId != null && keyboard.mId.isAlphabetKeyboard();
+    }
+
     public boolean isImeSuppressedByHardwareKeyboard(
             @Nonnull final SettingsValues settingsValues,
             @Nonnull final KeyboardSwitchState toggleState) {
@@ -338,6 +369,7 @@ public final class KeyboardSwitcher implements KeyboardState.SwitchActions {
     public enum KeyboardSwitchState {
         HIDDEN(-1),
         SYMBOLS_SHIFTED(KeyboardId.ELEMENT_SYMBOLS_SHIFTED),
+        SYMBOLS_3(KeyboardId.ELEMENT_SYMBOLS_3),
         EMOJI(KeyboardId.ELEMENT_EMOJI_RECENTS),
         OTHER(-1);
 
@@ -360,6 +392,8 @@ public final class KeyboardSwitcher implements KeyboardState.SwitchActions {
             return KeyboardSwitchState.EMOJI;
         } else if (isShowingKeyboardId(KeyboardId.ELEMENT_SYMBOLS_SHIFTED)) {
             return KeyboardSwitchState.SYMBOLS_SHIFTED;
+        } else if (isShowingKeyboardId(KeyboardId.ELEMENT_SYMBOLS_3)) {
+            return KeyboardSwitchState.SYMBOLS_3;
         }
         return KeyboardSwitchState.OTHER;
     }
@@ -386,12 +420,13 @@ public final class KeyboardSwitcher implements KeyboardState.SwitchActions {
     // Future method for requesting an updating to the shift state.
     @Override
     public void requestUpdatingShiftState(final int autoCapsFlags, final int recapitalizeMode) {
+        final int filteredAutoCaps = filterAutoCaps(autoCapsFlags);
         if (DEBUG_ACTION) {
             Log.d(TAG, "requestUpdatingShiftState: "
-                    + " autoCapsFlags=" + CapsModeUtils.flagsToString(autoCapsFlags)
+                    + " autoCapsFlags=" + CapsModeUtils.flagsToString(filteredAutoCaps)
                     + " recapitalizeMode=" + RecapitalizeStatus.modeToString(recapitalizeMode));
         }
-        mState.onUpdateShiftState(autoCapsFlags, recapitalizeMode);
+        mState.onUpdateShiftState(filteredAutoCaps, recapitalizeMode);
     }
 
     // Implements {@link KeyboardState.SwitchActions}.
@@ -433,7 +468,7 @@ public final class KeyboardSwitcher implements KeyboardState.SwitchActions {
      */
     public void onEvent(final Event event, final int currentAutoCapsState,
             final int currentRecapitalizeState) {
-        mState.onEvent(event, currentAutoCapsState, currentRecapitalizeState);
+        mState.onEvent(event, filterAutoCaps(currentAutoCapsState), currentRecapitalizeState);
     }
 
     public boolean isShowingKeyboardId(@Nonnull int... keyboardIds) {

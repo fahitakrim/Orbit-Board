@@ -1,5 +1,7 @@
 package org.futo.inputmethod.latin.uix.settings.pages
 
+import android.content.Intent
+import android.net.Uri
 import android.widget.Toast
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.MutableState
@@ -67,6 +69,22 @@ fun HelpScreen(navController: NavHostController = rememberNavController()) {
             }
         )
 
-        
+        NavigationItem(
+            title = "Report a Bug / Feedback",
+            subtitle = "itz.takrim@gmail.com",
+            style = NavigationItemStyle.Misc,
+            navigate = {
+                val intent = Intent(Intent.ACTION_SENDTO).apply {
+                    data = Uri.parse("mailto:itz.takrim@gmail.com")
+                    putExtra(Intent.EXTRA_SUBJECT, "Orbit Board - Bug Report / Feedback")
+                    putExtra(
+                        Intent.EXTRA_TEXT,
+                        "\n\n---\nApp Version: ${BuildConfig.VERSION_NAME} (${BuildConfig.VERSION_CODE})\nDevice: ${android.os.Build.MANUFACTURER} ${android.os.Build.MODEL} (Android ${android.os.Build.VERSION.RELEASE})"
+                    )
+                    flags = Intent.FLAG_ACTIVITY_NEW_TASK
+                }
+                context.startActivity(Intent.createChooser(intent, "Report a Bug").apply { flags = Intent.FLAG_ACTIVITY_NEW_TASK })
+            }
+        )
     }
 }

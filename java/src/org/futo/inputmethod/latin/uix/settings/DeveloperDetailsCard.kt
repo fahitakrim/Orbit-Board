@@ -18,6 +18,12 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.geometry.CornerRadius
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.StrokeJoin
+import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.res.painterResource
 import org.futo.inputmethod.latin.R
 import androidx.compose.material3.Icon
@@ -90,6 +96,28 @@ fun XBrandIcon(modifier: Modifier = Modifier, tint: Color = Color.White) {
             close()
         }
         drawPath(path, color = tint)
+    }
+}
+
+@Composable
+fun EmailBrandIcon(modifier: Modifier = Modifier, tint: Color = Color.White) {
+    Canvas(modifier = modifier) {
+        val w = size.width
+        val h = size.height
+        val stroke = Stroke(width = w * 0.1f, cap = StrokeCap.Round, join = StrokeJoin.Round)
+        drawRoundRect(
+            color = tint,
+            topLeft = Offset(w * 0.08f, h * 0.18f),
+            size = Size(w * 0.84f, h * 0.64f),
+            cornerRadius = CornerRadius(w * 0.12f, h * 0.12f),
+            style = stroke
+        )
+        val flapPath = Path().apply {
+            moveTo(w * 0.14f, h * 0.28f)
+            lineTo(w * 0.50f, h * 0.55f)
+            lineTo(w * 0.86f, h * 0.28f)
+        }
+        drawPath(flapPath, color = tint, style = stroke)
     }
 }
 
@@ -206,6 +234,26 @@ fun DeveloperDetailsCard(modifier: Modifier = Modifier) {
                         tint = Color.White,
                         modifier = Modifier.size(16.dp)
                     )
+                }
+
+                // Email (Bug Report & Feedback)
+                Box(
+                    modifier = Modifier
+                        .size(36.dp)
+                        .clip(CircleShape)
+                        .background(SurfaceVariant)
+                        .border(1.dp, CardBorder, CircleShape)
+                        .clickable {
+                            val intent = Intent(Intent.ACTION_SENDTO).apply {
+                                data = Uri.parse("mailto:itz.takrim@gmail.com")
+                                putExtra(Intent.EXTRA_SUBJECT, "Orbit Board - Bug Report / Feedback")
+                                flags = Intent.FLAG_ACTIVITY_NEW_TASK
+                            }
+                            context.startActivity(Intent.createChooser(intent, "Contact Developer").apply { flags = Intent.FLAG_ACTIVITY_NEW_TASK })
+                        },
+                    contentAlignment = Alignment.Center
+                ) {
+                    EmailBrandIcon(modifier = Modifier.size(16.dp), tint = Color.White)
                 }
             }
         }

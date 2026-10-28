@@ -11,26 +11,16 @@ import org.futo.inputmethod.latin.uix.settings.ScreenTitle
 import org.futo.inputmethod.latin.uix.settings.ScrollableList
 import org.futo.inputmethod.updates.openURI
 
-data class ContributorInfo(
-    val name: String,
-    val features: List<String>
-)
-
-private fun contributor(name: String, vararg features: String) = ContributorInfo(name, features.toList())
-
-val contributors = listOf<ContributorInfo>(
-    contributor("Ravyar Tahir (@ravarage)", "Central Kurdish keyboard layout"),
-    contributor("Emre Eren (@remreren)", "Turkish keyboard layout"),
-)
-
 @Preview(showBackground = true)
 @Composable
 fun CreditsScreen(navController: NavHostController = rememberNavController()) {
     val context = LocalContext.current
     ScrollableList {
-        ScreenTitle("Credits", showBack = true, navController)
+        ScreenTitle("Orbit Board", showBack = true, navController)
 
-        ParagraphText("This project is made possible by the below projects!")
+        ParagraphText("Orbit Board is an aesthetic, privacy-first Android keyboard engineered with a Nothing OS & Bauhaus-inspired design language, developed and maintained by Fahim Takrim.")
+
+        ScreenTitle("Open Source Foundations")
 
         ParagraphText("This keyboard is based on the LatinIME keyboard from the Android Open Source Project. Thank you to the original AOSP LatinIME Keyboard developers. The LatinIME keyboard is Apache-2.0 licensed and Copyright (C) 2011 The Android Open Source Project",
             modifier = Modifier.clickable {
@@ -62,11 +52,6 @@ fun CreditsScreen(navController: NavHostController = rememberNavController()) {
                 context.openURI("https://github.com/gkonovalov/android-vad")
             })
 
-        ParagraphText("Some keyboard layouts were taken from the CyanogenMod/LineageOS fork of the LatinIME keyboard. Their fork is Apache-2.0 licensed. Copyright (C) 2015 The CyanogenMod Project",
-            modifier = Modifier.clickable {
-                context.openURI("https://github.com/LineageOS/android_packages_inputmethods_LatinIME")
-            })
-
         ParagraphText("Emoji icons are taken from the Noto Emoji font, licensed under OFL.",
             modifier = Modifier.clickable {
                 context.openURI("https://fonts.google.com/noto/specimen/Noto+Emoji")
@@ -77,12 +62,7 @@ fun CreditsScreen(navController: NavHostController = rememberNavController()) {
                 context.openURI("https://github.com/Calvin-LL/Reorderable")
             })
 
-        ScreenTitle("Contributors")
-        contributors.forEach {
-            ParagraphText("Thank you to ${it.name} for contributing the following features: ${it.features.joinToString()}")
-        }
-
-        ScreenTitle("Notice")
-        ParagraphText("The authors listed above are not affiliated with us and may not necessarily endorse or promote us")
+        ScreenTitle("Developer")
+        ParagraphText("Lead Developer & Designer: Fahim Takrim\nContact: itz.takrim@gmail.com\nGitHub: https://github.com/fahitakrim")
     }
 }

@@ -95,6 +95,34 @@ object Subtypes {
         }
     }
 
+    fun cleanupDuplicateSubtypes(context: Context) {
+        val currentSubtypes = context.getSettingBlocking(SubtypesSetting)
+        if (currentSubtypes.isEmpty()) return
+
+        val seenKeys = mutableSetOf<String>()
+        val cleaned = mutableListOf<String>()
+        for (s in currentSubtypes) {
+            val st = convertToSubtype(s)
+            val lang = st.locale.split("_")[0].lowercase()
+            val layout = st.extraValue.substringAfter("KeyboardLayoutSet=", "").substringBefore(":").ifEmpty { "qwerty" }
+            val key = if (lang == "en") "en:$layout" else "${st.locale}:$layout"
+            if (seenKeys.contains(key)) {
+                continue
+            }
+            seenKeys.add(key)
+            cleaned.add(s)
+        }
+
+        if (cleaned.size != currentSubtypes.size) {
+            Log.w("Subtypes", "Deduplicated subtypes from $currentSubtypes to $cleaned")
+            context.setSettingBlocking(SubtypesSetting.key, cleaned.toSet())
+            val active = context.getSettingBlocking(ActiveSubtype)
+            if (!cleaned.contains(active)) {
+                context.setSettingBlocking(ActiveSubtype.key, cleaned.firstOrNull() ?: "")
+            }
+        }
+    }
+
     fun addDefaultSubtypesIfNecessary(context: Context) {
         if(!context.isDirectBootUnlocked) return
 
@@ -107,11 +135,19 @@ object Subtypes {
         val currentSubtypes = context.getSettingBlocking(SubtypesSetting)
         if(currentSubtypes.isNotEmpty()) {
             removeExtensionsIfNecessary(context)
+            cleanupDuplicateSubtypes(context)
             return
         }
 
         val locales = context.resources.configuration.locales
-        val initialSubtypes = mutableSetOf("en_US:KeyboardLayoutSet=qwerty:")
+        val hasEnglishInSystem = (0 until locales.size()).any {
+            locales.get(it).language.equals("en", ignoreCase = true)
+        }
+
+        val initialSubtypes = mutableSetOf<String>()
+        if (!hasEnglishInSystem) {
+            initialSubtypes.add("en_US:KeyboardLayoutSet=qwerty:")
+        }
         initialSubtypes.addAll(defaultBengali)
 
         if(locales.size() > 0) {
@@ -124,6 +160,9 @@ object Subtypes {
                         .setSubtypeExtraValue("KeyboardLayoutSet=$layout")
                         .build()
                 )
+                if (locale.language.equals("en", ignoreCase = true) && initialSubtypes.any { it.startsWith("en") }) {
+                    continue
+                }
                 initialSubtypes.add(value)
             }
         }
@@ -239,14 +278,21 @@ object Subtypes {
     }
 
     fun getDirectBootInitialLayouts(context: Context): Set<String> {
-        val layouts = mutableSetOf(
-            "en_US:",
+        val locales = context.resources.configuration.locales
+        val hasEnglishInSystem = (0 until locales.size()).any {
+            locales.get(it).language.equals("en", ignoreCase = true)
+        }
+
+        val layouts = mutableSetOf<String>()
+        if (!hasEnglishInSystem) {
+            layouts.add("en_US:KeyboardLayoutSet=qwerty:")
+        }
+        layouts.addAll(listOf(
             "bn_BD:KeyboardLayoutSet=bengali_avro:",
             "bn_BD:KeyboardLayoutSet=bengali_jatiyo:",
             "bn_BD:KeyboardLayoutSet=bengali_probhat:"
-        )
+        ))
 
-        val locales = context.resources.configuration.locales
         if(locales.size() == 0) return layouts
 
         for(i in 0 until locales.size()) {
@@ -260,6 +306,9 @@ object Subtypes {
                     .build()
             )
 
+            if (locale.language.equals("en", ignoreCase = true) && layouts.any { it.startsWith("en") }) {
+                continue
+            }
             layouts.add(value)
         }
 
@@ -269,6 +318,7 @@ object Subtypes {
     fun switchToNextLanguage(context: Context, direction: Int) {
         if(direction == 0) return
 
+        cleanupDuplicateSubtypes(context)
         val enabledSubtypes = context.getSettingBlocking(SubtypesSetting).toList()
         val currentSubtype = context.getSettingBlocking(ActiveSubtype)
 
@@ -298,6 +348,9 @@ fun LanguageSwitcherDialog(
 ) {
     val inspection = LocalInspectionMode.current
     val context = LocalContext.current
+    if (!inspection) {
+        Subtypes.cleanupDuplicateSubtypes(context)
+    }
     val subtypeSet = if(inspection) {
         setOf("en_US:", "pt_PT:", "lt:", "fr:KeyboardLayoutSet=bepo:")
     } else {

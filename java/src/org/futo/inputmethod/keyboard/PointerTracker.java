@@ -146,6 +146,8 @@ public final class PointerTracker implements PointerTrackerQueue.Element,
 
     // true if keyboard layout has been changed.
     private boolean mKeyboardLayoutHasBeenChanged;
+    private boolean mLayoutChangedOnDown;
+    private int mDownKeyCode = Constants.NOT_A_CODE;
 
     // true if this pointer is no longer triggering any action because it has been canceled.
     private boolean mIsTrackingForActionDisabled;
@@ -291,26 +293,26 @@ public final class PointerTracker implements PointerTrackerQueue.Element,
     // primaryCode is different from {@link Key#mKeyCode}.
     private void callListenerOnCodeInput(final Key key, final int primaryCode, final int x,
             final int y, final long eventTime, final boolean isKeyRepeat) {
-        final boolean ignoreModifierKey = mIsInDraggingFinger && key.isModifier();
-        final boolean altersCode = key.altCodeWhileTyping() && sTimerProxy.isTypingState();
+        final boolean ignoreModifierKey = mIsInDraggingFinger && (key != null && key.isModifier());
+        final boolean altersCode = (key != null && key.altCodeWhileTyping()) && sTimerProxy.isTypingState();
         final int code = altersCode ? key.getAltCode() : primaryCode;
         if (DEBUG_LISTENER) {
-            final String output = code == Constants.CODE_OUTPUT_TEXT
+            final String output = (key != null && code == Constants.CODE_OUTPUT_TEXT)
                     ? key.getOutputText() : Constants.printableCode(code);
             Log.d(TAG, String.format("[%d] onCodeInput: %4d %4d %s%s%s%s", mPointerId, x, y,
                     output, ignoreModifierKey ? " ignoreModifier" : "",
-                    altersCode ? " altersCode" : "", key.isEnabled() ? "" : " disabled"));
+                    altersCode ? " altersCode" : "", (key == null || key.isEnabled()) ? "" : " disabled"));
         }
         if (ignoreModifierKey) {
             return;
         }
         // Even if the key is disabled, it should respond if it is in the altCodeWhileTyping state.
-        if (key.isEnabled() || altersCode) {
+        if (key == null || key.isEnabled() || altersCode) {
             sTypingTimeRecorder.onCodeInput(code, eventTime);
-            if (code == Constants.CODE_OUTPUT_TEXT) {
+            if (key != null && code == Constants.CODE_OUTPUT_TEXT) {
                 sListener.onTextInput(key.getOutputText());
             } else if (code != Constants.CODE_UNSPECIFIED) {
-                if (mKeyboard.hasProximityCharsCorrection(code)) {
+                if (mKeyboard != null && mKeyboard.hasProximityCharsCorrection(code)) {
                     sListener.onCodeInput(code, x, y, isKeyRepeat);
                 } else {
                     sListener.onCodeInput(code,
@@ -328,17 +330,17 @@ public final class PointerTracker implements PointerTrackerQueue.Element,
         if (sInGesture || mIsDetectingGesture || mIsTrackingForActionDisabled) {
             return;
         }
-        final boolean ignoreModifierKey = mIsInDraggingFinger && key.isModifier();
+        final boolean ignoreModifierKey = mIsInDraggingFinger && (key != null && key.isModifier());
         if (DEBUG_LISTENER) {
             Log.d(TAG, String.format("[%d] onRelease  : %s%s%s%s", mPointerId,
                     Constants.printableCode(primaryCode),
                     withSliding ? " sliding" : "", ignoreModifierKey ? " ignoreModifier" : "",
-                    key.isEnabled() ?  "": " disabled"));
+                    (key == null || key.isEnabled()) ?  "": " disabled"));
         }
         if (ignoreModifierKey) {
             return;
         }
-        if (key.isEnabled()) {
+        if (key == null || key.isEnabled()) {
             sListener.onReleaseKey(primaryCode, withSliding);
         }
     }
@@ -698,6 +700,8 @@ public final class PointerTracker implements PointerTrackerQueue.Element,
                 || (key != null && key.isModifier())
                 || mKeyDetector.alwaysAllowsKeySelectionByDraggingFinger();
         mKeyboardLayoutHasBeenChanged = false;
+        mLayoutChangedOnDown = false;
+        mDownKeyCode = (key != null) ? key.getCode() : Constants.NOT_A_CODE;
         mIsTrackingForActionDisabled = false;
         resetKeySelectionByDraggingFinger();
         if (key != null) {
@@ -705,6 +709,7 @@ public final class PointerTracker implements PointerTrackerQueue.Element,
             // {@link #setKeyboard}. In those cases, we should update key according to the new
             // keyboard layout.
             if (callListenerOnPressAndCheckKeyboardLayoutChange(key, 0 /* repeatCount */)) {
+                mLayoutChangedOnDown = true;
                 key = onDownKey(x, y, eventTime);
             }
 
@@ -1080,6 +1085,27 @@ public final class PointerTracker implements PointerTrackerQueue.Element,
         if (mIsTrackingForActionDisabled) {
             return;
         }
+        final boolean layoutChangedOnDown = mLayoutChangedOnDown;
+        final int downKeyCode = mDownKeyCode;
+        mLayoutChangedOnDown = false;
+        mDownKeyCode = Constants.NOT_A_CODE;
+        if (layoutChangedOnDown) {
+            if (downKeyCode == Constants.CODE_SWITCH_ALPHA_SYMBOL
+                    || downKeyCode == Constants.CODE_SHIFT
+                    || downKeyCode == Constants.CODE_SYMBOL_SHIFT
+                    || (currentKey != null && currentKey.isModifier())) {
+                final int codeToSend = (currentKey != null && currentKey.isModifier())
+                        ? currentKey.getCode() : downKeyCode;
+                if (currentKey != null) {
+                    callListenerOnRelease(currentKey, codeToSend, false /* withSliding */);
+                } else {
+                    sListener.onReleaseKey(codeToSend, false /* withSliding */);
+                }
+            } else if (currentKey != null) {
+                callListenerOnRelease(currentKey, currentKey.getCode(), false /* withSliding */);
+            }
+            return;
+        }
         if (currentKey != null && currentKey.isRepeatable()
                 && (currentKey.getCode() == currentRepeatingKeyCode) && !isInDraggingFinger) {
             return;
@@ -1102,6 +1128,26 @@ public final class PointerTracker implements PointerTrackerQueue.Element,
         return !mIsTrackingForActionDisabled;
     }
 
+    private boolean isEnglishOrAvroAlphabetKeyboard() {
+        if (mKeyboard == null || mKeyboard.mId == null) {
+            return false;
+        }
+        if (!mKeyboard.mId.isAlphabetKeyboard()) {
+            return false;
+        }
+        final java.util.Locale locale = mKeyboard.mId.getLocale();
+        if (locale != null && "en".equalsIgnoreCase(locale.getLanguage())) {
+            return true;
+        }
+        if (mKeyboard.mId.mSubtype != null) {
+            final String layoutName = mKeyboard.mId.mSubtype.getKeyboardLayoutSetName();
+            if ("bengali_avro".equalsIgnoreCase(layoutName)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
     public void onLongPressed() {
         try {
             sTimerProxy.cancelLongPressTimersOf(this);
@@ -1116,19 +1162,20 @@ public final class PointerTracker implements PointerTrackerQueue.Element,
                 return;
             }
             final int code = key.getCode();
-            if (code == 'c' || code == 'C') {
+            final boolean isEnglishOrAvro = isEnglishOrAvroAlphabetKeyboard();
+            if (isEnglishOrAvro && Key.isCopyKey(code)) {
                 if (sListener.onCustomRequest(Constants.CUSTOM_CODE_COPY)) {
                     cancelKeyTracking();
                     sListener.onReleaseKey(code, false /* withSliding */);
                     return;
                 }
-            } else if (code == 'x' || code == 'X') {
+            } else if (isEnglishOrAvro && Key.isCutKey(code)) {
                 if (sListener.onCustomRequest(Constants.CUSTOM_CODE_CUT)) {
                     cancelKeyTracking();
                     sListener.onReleaseKey(code, false /* withSliding */);
                     return;
                 }
-            } else if (code == 'v' || code == 'V') {
+            } else if (isEnglishOrAvro && Key.isPasteKey(code)) {
                 if (sListener.onCustomRequest(Constants.CUSTOM_CODE_PASTE)) {
                     cancelKeyTracking();
                     sListener.onReleaseKey(code, false /* withSliding */);
@@ -1140,6 +1187,9 @@ public final class PointerTracker implements PointerTrackerQueue.Element,
                 if (moreKeys != null && moreKeys.length > 0 && moreKeys[0] != null) {
                     cancelKeyTracking();
                     final int moreKeyCode = moreKeys[0].mCode;
+                    if (moreKeyCode == Constants.CODE_CAPSLOCK) {
+                        sListener.onReleaseKey(key.getCode(), false /* withSliding */);
+                    }
                     sListener.onPressKey(moreKeyCode, 0 /* repeatCont */, true /* isSinglePointer */);
                     if (moreKeyCode == Constants.CODE_OUTPUT_TEXT && moreKeys[0].mOutputText != null) {
                         sListener.onTextInput(moreKeys[0].mOutputText);
@@ -1196,6 +1246,8 @@ public final class PointerTracker implements PointerTrackerQueue.Element,
     }
 
     private void cancelKeyTracking() {
+        mLayoutChangedOnDown = false;
+        mDownKeyCode = Constants.NOT_A_CODE;
         resetKeySelectionByDraggingFinger();
         cancelTrackingForAction();
         setReleasedKeyGraphics(mCurrentKey, true /* withAnimation */);

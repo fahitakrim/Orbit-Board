@@ -1241,11 +1241,17 @@ public class LatinIMELegacy implements KeyboardActionListener,
         }
     }
 
-    int getCurrentAutoCapsState() {
+    public int getCurrentAutoCapsState() {
+        if (mRichImm != null && mRichImm.getCurrentSubtype() != null) {
+            final String layout = mRichImm.getCurrentSubtype().getKeyboardLayoutSetName();
+            if ("bengali_avro".equalsIgnoreCase(layout)) {
+                return Constants.TextUtils.CAP_MODE_OFF;
+            }
+        }
         return mInputLogic.getCurrentAutoCapsState(mSettings.getCurrent());
     }
 
-    int getCurrentRecapitalizeState() {
+    public int getCurrentRecapitalizeState() {
         return mInputLogic.getCurrentRecapitalizeState();
     }
 
@@ -1303,25 +1309,43 @@ public class LatinIMELegacy implements KeyboardActionListener,
 
     private void performCopy() {
         try {
-            final android.view.inputmethod.InputConnection ic = mInputMethodService.getCurrentInputConnection();
-            if (ic != null) {
-                final CharSequence selectedText = ic.getSelectedText(0);
-                if (selectedText != null && selectedText.length() > 0) {
-                    final android.content.ClipboardManager cm = (android.content.ClipboardManager)
-                            mInputMethodService.getSystemService(android.content.Context.CLIPBOARD_SERVICE);
-                    if (cm != null) {
-                        cm.setPrimaryClip(android.content.ClipData.newPlainText(null, selectedText));
+            final android.content.ClipboardManager cm = (android.content.ClipboardManager)
+                    mInputMethodService.getSystemService(android.content.Context.CLIPBOARD_SERVICE);
+            CharSequence textToCopy = null;
+            if (mInputLogic != null && mInputLogic.mConnection != null) {
+                textToCopy = mInputLogic.mConnection.getSelectedText(0);
+                if (textToCopy == null || textToCopy.length() == 0) {
+                    final CharSequence before = mInputLogic.mConnection.getTextBeforeCursor(100000, 0);
+                    final CharSequence after = mInputLogic.mConnection.getTextAfterCursor(100000, 0);
+                    final String full = (before != null ? before.toString() : "")
+                            + (after != null ? after.toString() : "");
+                    if (full.length() > 0) {
+                        textToCopy = full;
                     }
                 }
-                ic.performContextMenuAction(android.R.id.copy);
-                if (mInputLogic != null) {
-                    mInputLogic.sendDownUpKeyEvent(KeyEvent.KEYCODE_C, KeyEvent.META_CTRL_ON);
+            }
+            if (textToCopy == null || textToCopy.length() == 0) {
+                final android.view.inputmethod.InputConnection ic = mInputMethodService.getCurrentInputConnection();
+                if (ic != null) {
+                    textToCopy = ic.getSelectedText(0);
+                    if (textToCopy == null || textToCopy.length() == 0) {
+                        final CharSequence before = ic.getTextBeforeCursor(100000, 0);
+                        final CharSequence after = ic.getTextAfterCursor(100000, 0);
+                        final String full = (before != null ? before.toString() : "")
+                                + (after != null ? after.toString() : "");
+                        if (full.length() > 0) {
+                            textToCopy = full;
+                        }
+                    }
                 }
             }
-            android.widget.Toast.makeText(mInputMethodService, "Copied", android.widget.Toast.LENGTH_SHORT).show();
-            AudioAndHapticFeedbackManager.getInstance().performHapticFeedback(
-                    mKeyboardSwitcher.getMainKeyboardView(), false);
-            AudioAndHapticFeedbackManager.getInstance().performAudioFeedback(Constants.CODE_UNSPECIFIED);
+            if (textToCopy != null && textToCopy.length() > 0 && cm != null) {
+                cm.setPrimaryClip(android.content.ClipData.newPlainText("Orbit Clipboard", textToCopy));
+                android.widget.Toast.makeText(mInputMethodService, "Copied", android.widget.Toast.LENGTH_SHORT).show();
+                AudioAndHapticFeedbackManager.getInstance().performHapticFeedback(
+                        mKeyboardSwitcher.getMainKeyboardView(), false);
+                AudioAndHapticFeedbackManager.getInstance().performAudioFeedback(Constants.CODE_UNSPECIFIED);
+            }
         } catch (final Throwable t) {
             Log.e(TAG, "Error in performCopy", t);
         }
@@ -1329,24 +1353,55 @@ public class LatinIMELegacy implements KeyboardActionListener,
 
     private void performCut() {
         try {
+            final android.content.ClipboardManager cm = (android.content.ClipboardManager)
+                    mInputMethodService.getSystemService(android.content.Context.CLIPBOARD_SERVICE);
             final android.view.inputmethod.InputConnection ic = mInputMethodService.getCurrentInputConnection();
             if (ic != null) {
-                final CharSequence selectedText = ic.getSelectedText(0);
-                if (selectedText != null && selectedText.length() > 0) {
-                    final android.content.ClipboardManager cm = (android.content.ClipboardManager)
-                            mInputMethodService.getSystemService(android.content.Context.CLIPBOARD_SERVICE);
+                ic.beginBatchEdit();
+                ic.finishComposingText();
+
+                final CharSequence selected = ic.getSelectedText(0);
+                final CharSequence before = ic.getTextBeforeCursor(100000, 0);
+                final CharSequence after = ic.getTextAfterCursor(100000, 0);
+
+                final StringBuilder sb = new StringBuilder();
+                if (before != null) sb.append(before);
+                if (selected != null) sb.append(selected);
+                if (after != null) sb.append(after);
+                final String full = sb.toString();
+
+                if (full.length() > 0) {
                     if (cm != null) {
-                        cm.setPrimaryClip(android.content.ClipData.newPlainText(null, selectedText));
+                        cm.setPrimaryClip(android.content.ClipData.newPlainText("Orbit Clipboard", full));
                     }
-                    ic.commitText("", 1);
-                } else {
-                    ic.performContextMenuAction(android.R.id.cut);
+                    if (selected != null && selected.length() > 0) {
+                        ic.commitText("", 1);
+                    }
+                    ic.deleteSurroundingText(
+                            before != null ? before.length() : 0,
+                            after != null ? after.length() : 0);
+                    ic.finishComposingText();
+                    ic.endBatchEdit();
+
                     if (mInputLogic != null) {
-                        mInputLogic.sendDownUpKeyEvent(KeyEvent.KEYCODE_X, KeyEvent.META_CTRL_ON);
+                        mInputLogic.finishInput();
+                        if (mInputLogic.mConnection != null) {
+                            mInputLogic.mConnection.resetCachesUponCursorMoveAndReturnSuccess(0, 0, false);
+                        }
                     }
+                    android.widget.Toast.makeText(mInputMethodService, "Cut all", android.widget.Toast.LENGTH_SHORT).show();
+                    AudioAndHapticFeedbackManager.getInstance().performHapticFeedback(
+                            mKeyboardSwitcher.getMainKeyboardView(), false);
+                    AudioAndHapticFeedbackManager.getInstance().performAudioFeedback(Constants.CODE_UNSPECIFIED);
+                    return;
                 }
+                ic.endBatchEdit();
             }
-            android.widget.Toast.makeText(mInputMethodService, "Cut", android.widget.Toast.LENGTH_SHORT).show();
+            if (ic != null) {
+                ic.performContextMenuAction(android.R.id.selectAll);
+                ic.performContextMenuAction(android.R.id.cut);
+            }
+            android.widget.Toast.makeText(mInputMethodService, "Cut all", android.widget.Toast.LENGTH_SHORT).show();
             AudioAndHapticFeedbackManager.getInstance().performHapticFeedback(
                     mKeyboardSwitcher.getMainKeyboardView(), false);
             AudioAndHapticFeedbackManager.getInstance().performAudioFeedback(Constants.CODE_UNSPECIFIED);
@@ -1357,8 +1412,6 @@ public class LatinIMELegacy implements KeyboardActionListener,
 
     private void performPaste() {
         try {
-            final android.view.inputmethod.InputConnection ic = mInputMethodService.getCurrentInputConnection();
-            boolean pasted = false;
             final android.content.ClipboardManager cm = (android.content.ClipboardManager)
                     mInputMethodService.getSystemService(android.content.Context.CLIPBOARD_SERVICE);
             if (cm != null && cm.hasPrimaryClip()) {
@@ -1366,16 +1419,20 @@ public class LatinIMELegacy implements KeyboardActionListener,
                 if (clip != null && clip.getItemCount() > 0) {
                     final CharSequence text = clip.getItemAt(0).coerceToText(mInputMethodService);
                     if (text != null && text.length() > 0) {
-                        if (ic != null) {
-                            ic.commitText(text, 1);
-                            pasted = true;
-                        }
+                        onTextInput(text.toString());
+                        android.widget.Toast.makeText(mInputMethodService, "Pasted", android.widget.Toast.LENGTH_SHORT).show();
+                        AudioAndHapticFeedbackManager.getInstance().performHapticFeedback(
+                                mKeyboardSwitcher.getMainKeyboardView(), false);
+                        AudioAndHapticFeedbackManager.getInstance().performAudioFeedback(Constants.CODE_UNSPECIFIED);
+                        return;
                     }
                 }
             }
-            if (!pasted && ic != null) {
+            final android.view.inputmethod.InputConnection ic = mInputMethodService.getCurrentInputConnection();
+            if (ic != null) {
                 ic.performContextMenuAction(android.R.id.paste);
             }
+            android.widget.Toast.makeText(mInputMethodService, "Pasted", android.widget.Toast.LENGTH_SHORT).show();
             AudioAndHapticFeedbackManager.getInstance().performHapticFeedback(
                     mKeyboardSwitcher.getMainKeyboardView(), false);
             AudioAndHapticFeedbackManager.getInstance().performAudioFeedback(Constants.CODE_UNSPECIFIED);
