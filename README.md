@@ -1,6 +1,6 @@
 # Orbit Board 🪐 — The Ultimate Nothing OS Aesthetic & Privacy-First Android Keyboard
 
-[![Release](https://img.shields.io/badge/Release-v1.0.5%20Stable-E5252A?style=for-the-badge&logo=android&logoColor=white)](https://github.com/fahitakrim/Orbit-Board/releases)
+[![Release](https://img.shields.io/badge/Release-v1.0.8%20Stable-E5252A?style=for-the-badge&logo=android&logoColor=white)](https://github.com/fahitakrim/Orbit-Board/releases/tag/v1.0.8)
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue?style=for-the-badge)](LICENSE.md)
 [![Platform](https://img.shields.io/badge/Platform-Android%207.0%2B%20(API%2024--35)-black?style=for-the-badge&logo=google)](https://developer.android.com)
 [![Privacy](https://img.shields.io/badge/Privacy-100%25%20Offline-00A86B?style=for-the-badge&logo=shield)](https://github.com/fahitakrim/Orbit-Board)
@@ -19,8 +19,8 @@ Download the latest signed release APK:
 
 | Edition | Architecture | Target Device | Direct Download |
 |:---|:---|:---|:---|
-| **ARM64-v8a** *(Recommended)* | `arm64-v8a` | Nothing Phone (1/2/2a), Pixel, Samsung, modern phones | [⬇️ **Download ARM64 APK (v1.0.5)**](https://github.com/fahitakrim/Orbit-Board/releases/download/v1.0.0/orbit-board-v1.0.5-arm64.apk) |
-| **Universal APK** | All ABIs | All Android 7.0+ devices & emulators | [⬇️ **Download Universal APK**](https://github.com/fahitakrim/Orbit-Board/releases) |
+| **Universal APK** *(Recommended)* | All ABIs | All Android 7.0+ devices & emulators | [⬇️ **Download Universal APK (v1.0.8)**](https://github.com/fahitakrim/Orbit-Board/releases/download/v1.0.8/Orbit-Board-v1.0.8.apk) |
+| **ARM64-v8a** | `arm64-v8a` | Nothing Phone (1/2/2a), Pixel, modern 64-bit phones | [⬇️ **Download ARM64 APK (v1.0.8)**](https://github.com/fahitakrim/Orbit-Board/releases/download/v1.0.8/Orbit-Board-v1.0.8-arm64.apk) |
 
 ---
 
