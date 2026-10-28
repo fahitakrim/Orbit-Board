@@ -22,7 +22,7 @@
     xmlns:latin="http://schemas.android.com/apk/res-auto"
 >
     <Key
-        latin:keySpec="\\" />
+        latin:keySpec="\\\\" />
     <!-- U+00A9: "©" COPYRIGHT SIGN -->
     <Key
         latin:keySpec="&#x00A9;" />

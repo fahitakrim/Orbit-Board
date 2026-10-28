@@ -33,6 +33,7 @@ public class KeyboardSwitcherNullSafetyTest {
     @Test
     public void testIsShowingKeyboardIdWithNullKeyboardViewReturnsFalse() {
         assertFalse(checkIsShowingKeyboardId(null, KeyboardId.ELEMENT_SYMBOLS_SHIFTED));
+        assertFalse(checkIsShowingKeyboardId(null, KeyboardId.ELEMENT_SYMBOLS_3));
     }
 
     @Test
@@ -44,6 +45,11 @@ public class KeyboardSwitcherNullSafetyTest {
         // SYMBOLS_SHIFTED maps to ELEMENT_SYMBOLS_SHIFTED
         assertEquals(KeyboardId.ELEMENT_SYMBOLS_SHIFTED, KeyboardSwitchState.SYMBOLS_SHIFTED.mKeyboardId);
         assertTrue(KeyboardSwitchState.SYMBOLS_SHIFTED.mKeyboardId >= 0);
+
+        // SYMBOLS_3 maps to ELEMENT_SYMBOLS_3
+        assertEquals(KeyboardId.ELEMENT_SYMBOLS_3, KeyboardSwitchState.SYMBOLS_3.mKeyboardId);
+        assertEquals(27, KeyboardId.ELEMENT_SYMBOLS_3);
+        assertTrue(KeyboardSwitchState.SYMBOLS_3.mKeyboardId >= 0);
     }
 
     @Test
@@ -57,5 +63,8 @@ public class KeyboardSwitcherNullSafetyTest {
 
         KeyboardSwitchState symbolsShifted = KeyboardSwitchState.SYMBOLS_SHIFTED;
         assertTrue(symbolsShifted.mKeyboardId >= 0);
+
+        KeyboardSwitchState symbols3 = KeyboardSwitchState.SYMBOLS_3;
+        assertTrue(symbols3.mKeyboardId >= 0);
     }
 }

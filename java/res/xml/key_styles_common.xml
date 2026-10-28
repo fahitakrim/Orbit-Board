@@ -134,12 +134,47 @@
         latin:keySpec="!text/keylabel_to_alpha|!code/key_switch_alpha_symbol"
         latin:parentStyle="baseForLayoutSwitchKeyStyle" />
     <key-style
+        latin:styleName="toAlphaBengaliKeyStyle"
+        latin:keySpec="&#x0985;&#x0995;&#x0996;|!code/key_switch_alpha_symbol"
+        latin:parentStyle="baseForLayoutSwitchKeyStyle" />
+    <key-style
+        latin:styleName="backFromMoreSymbolBengaliKeyStyle"
+        latin:keySpec="?&#x09E7;&#x09E8;&#x09E9;|!code/key_shift"
+        latin:parentStyle="baseForLayoutSwitchKeyStyle" />
+    <key-style
         latin:styleName="toMoreSymbolKeyStyle"
         latin:keySpec="!text/keylabel_to_more_symbol|!code/key_shift"
         latin:parentStyle="baseForLayoutSwitchKeyStyle" />
     <key-style
         latin:styleName="backFromMoreSymbolKeyStyle"
         latin:keySpec="!text/keylabel_to_symbol|!code/key_shift"
+        latin:parentStyle="baseForLayoutSwitchKeyStyle" />
+    <!-- 3-Page Symbol Navigation Styles: English / Default -->
+    <key-style
+        latin:styleName="toSymbolPage2KeyStyle"
+        latin:keySpec="2/3|!code/key_shift"
+        latin:parentStyle="baseForLayoutSwitchKeyStyle" />
+    <key-style
+        latin:styleName="toSymbolPage3KeyStyle"
+        latin:keySpec="3/3|!code/key_shift"
+        latin:parentStyle="baseForLayoutSwitchKeyStyle" />
+    <key-style
+        latin:styleName="toSymbolPage1KeyStyle"
+        latin:keySpec="1/3|!code/key_shift"
+        latin:parentStyle="baseForLayoutSwitchKeyStyle" />
+
+    <!-- 3-Page Symbol Navigation Styles: Bengali -->
+    <key-style
+        latin:styleName="toSymbolPage2BengaliKeyStyle"
+        latin:keySpec="&#x09E8;/&#x09E9;|!code/key_shift"
+        latin:parentStyle="baseForLayoutSwitchKeyStyle" />
+    <key-style
+        latin:styleName="toSymbolPage3BengaliKeyStyle"
+        latin:keySpec="&#x09E9;/&#x09E9;|!code/key_shift"
+        latin:parentStyle="baseForLayoutSwitchKeyStyle" />
+    <key-style
+        latin:styleName="toSymbolPage1BengaliKeyStyle"
+        latin:keySpec="&#x09E7;/&#x09E9;|!code/key_shift"
         latin:parentStyle="baseForLayoutSwitchKeyStyle" />
     <key-style
         latin:styleName="comKeyStyle"

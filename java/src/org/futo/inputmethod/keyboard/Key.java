@@ -686,8 +686,20 @@ public class Key implements Comparable<Key> {
         return (mActionFlags & ACTION_FLAGS_ALT_CODE_WHILE_TYPING) != 0;
     }
 
+    public static boolean isCutKey(final int code) {
+        return code == 'x' || code == 'X';
+    }
+
+    public static boolean isCopyKey(final int code) {
+        return code == 'c' || code == 'C';
+    }
+
+    public static boolean isPasteKey(final int code) {
+        return code == 'v' || code == 'V';
+    }
+
     public final boolean isLongPressEnabled() {
-        if (mCode == 'c' || mCode == 'C' || mCode == 'x' || mCode == 'X' || mCode == 'v' || mCode == 'V') {
+        if (isCutKey(mCode) || isCopyKey(mCode) || isPasteKey(mCode)) {
             return true;
         }
         // We need not start long press timer on the key which has activated shifted letter.

@@ -25,19 +25,66 @@
         latin:keyboardLayout="@xml/key_styles_common" />
     <include
         latin:keyboardLayout="@xml/key_styles_currency" />
+
+    <!-- Row 1: ~ ` | • √ π ÷ × § Δ -->
     <Row
         latin:keyWidth="10%p"
     >
-        <include
-            latin:keyboardLayout="@xml/rowkeys_symbols_shift1" />
+        <Key
+            latin:keySpec="~" />
+        <Key
+            latin:keySpec="`" />
+        <Key
+            latin:keySpec="|" />
+        <Key
+            latin:keySpec="&#x2022;"
+            latin:moreKeys="!text/morekeys_bullet" />
+        <Key
+            latin:keySpec="&#x221A;" />
+        <Key
+            latin:keySpec="&#x03C0;"
+            latin:moreKeys="&#x03A0;" />
+        <Key
+            latin:keySpec="&#x00F7;" />
+        <Key
+            latin:keySpec="&#x00D7;" />
+        <Key
+            latin:keySpec="&#x00A7;"
+            latin:moreKeys="&#x00B6;" />
+        <Key
+            latin:keySpec="&#x2206;" />
     </Row>
+
+    <!-- Row 2: £ ¢ € ¥ ^ ° = { } \ -->
     <Row
         latin:keyWidth="10%p"
     >
-        <include
-            latin:keyXPos="5%p"
-            latin:keyboardLayout="@xml/rowkeys_symbols_shift2" />
+        <Key
+            latin:keyStyle="moreCurrency1KeyStyle" />
+        <Key
+            latin:keyStyle="moreCurrency2KeyStyle" />
+        <Key
+            latin:keyStyle="moreCurrency3KeyStyle" />
+        <Key
+            latin:keyStyle="moreCurrency4KeyStyle" />
+        <Key
+            latin:keySpec="^"
+            latin:moreKeys="&#x2191;,&#x2193;,&#x2190;,&#x2192;" />
+        <Key
+            latin:keySpec="&#x00B0;"
+            latin:moreKeys="&#x2032;,&#x2033;" />
+        <Key
+            latin:keySpec="="
+            latin:moreKeys="&#x2260;,&#x2248;,&#x221E;" />
+        <Key
+            latin:keySpec="{" />
+        <Key
+            latin:keySpec="}" />
+        <Key
+            latin:keySpec="\\\\" />
     </Row>
+
+    <!-- Row 3: ?123 % © ® ™ ✓ [ ] delete -->
     <Row
         latin:keyWidth="10%p"
     >
@@ -45,13 +92,28 @@
             latin:keyStyle="backFromMoreSymbolKeyStyle"
             latin:keyWidth="15%p"
             latin:visualInsetsRight="1%p" />
-        <include
-            latin:keyboardLayout="@xml/rowkeys_symbols_shift3" />
+        <Key
+            latin:keySpec="%"
+            latin:moreKeys="&#x2030;" />
+        <Key
+            latin:keySpec="&#x00A9;" />
+        <Key
+            latin:keySpec="&#x00AE;" />
+        <Key
+            latin:keySpec="&#x2122;" />
+        <Key
+            latin:keySpec="&#x2713;" />
+        <Key
+            latin:keySpec="[" />
+        <Key
+            latin:keySpec="]" />
         <Key
             latin:keyStyle="deleteKeyStyle"
             latin:keyWidth="fillRight"
             latin:visualInsetsLeft="1%p" />
     </Row>
+
+    <!-- Row 4: ABC < 12 34 English > Enter -->
     <Row
         latin:keyWidth="10%p"
         latin:backgroundType="functional"

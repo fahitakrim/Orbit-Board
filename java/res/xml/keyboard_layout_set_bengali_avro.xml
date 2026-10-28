@@ -23,10 +23,13 @@
         latin:enableProximityCharsCorrection="true" />
     <Element
         latin:elementName="symbols"
-        latin:elementKeyboard="@xml/kbd_symbols" />
+        latin:elementKeyboard="@xml/kbd_symbols_bengali" />
     <Element
         latin:elementName="symbolsShifted"
-        latin:elementKeyboard="@xml/kbd_symbols_shift" />
+        latin:elementKeyboard="@xml/kbd_symbols_shift_bengali" />
+    <Element
+        latin:elementName="symbols3"
+        latin:elementKeyboard="@xml/kbd_symbols_3_bengali" />
     <Element
         latin:elementName="phone"
         latin:elementKeyboard="@xml/kbd_phone" />

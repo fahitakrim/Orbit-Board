@@ -26,11 +26,34 @@
         latin:enableProximityCharsCorrection="true"
         latin:supportsSplitLayout="true" />
     <Element
+        latin:elementName="alphabetAutomaticShifted"
+        latin:elementKeyboard="@xml/kbd_qwerty"
+        latin:enableProximityCharsCorrection="true"
+        latin:supportsSplitLayout="true" />
+    <Element
+        latin:elementName="alphabetManualShifted"
+        latin:elementKeyboard="@xml/kbd_qwerty"
+        latin:enableProximityCharsCorrection="true"
+        latin:supportsSplitLayout="true" />
+    <Element
+        latin:elementName="alphabetShiftLocked"
+        latin:elementKeyboard="@xml/kbd_qwerty"
+        latin:enableProximityCharsCorrection="true"
+        latin:supportsSplitLayout="true" />
+    <Element
+        latin:elementName="alphabetShiftLockShifted"
+        latin:elementKeyboard="@xml/kbd_qwerty"
+        latin:enableProximityCharsCorrection="true"
+        latin:supportsSplitLayout="true" />
+    <Element
         latin:elementName="symbols"
         latin:elementKeyboard="@xml/kbd_symbols" />
     <Element
         latin:elementName="symbolsShifted"
         latin:elementKeyboard="@xml/kbd_symbols_shift" />
+    <Element
+        latin:elementName="symbols3"
+        latin:elementKeyboard="@xml/kbd_symbols_3" />
     <Element
         latin:elementName="phone"
         latin:elementKeyboard="@xml/kbd_phone" />

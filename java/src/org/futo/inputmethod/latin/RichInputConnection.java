@@ -510,6 +510,30 @@ public final class RichInputConnection implements PrivateCommandPerformer {
         if (DEBUG_PREVIOUS_TEXT) checkConsistencyForDebug();
     }
 
+    public void deleteSurroundingText(final int beforeLength, final int afterLength) {
+        if (DEBUG_BATCH_NESTING) checkBatchEdit();
+        final int remainingChars = mComposingText.length() - beforeLength;
+        if (remainingChars >= 0) {
+            mComposingText.setLength(remainingChars);
+        } else {
+            mComposingText.setLength(0);
+            final int len = Math.max(mCommittedTextBeforeComposingText.length()
+                    + remainingChars, 0);
+            mCommittedTextBeforeComposingText.setLength(len);
+        }
+        if (mExpectedSelStart > beforeLength) {
+            mExpectedSelStart -= beforeLength;
+            mExpectedSelEnd -= beforeLength;
+        } else {
+            mExpectedSelEnd -= mExpectedSelStart;
+            mExpectedSelStart = 0;
+        }
+        if (isConnected()) {
+            mIC.deleteSurroundingText(beforeLength, afterLength);
+        }
+        if (DEBUG_PREVIOUS_TEXT) checkConsistencyForDebug();
+    }
+
     public void performEditorAction(final int actionId) {
         mIC = mParent.getCurrentInputConnection();
         if (isConnected()) {

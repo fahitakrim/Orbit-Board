@@ -59,6 +59,7 @@ import org.futo.inputmethod.latin.uix.KeyHintColorSetting
 import org.futo.inputmethod.latin.uix.KeyHintsSetting
 import org.futo.inputmethod.latin.uix.KeyboardBottomOffsetSetting
 import org.futo.inputmethod.latin.uix.KeyboardFontSetting
+import org.futo.inputmethod.latin.uix.SpacebarColorSetting
 import org.futo.inputmethod.latin.uix.KeyboardHeightMultiplierSetting
 import org.futo.inputmethod.latin.uix.PreferenceUtils
 import org.futo.inputmethod.latin.uix.SHOW_EMOJI_SUGGESTIONS
@@ -87,6 +88,11 @@ import kotlin.math.sign
 
 val vibrationDurationSetting = SettingsKey(
     intPreferencesKey("vibration_duration"),
+    -1
+)
+
+val soundVolumeSetting = SettingsKey(
+    intPreferencesKey("keypress_sound_volume_percent"),
     -1
 )
 
@@ -424,12 +430,26 @@ fun LongPressScreen(navController: NavHostController = rememberNavController()) 
 fun TypingScreen(navController: NavHostController = rememberNavController()) {
     val context = LocalContext.current
     val (vibration, _) = useDataStore(key = vibrationDurationSetting.key, default = vibrationDurationSetting.default)
+    val (soundVolume, _) = useDataStore(key = soundVolumeSetting.key, default = soundVolumeSetting.default)
 
     LaunchedEffect(vibration) {
         val sharedPrefs = PreferenceUtils.getDefaultSharedPreferences(context)
         withContext(Dispatchers.Main) {
             sharedPrefs.edit {
                 putInt(PREF_VIBRATION_DURATION_SETTINGS, vibration)
+            }
+        }
+    }
+
+    LaunchedEffect(soundVolume) {
+        val sharedPrefs = PreferenceUtils.getDefaultSharedPreferences(context)
+        withContext(Dispatchers.Main) {
+            sharedPrefs.edit {
+                if (soundVolume == -1) {
+                    remove(Settings.PREF_KEYPRESS_SOUND_VOLUME)
+                } else {
+                    putFloat(Settings.PREF_KEYPRESS_SOUND_VOLUME, (soundVolume.coerceIn(0, 100)) / 100.0f)
+                }
             }
         }
     }
@@ -444,6 +464,16 @@ fun TypingScreen(navController: NavHostController = rememberNavController()) {
             setting = useDataStore(
                 key = KeyboardFontSetting.key,
                 default = KeyboardFontSetting.default
+            )
+        )
+
+        SettingRadio(
+            title = "Spacebar Color",
+            options = listOf("default", "red", "blue", "yellow", "white", "dark"),
+            optionNames = listOf("Default", "Matte Red", "Matte Blue", "Matte Yellow", "Matte White", "Matte Dark"),
+            setting = useDataStore(
+                key = SpacebarColorSetting.key,
+                default = SpacebarColorSetting.default
             )
         )
 
@@ -554,6 +584,21 @@ fun TypingScreen(navController: NavHostController = rememberNavController()) {
             title = stringResource(R.string.sound_on_keypress),
             key = Settings.PREF_SOUND_ON,
             default = booleanResource(R.bool.config_default_sound_enabled)
+        )
+
+        SettingSlider(
+            title = stringResource(R.string.prefs_keypress_sound_volume_settings),
+            setting = soundVolumeSetting,
+            range = -1.0f .. 100.0f,
+            hardRange = -1.0f .. 100.0f,
+            transform = { it.roundToInt() },
+            indicator = {
+                if(it == -1) {
+                    "Default"
+                } else {
+                    "$it%"
+                }
+            }
         )
         SettingToggleSharedPrefs(
             title = stringResource(R.string.popup_on_keypress),

@@ -1,0 +1,146 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+/*
+**
+** Copyright 2024, Orbit Board Project
+**
+** Licensed under the Apache License, Version 2.0 (the "License");
+** you may not use this file except in compliance with the License.
+** You may obtain a copy of the License at
+**
+**     http://www.apache.org/licenses/LICENSE-2.0
+**
+** Unless required by applicable law or agreed to in writing, software
+** distributed under the License is distributed on an "AS IS" BASIS,
+** WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+** See the License for the specific language governing permissions and
+** limitations under the License.
+*/
+-->
+
+<merge
+    xmlns:latin="http://schemas.android.com/apk/res-auto"
+>
+    <include
+        latin:keyboardLayout="@xml/key_styles_common" />
+    <include
+        latin:keyboardLayout="@xml/key_styles_currency" />
+
+    <!-- Row 1: Fractions and Superscripts/Subscripts -->
+    <Row
+        latin:keyWidth="10%p"
+    >
+        <Key
+            latin:keySpec="&#x00BD;"
+            latin:moreKeys="&#x215B;,&#x215C;,&#x215D;,&#x215E;" />
+        <Key
+            latin:keySpec="&#x2153;"
+            latin:moreKeys="&#x2154;" />
+        <Key
+            latin:keySpec="&#x00BC;"
+            latin:moreKeys="&#x00BE;" />
+        <Key
+            latin:keySpec="&#x00BE;" />
+        <Key
+            latin:keySpec="&#x00B9;"
+            latin:moreKeys="&#x2074;,&#x2070;,&#x2081;,&#x2082;,&#x2083;" />
+        <Key
+            latin:keySpec="&#x00B2;"
+            latin:moreKeys="&#x2082;" />
+        <Key
+            latin:keySpec="&#x00B3;"
+            latin:moreKeys="&#x2083;" />
+        <Key
+            latin:keySpec="&#x207F;" />
+        <Key
+            latin:keySpec="&#x2030;"
+            latin:moreKeys="&#x2031;" />
+        <Key
+            latin:keySpec="&#x2116;"
+            latin:moreKeys="\#" />
+    </Row>
+
+    <!-- Row 2: Extended Typographic Marks and Bullets -->
+    <Row
+        latin:keyWidth="10%p"
+    >
+        <Key
+            latin:keySpec="&#x00AB;"
+            latin:moreKeys="&#x2039;,&quot;" />
+        <Key
+            latin:keySpec="&#x00BB;"
+            latin:moreKeys="&#x203A;,&quot;" />
+        <Key
+            latin:keySpec="&#x201C;"
+            latin:moreKeys="&#x2018;" />
+        <Key
+            latin:keySpec="&#x201D;"
+            latin:moreKeys="&#x2019;" />
+        <Key
+            latin:keySpec="&#x2022;"
+            latin:moreKeys="&#x25E6;,&#x25AA;,&#x25AB;,&#x2023;,&#x2606;" />
+        <Key
+            latin:keySpec="&#x2605;"
+            latin:moreKeys="&#x2606;,&#x272A;,&#x272F;" />
+        <Key
+            latin:keySpec="&#x2020;"
+            latin:moreKeys="&#x2021;" />
+        <Key
+            latin:keySpec="&#x2021;" />
+        <Key
+            latin:keySpec="&#x00A7;" />
+        <Key
+            latin:keySpec="&#x00B6;"
+            latin:moreKeys="&#x00A9;,&#x00AE;,&#x2122;" />
+    </Row>
+
+    <!-- Row 3: Toggle (1/3), Emoticons/Smileys, Delete -->
+    <Row
+        latin:keyWidth="10%p"
+    >
+        <Key
+            latin:keyStyle="backFromMoreSymbolKeyStyle"
+            latin:keyWidth="15%p"
+            latin:visualInsetsRight="1%p" />
+        <Key
+            latin:keySpec=":)"
+            latin:keyLabelFlags="autoXScale" />
+        <Key
+            latin:keySpec=";)"
+            latin:keyLabelFlags="autoXScale" />
+        <Key
+            latin:keySpec=":D"
+            latin:keyLabelFlags="autoXScale" />
+        <Key
+            latin:keySpec=":P"
+            latin:keyLabelFlags="autoXScale" />
+        <Key
+            latin:keySpec="-_-"
+            latin:keyLabelFlags="autoXScale" />
+        <Key
+            latin:keySpec="^_^"
+            latin:keyLabelFlags="autoXScale" />
+        <Key
+            latin:keySpec="¯\\_(ツ)_/¯"
+            latin:keyLabelFlags="autoXScale" />
+        <Key
+            latin:keyStyle="deleteKeyStyle"
+            latin:keyWidth="fillRight"
+            latin:visualInsetsLeft="1%p" />
+    </Row>
+
+    <!-- Row 4: ABC, Comma, Space, Period, Enter -->
+    <Row
+        latin:keyWidth="10%p"
+        latin:backgroundType="functional"
+    >
+        <Key
+            latin:keyStyle="toAlphaKeyStyle"
+            latin:keyWidth="15%p" />
+        <include
+            latin:keyboardLayout="@xml/row_symbols4" />
+        <Key
+            latin:keyStyle="enterKeyStyle"
+            latin:keyWidth="fillRight" />
+    </Row>
+</merge>

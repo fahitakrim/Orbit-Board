@@ -248,7 +248,8 @@ fun RowScope.SuggestionItem(words: SuggestedWords, idx: Int, isPrimary: Boolean,
     }
 
     val (keyboardFont, _) = useDataStore(key = KeyboardFontSetting.key, default = KeyboardFontSetting.default)
-    val font = if (keyboardFont == "normal") FontFamily.Default else FontFamily(Font(R.font.ndot_family))
+    val containsIndic = word?.any { it.code in 0x0980..0x09FF } == true
+    val font = if (keyboardFont == "normal" || containsIndic) FontFamily.Default else FontFamily(Font(R.font.ndot_family))
     val textStyle = when (actualIsPrimary) {
         true -> suggestionStylePrimary
         false -> suggestionStyleAlternative
@@ -663,21 +664,7 @@ fun ActionBar(
 
     val actionBarHeight = 40.dp
 
-    val oldActionBar = useDataStore(OldStyleActionsBar)
-
     Column {
-        if(isActionsExpanded && !oldActionBar.value) {
-            ActionSep()
-
-            Surface(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(actionBarHeight), color = MaterialTheme.colorScheme.surfaceVariant
-            ) {
-                ActionItems(onActionActivated, onActionAltActivated)
-            }
-        }
-
         ActionSep()
 
         Surface(
@@ -695,7 +682,7 @@ fun ActionBar(
                     )
                 }
 
-                if(oldActionBar.value && isActionsExpanded) {
+                if(isActionsExpanded) {
                     Box(modifier = Modifier
                         .weight(1.0f)
                         .fillMaxHeight()) {

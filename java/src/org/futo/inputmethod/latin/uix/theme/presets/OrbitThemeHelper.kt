@@ -9,6 +9,8 @@ import org.futo.inputmethod.keyboard.Key
 import org.futo.inputmethod.latin.common.Constants
 
 object OrbitThemeHelper {
+    var customSpacebarColor: Int? = null
+
     // Matte Bauhaus Nothing OS Color Palette
     const val COLOR_BLACK = 0xFF000000.toInt()
     const val COLOR_DARK = 0xFF1C1D20.toInt()      // Matte Graphite Slate
@@ -65,7 +67,7 @@ object OrbitThemeHelper {
         if (code == Constants.CODE_ENTER) return COLOR_RED
         if (code == Constants.CODE_SWITCH_ALPHA_SYMBOL) return COLOR_RED
         if (code == Constants.CODE_EMOJI || code == Constants.CODE_SHORTCUT) return COLOR_BLUE
-        if (code == Constants.CODE_SPACE) return COLOR_DARK
+        if (code == Constants.CODE_SPACE) return customSpacebarColor ?: COLOR_DARK
 
         if (label != null && colorByLabel.containsKey(label)) {
             return colorByLabel[label]!!

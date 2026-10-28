@@ -309,3 +309,15 @@ dependencies {
 
 project.logger.lifecycle("versionCode = ${android.defaultConfig.versionCode}")
 project.logger.lifecycle("versionName = ${android.defaultConfig.versionName}")
+
+afterEvaluate {
+    if (tasks.findByName("testDebugUnitTest") == null) {
+        tasks.register("testDebugUnitTest") {
+            dependsOn "testStableDebugUnitTest"
+        }
+    } else {
+        tasks.named("testDebugUnitTest").configure {
+            dependsOn "testStableDebugUnitTest"
+        }
+    }
+}

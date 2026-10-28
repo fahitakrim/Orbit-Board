@@ -7,6 +7,7 @@ import java.util.Locale
 object Dictionaries {
     private val dictionaries = mapOf(
         "" to R.raw.main,
+        "bn" to R.raw.main_bn,
         "de" to R.raw.main_de,
         "en" to R.raw.main_en,
         "es" to R.raw.main_es,

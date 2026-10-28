@@ -281,6 +281,8 @@ public class AdversarialStressTest {
             @Override public void setEmojiKeyboard() { layoutIndex.set(5); }
             @Override public void setSymbolsKeyboard() { layoutIndex.set(6); }
             @Override public void setSymbolsShiftedKeyboard() { layoutIndex.set(7); }
+            @Override public void setSymbols3Keyboard() { layoutIndex.set(8); }
+            @Override public boolean isShowingAlphabetKeyboard() { return layoutIndex.get() <= 4; }
             @Override public void requestUpdatingShiftState(int a, int r) {}
             @Override public void startDoubleTapShiftKeyTimer() {}
             @Override public void cancelDoubleTapShiftKeyTimer() {}
@@ -290,22 +292,27 @@ public class AdversarialStressTest {
         KeyboardState state = new KeyboardState(switchActions);
         state.onLoadKeyboard(0, 0);
 
-        // Rapid 100-cycle stress sequence: Alphabet -> ?123 -> =< -> type symbol -> ABC
+        // Rapid 100-cycle stress sequence: Alphabet -> ?123 (Page 1) -> =\< (Page 2) -> ?123 (Page 1) -> ABC (Alphabet)
         for (int i = 0; i < 100; i++) {
             // Tap ?123
             state.onPressKey(Constants.CODE_SWITCH_ALPHA_SYMBOL, false, 0, 0);
             state.onReleaseKey(Constants.CODE_SWITCH_ALPHA_SYMBOL, false, 0, 0);
-            assertEquals(6, layoutIndex.get()); // SYMBOLS
+            assertEquals(6, layoutIndex.get()); // SYMBOLS (Page 1)
 
-            // Tap =< (CODE_SHIFT)
+            // Tap =\< (CODE_SHIFT)
             state.onPressKey(Constants.CODE_SHIFT, false, 0, 0);
             state.onReleaseKey(Constants.CODE_SHIFT, false, 0, 0);
-            assertEquals(7, layoutIndex.get()); // SYMBOLS_SHIFTED
+            assertEquals(7, layoutIndex.get()); // SYMBOLS_SHIFTED (Page 2)
 
-            // Type a symbol character in shifted symbols mode
-            state.onPressKey('+', false, 0, 0);
-            state.onReleaseKey('+', false, 0, 0);
+            // Type a symbol character in Page 2
+            state.onPressKey(Constants.CODE_OUTPUT_TEXT, false, 0, 0);
+            state.onReleaseKey(Constants.CODE_OUTPUT_TEXT, false, 0, 0);
             assertEquals(7, layoutIndex.get()); // Retains SYMBOLS_SHIFTED
+
+            // Tap =\< (CODE_SHIFT) -> switches to Page 3
+            state.onPressKey(Constants.CODE_SHIFT, false, 0, 0);
+            state.onReleaseKey(Constants.CODE_SHIFT, false, 0, 0);
+            assertEquals(6, layoutIndex.get()); // SYMBOLS (Page 2)
 
             // Tap ABC (CODE_SWITCH_ALPHA_SYMBOL)
             state.onPressKey(Constants.CODE_SWITCH_ALPHA_SYMBOL, false, 0, 0);
@@ -372,11 +379,13 @@ public class AdversarialStressTest {
 
         // Matching in varargs list
         assertTrue(checkIsShowingKeyboardId(true, true, KeyboardId.ELEMENT_SYMBOLS_SHIFTED,
-                KeyboardId.ELEMENT_SYMBOLS, KeyboardId.ELEMENT_SYMBOLS_SHIFTED));
+                KeyboardId.ELEMENT_SYMBOLS, KeyboardId.ELEMENT_SYMBOLS_SHIFTED, KeyboardId.ELEMENT_SYMBOLS_3));
+        assertTrue(checkIsShowingKeyboardId(true, true, KeyboardId.ELEMENT_SYMBOLS_3,
+                KeyboardId.ELEMENT_SYMBOLS, KeyboardId.ELEMENT_SYMBOLS_SHIFTED, KeyboardId.ELEMENT_SYMBOLS_3));
 
         // Non-matching query
         assertFalse(checkIsShowingKeyboardId(true, true, KeyboardId.ELEMENT_ALPHABET,
-                KeyboardId.ELEMENT_SYMBOLS, KeyboardId.ELEMENT_SYMBOLS_SHIFTED));
+                KeyboardId.ELEMENT_SYMBOLS, KeyboardId.ELEMENT_SYMBOLS_SHIFTED, KeyboardId.ELEMENT_SYMBOLS_3));
     }
 
     @Test
@@ -395,6 +404,7 @@ public class AdversarialStressTest {
                     KeyboardId.ELEMENT_ALPHABET,
                     KeyboardId.ELEMENT_SYMBOLS,
                     KeyboardId.ELEMENT_SYMBOLS_SHIFTED,
+                    KeyboardId.ELEMENT_SYMBOLS_3,
                     -1 // transient null state
             };
             for (int i = 0; i < ITERATIONS * 2; i++) {
@@ -414,8 +424,8 @@ public class AdversarialStressTest {
                         int active = currentElementId.get();
                         Integer id = active >= 0 ? active : null;
                         boolean res = checkIsShowingKeyboardId(true, true, id,
-                                KeyboardId.ELEMENT_SYMBOLS, KeyboardId.ELEMENT_SYMBOLS_SHIFTED);
-                        if (id != null && (id == KeyboardId.ELEMENT_SYMBOLS || id == KeyboardId.ELEMENT_SYMBOLS_SHIFTED)) {
+                                KeyboardId.ELEMENT_SYMBOLS, KeyboardId.ELEMENT_SYMBOLS_SHIFTED, KeyboardId.ELEMENT_SYMBOLS_3);
+                        if (id != null && (id == KeyboardId.ELEMENT_SYMBOLS || id == KeyboardId.ELEMENT_SYMBOLS_SHIFTED || id == KeyboardId.ELEMENT_SYMBOLS_3)) {
                             // If it matches, res must be true
                             if (!res) {
                                 crashDetected.set(true);

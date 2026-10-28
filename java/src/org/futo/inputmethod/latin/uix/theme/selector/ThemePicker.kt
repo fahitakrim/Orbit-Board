@@ -41,6 +41,8 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import org.futo.inputmethod.latin.uix.KeyBordersSetting
+import org.futo.inputmethod.latin.uix.SpacebarColorSetting
+import org.futo.inputmethod.latin.uix.settings.SettingRadio
 import org.futo.inputmethod.latin.uix.KeyHintsSetting
 import org.futo.inputmethod.latin.uix.KeyboardBottomOffsetSetting
 import org.futo.inputmethod.latin.uix.KeyboardHeightMultiplierSetting
@@ -288,6 +290,20 @@ fun ThemePicker(onSelected: (ThemeOption) -> Unit) {
                         SettingToggleDataStore(
                             title = "Key borders",
                             setting = KeyBordersSetting
+                        )
+                    }
+                }
+
+                item(span = { GridItemSpan(maxCurrentLineSpan) }) {
+                    CompositionLocalProvider(LocalLayoutDirection provides originalDirection) {
+                        SettingRadio(
+                            title = "Spacebar Color",
+                            options = listOf("default", "red", "blue", "yellow", "white", "dark"),
+                            optionNames = listOf("Default", "Matte Red", "Matte Blue", "Matte Yellow", "Matte White", "Matte Dark"),
+                            setting = useDataStore(
+                                key = SpacebarColorSetting.key,
+                                default = SpacebarColorSetting.default
+                            )
                         )
                     }
                 }

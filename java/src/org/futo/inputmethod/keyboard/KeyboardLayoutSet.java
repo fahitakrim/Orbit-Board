@@ -193,6 +193,14 @@ public final class KeyboardLayoutSet {
 
         ElementParams elementParams = mParams.mKeyboardLayoutSetElementIdToParamsMap.get(
                 keyboardLayoutSetElementId);
+        if (elementParams == null && keyboardLayoutSetElementId == KeyboardId.ELEMENT_SYMBOLS_3) {
+            elementParams = mParams.mKeyboardLayoutSetElementIdToParamsMap.get(
+                    KeyboardId.ELEMENT_SYMBOLS_SHIFTED);
+            if (elementParams == null) {
+                elementParams = mParams.mKeyboardLayoutSetElementIdToParamsMap.get(
+                        KeyboardId.ELEMENT_SYMBOLS);
+            }
+        }
         if (elementParams == null) {
             elementParams = mParams.mKeyboardLayoutSetElementIdToParamsMap.get(
                     KeyboardId.ELEMENT_ALPHABET);

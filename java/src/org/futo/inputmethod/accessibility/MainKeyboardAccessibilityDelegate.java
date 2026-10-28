@@ -184,6 +184,7 @@ public final class MainKeyboardAccessibilityDelegate
             resId = R.string.spoken_description_mode_symbol;
             break;
         case KeyboardId.ELEMENT_SYMBOLS_SHIFTED:
+        case KeyboardId.ELEMENT_SYMBOLS_3:
             resId = R.string.spoken_description_mode_symbol_shift;
             break;
         case KeyboardId.ELEMENT_PHONE:

@@ -293,7 +293,7 @@ val TranslateAction = Action(
             @Composable
             override fun WindowContents(keyboardShown: Boolean) {
                 val (sourcePref, _) = useSharedPrefsString(Settings.PREF_KEY_LAST_SOURCE_LANG, "auto")
-                val (targetPref, _) = useSharedPrefsString(Settings.PREF_KEY_LAST_TARGET_LANG, "fr")
+                val (targetPref, _) = useSharedPrefsString(Settings.PREF_KEY_LAST_TARGET_LANG, "bn")
 
                 val languageFrom = remember { mutableStateOf(sourcePref) }
                 val languageTo = remember { mutableStateOf(targetPref) }

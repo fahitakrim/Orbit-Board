@@ -1,7 +1,10 @@
 package org.futo.inputmethod.latin.uix.actions
 
 import android.content.Context
+import android.graphics.Paint
 import android.graphics.drawable.Drawable
+import android.os.Build
+import androidx.core.graphics.PaintCompat
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
@@ -715,6 +718,24 @@ fun EmojiGrid(
     }
 }
 
+@JvmOverloads
+fun isEmojiSupported(emoji: String, paint: Paint? = null, sdkInt: Int = Build.VERSION.SDK_INT): Boolean {
+    return if (sdkInt >= Build.VERSION_CODES.TIRAMISU || sdkInt == 0) {
+        // Modern Android (API 33+ / Android 13, 14, 15) and test environments use up-to-date
+        // system font or test definitions; avoid frozen JVM Character table checks.
+        true
+    } else if (sdkInt >= Build.VERSION_CODES.M) {
+        try {
+            val p = paint ?: Paint()
+            PaintCompat.hasGlyph(p, emoji)
+        } catch (_: Throwable) {
+            true
+        }
+    } else {
+        emoji.codePoints().toList().all { c -> Character.getName(c) != null }
+    }
+}
+
 class PersistentEmojiState : PersistentActionState {
     var emojis: MutableState<List<EmojiItem>?> = mutableStateOf(null)
     var emojiMap: HashMap<String, EmojiItem> = HashMap()
@@ -726,10 +747,11 @@ class PersistentEmojiState : PersistentActionState {
 
         withContext(Dispatchers.Default) {
             val emojiData = Json.parseToJsonElement(text)
+            val paint = try { Paint() } catch (_: Throwable) { null }
 
             emojis.value = emojiData.jsonArray.mapNotNull {
                 val emoji = it.jsonObject["emoji"]!!.jsonPrimitive.content
-                val supported = emoji.codePoints().toList().all { c -> Character.getName(c) != null }
+                val supported = isEmojiSupported(emoji, paint)
 
                 if(!supported) {
                     //Log.d("Emoji", "Emoji $emoji is unsupported")

@@ -39,6 +39,7 @@ val HiddenKeysSetting = SettingsKey(booleanPreferencesKey("hiddenKeys"), false)
 val KeyHintsSetting   = SettingsKey(booleanPreferencesKey("keyHints"), true)
 val KeyboardFontSetting = SettingsKey(stringPreferencesKey("keyboard_font"), "nothing")
 val KeyHintColorSetting = SettingsKey(stringPreferencesKey("key_hint_color"), "subtle")
+val SpacebarColorSetting = SettingsKey(stringPreferencesKey("spacebar_color"), "default")
 
 val KeyboardHeightMultiplierSetting = SettingsKey(floatPreferencesKey("keyboardHeightMultiplier"), 1.0f)
 val KeyboardBottomOffsetSetting = SettingsKey(floatPreferencesKey("keyboardOffset"), 0.0f)
@@ -165,6 +166,7 @@ class BasicThemeProvider(
     val keyHintColor: String
     val keyboardHeight: Float
     val keyboardFont: String
+    val spacebarColorPref: String
     override val keyboardTypeface: Typeface?
 
     fun hasUpdated(np: Preferences): Boolean {
@@ -174,6 +176,7 @@ class BasicThemeProvider(
                 || np.get(KeyHintColorSetting) != keyHintColor
                 || np.get(KeyboardHeightMultiplierSetting) != keyboardHeight
                 || np.get(KeyboardFontSetting) != keyboardFont
+                || np.get(SpacebarColorSetting) != spacebarColorPref
     }
 
 
@@ -207,6 +210,16 @@ class BasicThemeProvider(
         keyHintColor = context.getSettingBlocking(KeyHintColorSetting)
         keyboardHeight = context.getSettingBlocking(KeyboardHeightMultiplierSetting)
         keyboardFont = context.getSettingBlocking(KeyboardFontSetting)
+        spacebarColorPref = context.getSettingBlocking(SpacebarColorSetting)
+        val customSpaceColor = when (spacebarColorPref) {
+            "red" -> OrbitThemeHelper.COLOR_RED
+            "blue" -> OrbitThemeHelper.COLOR_BLUE
+            "yellow" -> OrbitThemeHelper.COLOR_YELLOW
+            "white" -> OrbitThemeHelper.COLOR_WHITE
+            "dark" -> OrbitThemeHelper.COLOR_DARK
+            else -> null
+        }
+        OrbitThemeHelper.customSpacebarColor = customSpaceColor
         keyboardTypeface = if (isOrbitTheme) {
             ResourcesCompat.getFont(context, R.font.ndot_family) ?: Typeface.DEFAULT
         } else if (keyboardFont == "normal") {
@@ -382,7 +395,12 @@ class BasicThemeProvider(
             48.dp
         }
 
-        val spaceDrawable = if(keyBorders) {
+        val effectiveSpaceColor = customSpaceColor ?: (if(keyBorders) keyColor else highlight)
+        val spaceDrawable = if(customSpaceColor != null) {
+            coloredRoundedRectangle(effectiveSpaceColor, dp(spaceCornerRadius)).apply {
+                setStroke(dp(1.5.dp).roundToInt(), if (spacebarColorPref == "yellow") OrbitThemeHelper.COLOR_DARK else yellowAccent)
+            }
+        } else if(keyBorders) {
             coloredRoundedRectangle(keyColor, dp(spaceCornerRadius)).apply {
                 setStroke(dp(1.5.dp).roundToInt(), yellowAccent)
             }
