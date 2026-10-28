@@ -26,6 +26,7 @@ import android.view.HapticFeedbackConstants;
 import android.view.View;
 
 import org.futo.inputmethod.latin.common.Constants;
+import org.futo.inputmethod.latin.settings.Settings;
 import org.futo.inputmethod.latin.settings.SettingsValues;
 
 /**
@@ -80,6 +81,20 @@ public final class AudioAndHapticFeedbackManager {
             mSoundReturn = mSoundPool.load(context, R.raw.keypress_return, 1);
         } catch (final Exception e) {
             Log.e("AudioFeedback", "Failed to init SoundPool", e);
+        }
+
+        try {
+            Settings settings = Settings.getInstance();
+            if (settings != null) {
+                if (settings.getCurrent() != null) {
+                    onSettingsChanged(settings.getCurrent());
+                }
+                settings.settingsChangedListeners.add((old, newSettings) -> {
+                    onSettingsChanged(newSettings);
+                });
+            }
+        } catch (final Exception e) {
+            Log.e(TAG, "Failed to register settings listener", e);
         }
     }
 

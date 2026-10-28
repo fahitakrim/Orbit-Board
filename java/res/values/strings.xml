@@ -578,7 +578,7 @@ Tip: You can download and remove dictionaries by going to &lt;b>Languages&#160;&
     <string name="layout_armenian_phonetic">Armenian (Phonetic)</string>
     <string name="layout_azerty">AZERTY</string>
     <string name="layout_bengali">Bengali</string>
-    <string name="layout_bengali_akkhor">Bengali (Akkhor)</string>
+    <string name="layout_bengali_akkhor">Bangla</string>
     <string name="layout_bepo">BÉPO</string>
     <string name="layout_bulgarian">Bulgarian</string>
     <string name="layout_bulgarian_bds">Bulgarian (BDS)</string>

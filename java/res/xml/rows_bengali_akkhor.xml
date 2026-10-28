@@ -3,6 +3,7 @@
 /*
 **
 ** Copyright 2014, The Android Open Source Project
+** Modifications Copyright 2026 Fahim Takrim
 **
 ** Licensed under the Apache License, Version 2.0 (the "License");
 ** you may not use this file except in compliance with the License.
@@ -18,29 +19,170 @@
 */
 -->
 
-<merge xmlns:latin="http://schemas.android.com/apk/res-auto" >
+<merge xmlns:latin="http://schemas.android.com/apk/res-auto">
     <include latin:keyboardLayout="@xml/key_styles_common" />
     <include latin:keyboardLayout="@xml/row_number_switch" />
+
+    <!-- Row 1: Vowels (10 keys) -->
     <Row
         latin:keyLabelFlags="fontNormal"
-        latin:keyWidth="9.091%p" >
-        <include latin:keyboardLayout="@xml/rowkeys_bengali_akkhor1" />
+        latin:keyWidth="10%p">
+        <!-- U+0985: "অ" BENGALI LETTER A -->
+        <Key latin:keySpec="&#x0985;" latin:moreKeys="&#x098B;" />
+        <!-- U+0986: "আ" BENGALI LETTER AA -->
+        <Key latin:keySpec="&#x0986;" latin:moreKeys="&#x09BE;" />
+        <!-- U+0987: "ই" BENGALI LETTER I -->
+        <Key latin:keySpec="&#x0987;" latin:moreKeys="&#x09BF;" />
+        <!-- U+0988: "ঈ" BENGALI LETTER II -->
+        <Key latin:keySpec="&#x0988;" latin:moreKeys="&#x09C0;" />
+        <!-- U+0989: "উ" BENGALI LETTER U -->
+        <Key latin:keySpec="&#x0989;" latin:moreKeys="&#x09C1;" />
+        <!-- U+098A: "ঊ" BENGALI LETTER UU -->
+        <Key latin:keySpec="&#x098A;" latin:moreKeys="&#x09C2;" />
+        <!-- U+098F: "এ" BENGALI LETTER E -->
+        <Key latin:keySpec="&#x098F;" latin:moreKeys="&#x09C7;" />
+        <!-- U+0990: "ঐ" BENGALI LETTER AI -->
+        <Key latin:keySpec="&#x0990;" latin:moreKeys="&#x09C8;" />
+        <!-- U+0993: "ও" BENGALI LETTER O -->
+        <Key latin:keySpec="&#x0993;" latin:moreKeys="&#x09CB;" />
+        <!-- U+0994: "ঔ" BENGALI LETTER AU -->
+        <Key latin:keySpec="&#x0994;" latin:moreKeys="&#x09CC;" />
     </Row>
+
+    <!-- Row 2: Consonants 1-10 (10 keys) -->
     <Row
         latin:keyLabelFlags="fontNormal"
-        latin:keyWidth="9.091%p" >
-        <include latin:keyboardLayout="@xml/rowkeys_bengali_akkhor2" />
+        latin:keyWidth="10%p">
+        <!-- U+0995: "ক" BENGALI LETTER KA -->
+        <Key latin:keySpec="&#x0995;" latin:moreKeys="&#x0995;&#x09CD;&#x0995;,&#x0995;&#x09CD;&#x099F;,&#x0995;&#x09CD;&#x09A4;,&#x0995;&#x09CD;&#x09B2;" />
+        <!-- U+0996: "খ" BENGALI LETTER KHA -->
+        <Key latin:keySpec="&#x0996;" />
+        <!-- U+0997: "গ" BENGALI LETTER GA -->
+        <Key latin:keySpec="&#x0997;" latin:moreKeys="&#x0997;&#x09CD;&#x09A7;,&#x0997;&#x09CD;&#x09A8;,&#x0997;&#x09CD;&#x09B2;" />
+        <!-- U+0998: "ঘ" BENGALI LETTER GHA -->
+        <Key latin:keySpec="&#x0998;" latin:moreKeys="&#x0998;&#x09CD;&#x09A8;" />
+        <!-- U+0999: "ঙ" BENGALI LETTER NGA -->
+        <Key latin:keySpec="&#x0999;" latin:moreKeys="&#x0999;&#x09CD;&#x0995;,&#x0999;&#x09CD;&#x0997;,&#x0982;" />
+        <!-- U+099A: "চ" BENGALI LETTER CA -->
+        <Key latin:keySpec="&#x099A;" latin:moreKeys="&#x099A;&#x09CD;&#x099A;,&#x099A;&#x09CD;&#x099B;" />
+        <!-- U+099B: "ছ" BENGALI LETTER CHA -->
+        <Key latin:keySpec="&#x099B;" />
+        <!-- U+099C: "জ" BENGALI LETTER JA -->
+        <Key latin:keySpec="&#x099C;" latin:moreKeys="&#x099C;&#x09CD;&#x099C;,&#x099C;&#x09CD;&#x099E;,&#x099C;&#x09CD;&#x09AC;" />
+        <!-- U+099D: "ঝ" BENGALI LETTER JHA -->
+        <Key latin:keySpec="&#x099D;" />
+        <!-- U+099E: "ঞ" BENGALI LETTER NYA -->
+        <Key latin:keySpec="&#x099E;" latin:moreKeys="&#x099E;&#x09CD;&#x099A;,&#x099E;&#x09CD;&#x099B;,&#x099E;&#x09CD;&#x099C;" />
     </Row>
+
+    <!-- Row 3: Consonants 11-20 (10 keys) -->
     <Row
         latin:keyLabelFlags="fontNormal"
-        latin:keyWidth="8.711%p" >
+        latin:keyWidth="10%p">
+        <!-- U+099F: "ট" BENGALI LETTER TTA -->
+        <Key latin:keySpec="&#x099F;" latin:moreKeys="&#x099F;&#x09CD;&#x099F;,&#x09F3;" />
+        <!-- U+09A0: "ঠ" BENGALI LETTER TTHA -->
+        <Key latin:keySpec="&#x09A0;" />
+        <!-- U+09A1: "ড" BENGALI LETTER DDA -->
+        <Key latin:keySpec="&#x09A1;" latin:moreKeys="&#x09A1;&#x09CD;&#x09A1;" />
+        <!-- U+09A2: "ঢ" BENGALI LETTER DDHA -->
+        <Key latin:keySpec="&#x09A2;" />
+        <!-- U+09A3: "ণ" BENGALI LETTER NNA -->
+        <Key latin:keySpec="&#x09A3;" latin:moreKeys="&#x09A3;&#x09CD;&#x099F;,&#x09A3;&#x09CD;&#x09A0;,&#x09A3;&#x09CD;&#x09A1;,&#x09A3;&#x09CD;&#x09A3;" />
+        <!-- U+09A4: "ত" BENGALI LETTER TA -->
+        <Key latin:keySpec="&#x09A4;" latin:moreKeys="&#x09A4;&#x09CD;&#x09A4;,&#x09A4;&#x09CD;&#x09A5;,&#x09A4;&#x09CD;&#x09AE;,&#x09A4;&#x09CD;&#x09B0;,&#x09CE;" />
+        <!-- U+09A5: "থ" BENGALI LETTER THA -->
+        <Key latin:keySpec="&#x09A5;" />
+        <!-- U+09A6: "দ" BENGALI LETTER DA -->
+        <Key latin:keySpec="&#x09A6;" latin:moreKeys="&#x09A6;&#x09CD;&#x09A6;,&#x09A6;&#x09CD;&#x09A7;,&#x09A6;&#x09CD;&#x09AC;,&#x09A6;&#x09CD;&#x09AE;" />
+        <!-- U+09A7: "ধ" BENGALI LETTER DHA -->
+        <Key latin:keySpec="&#x09A7;" latin:moreKeys="&#x09A7;&#x09CD;&#x09AC;,&#x09A7;&#x09CD;&#x09AF;" />
+        <!-- U+09A8: "ন" BENGALI LETTER NA -->
+        <Key latin:keySpec="&#x09A8;" latin:moreKeys="&#x09A8;&#x09CD;&#x09A4;,&#x09A8;&#x09CD;&#x09A5;,&#x09A8;&#x09CD;&#x09A6;,&#x09A8;&#x09CD;&#x09A7;,&#x09A8;&#x09CD;&#x09A8;,&#x09A8;&#x09CD;&#x09AE;" />
+    </Row>
+
+    <!-- Row 4: Consonants 21-30 (10 keys) -->
+    <Row
+        latin:keyLabelFlags="fontNormal"
+        latin:keyWidth="10%p">
+        <!-- U+09AA: "প" BENGALI LETTER PA -->
+        <Key latin:keySpec="&#x09AA;" latin:moreKeys="&#x09AA;&#x09CD;&#x09A4;,&#x09AA;&#x09CD;&#x09AA;,&#x09AA;&#x09CD;&#x09B2;,&#x09AA;&#x09CD;&#x09B8;" />
+        <!-- U+09AB: "ফ" BENGALI LETTER PHA -->
+        <Key latin:keySpec="&#x09AB;" latin:moreKeys="&#x09AB;&#x09CD;&#x099F;,&#x09AB;&#x09CD;&#x09B0;,&#x09AB;&#x09CD;&#x09B2;" />
+        <!-- U+09AC: "ব" BENGALI LETTER BA -->
+        <Key latin:keySpec="&#x09AC;" latin:moreKeys="&#x09AC;&#x09CD;&#x09A6;,&#x09AC;&#x09CD;&#x09A7;,&#x09AC;&#x09CD;&#x09AC;,&#x09AC;&#x09CD;&#x09B2;" />
+        <!-- U+09AD: "ভ" BENGALI LETTER BHA -->
+        <Key latin:keySpec="&#x09AD;" latin:moreKeys="&#x09AD;&#x09CD;&#x09B0;" />
+        <!-- U+09AE: "ম" BENGALI LETTER MA -->
+        <Key latin:keySpec="&#x09AE;" latin:moreKeys="&#x09AE;&#x09CD;&#x09AA;,&#x09AE;&#x09CD;&#x09AB;,&#x09AE;&#x09CD;&#x09AC;,&#x09AE;&#x09CD;&#x09AD;,&#x09AE;&#x09CD;&#x09AE;,&#x09AE;&#x09CD;&#x09B2;" />
+        <!-- U+09AF: "য" BENGALI LETTER YA -->
+        <Key latin:keySpec="&#x09AF;" latin:moreKeys="&#x09CD;&#x09AF;" />
+        <!-- U+09B0: "র" BENGALI LETTER RA -->
+        <Key latin:keySpec="&#x09B0;" latin:moreKeys="&#x09CD;&#x09B0;,&#x09B0;&#x09CD;&#x200D;,&#x09DC;,&#x09DD;" />
+        <!-- U+09B2: "ল" BENGALI LETTER LA -->
+        <Key latin:keySpec="&#x09B2;" latin:moreKeys="&#x09B2;&#x09CD;&#x0995;,&#x09B2;&#x09CD;&#x0997;,&#x09B2;&#x09CD;&#x099F;,&#x09B2;&#x09CD;&#x09AA;,&#x09B2;&#x09CD;&#x09B2;" />
+        <!-- U+09B6: "শ" BENGALI LETTER SHA -->
+        <Key latin:keySpec="&#x09B6;" latin:moreKeys="&#x09B6;&#x09CD;&#x099A;,&#x09B6;&#x09CD;&#x099B;,&#x09B6;&#x09CD;&#x09AE;,&#x09B6;&#x09CD;&#x09B0;,&#x09B6;&#x09CD;&#x09B2;" />
+        <!-- U+09B7: "ষ" BENGALI LETTER SSA -->
+        <Key latin:keySpec="&#x09B7;" latin:moreKeys="&#x09B7;&#x09CD;&#x0995;,&#x09B7;&#x09CD;&#x099F;,&#x09B7;&#x09CD;&#x09A0;,&#x09B7;&#x09CD;&#x09A3;,&#x09B7;&#x09CD;&#x09AA;,&#x09B7;&#x09CD;&#x09AB;,&#x09B7;&#x09CD;&#x09AE;" />
+    </Row>
+
+    <!-- Row 5: Remaining Consonants, Conjuncts, Kar/Virama & Delete (10 keys) -->
+    <Row
+        latin:keyLabelFlags="fontNormal"
+        latin:keyWidth="10%p">
+        <!-- U+09B8: "স" BENGALI LETTER SA -->
+        <Key latin:keySpec="&#x09B8;" latin:moreKeys="&#x09B8;&#x09CD;&#x0995;,&#x09B8;&#x09CD;&#x099F;,&#x09B8;&#x09CD;&#x09A4;,&#x09B8;&#x09CD;&#x09A5;,&#x09B8;&#x09CD;&#x09AA;,&#x09B8;&#x09CD;&#x09AB;,&#x09B8;&#x09CD;&#x09AE;,&#x09B8;&#x09CD;&#x09B0;,&#x09B8;&#x09CD;&#x09B2;" />
+        <!-- U+09B9: "হ" BENGALI LETTER HA -->
+        <Key latin:keySpec="&#x09B9;" latin:moreKeys="&#x09B9;&#x09CD;&#x09A8;,&#x09B9;&#x09CD;&#x09A3;,&#x09B9;&#x09CD;&#x09AE;,&#x09B9;&#x09CD;&#x09AF;,&#x09B9;&#x09CD;&#x09B0;,&#x09B9;&#x09CD;&#x09B2;,&#x0983;" />
+        <!-- U+09DC: "ড়" BENGALI LETTER RRA -->
+        <Key latin:keySpec="&#x09DC;" latin:moreKeys="&#x09DD;" />
+        <!-- U+09DD: "ঢ়" BENGALI LETTER RHA -->
+        <Key latin:keySpec="&#x09DD;" />
+        <!-- U+09DF: "য়" BENGALI LETTER YYA -->
+        <Key latin:keySpec="&#x09DF;" />
+        <!-- U+09CE: "ৎ" BENGALI LETTER KHANDA TA -->
+        <Key latin:keySpec="&#x09CE;" latin:moreKeys="&#x09A4;,&#x09A5;,&#x099F;" />
+        <!-- Ja-phala: "◌্য" -->
         <Key
-            latin:keyStyle="shiftKeyStyle"
-            latin:keyWidth="10.8%p" />
-        <include latin:keyboardLayout="@xml/rowkeys_bengali_akkhor3" />
+            latin:keySpec="&#x25CC;&#x09CD;&#x09AF;|&#x09CD;&#x09AF;"
+            latin:moreKeys="&#x09CD;&#x09B0;,&#x09B0;&#x09CD;&#x200D;,&#x09CD;&#x09AC;,&#x09CD;&#x09AE;,&#x09CD;&#x09A8;,&#x09CD;&#x09B2;" />
+        <!-- Khiyo: "ক্ষ" -->
+        <Key
+            latin:keySpec="&#x0995;&#x09CD;&#x09B7;"
+            latin:moreKeys="&#x099C;&#x09CD;&#x099E;,&#x09B7;&#x09CD;&#x09A3;,&#x09B9;&#x09CD;&#x09AE;,&#x0999;&#x09CD;&#x0995;,&#x0999;&#x09CD;&#x0997;,&#x099E;&#x09CD;&#x099A;,&#x099E;&#x09CD;&#x099C;,&#x099F;&#x09CD;&#x099F;,&#x09A1;&#x09CD;&#x09A1;,&#x09A8;&#x09CD;&#x09A4;,&#x09A8;&#x09CD;&#x09A6;,&#x09AE;&#x09CD;&#x09AA;,&#x09AE;&#x09CD;&#x09AC;" />
+        <!-- Kar & Virama Sign: "্" with all vowel diacritics in moreKeys -->
+        <Key
+            latin:keySpec="&#x09CD;"
+            latin:moreKeys="&#x09BE;,&#x09BF;,&#x09C0;,&#x09C1;,&#x09C2;,&#x09C7;,&#x09C8;,&#x09CB;,&#x09CC;,&#x09C3;,&#x0982;,&#x0983;,&#x0981;" />
+        <!-- Delete / Backspace -->
         <Key
             latin:keyStyle="deleteKeyStyle"
             latin:keyWidth="fillRight" />
     </Row>
-    <include latin:keyboardLayout="@xml/row_qwerty4" />
+
+    <!-- Row 6: Functional & Bottom Row -->
+    <Row latin:keyWidth="10%p">
+        <Key
+            latin:keySpec="?&#x09E7;&#x09E8;&#x09E9;|!code/key_switch_alpha_symbol"
+            latin:keyStyle="toSymbolKeyStyle"
+            latin:keyWidth="14%p" />
+        <Key
+            latin:keyStyle="emojiKeyStyle"
+            latin:keyWidth="10%p" />
+        <include
+            latin:keyboardLayout="@xml/key_comma"
+            latin:keyWidth="9%p" />
+        <Key
+            latin:keyStyle="spaceKeyStyle"
+            latin:keyWidth="43%p" />
+        <Key
+            latin:keySpec="&#x0964;"
+            latin:moreKeys=".,?,!,&#x0964;"
+            latin:keyWidth="10%p"
+            latin:backgroundType="functional" />
+        <Key
+            latin:keyStyle="enterKeyStyle"
+            latin:keyWidth="fillRight" />
+    </Row>
 </merge>

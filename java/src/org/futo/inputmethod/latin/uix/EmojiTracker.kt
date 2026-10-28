@@ -8,6 +8,14 @@ import androidx.datastore.preferences.core.stringPreferencesKey
 val lastUsedEmoji = stringPreferencesKey("last_used_emoji")
 val lastUsedColor = stringPreferencesKey("last_used_color")
 
+val DEFAULT_RECENT_EMOJIS = listOf(
+    "😂", "❤️", "😍", "🤣", "😊", "🙏", "😭", "😘",
+    "👍", "🥺", "🔥", "🥰", "✨", "🎉", "👏", "😁",
+    "😎", "😅", "💯", "💖", "🤔", "😉", "🙄", "💀",
+    "💔", "😜", "🙈", "🥳", "🤗", "😴", "🤩", "🙌",
+    "🤤", "👀", "🤝", "👌"
+)
+
 object EmojiTracker {
     suspend fun Context.setLastUsedColor(color: String) {
         if(isDeviceLocked) return
@@ -21,8 +29,12 @@ object EmojiTracker {
         if(isDeviceLocked) return
 
         dataStore.edit {
-            val combined = emoji + "<|>" + (it[lastUsedEmoji] ?: "")
-            it[lastUsedEmoji] = combined.split("<|>").take(128).joinToString("<|>")
+            val existing = (it[lastUsedEmoji] ?: "")
+                .split("<|>")
+                .map { e -> e.trim() }
+                .filter { e -> e.isNotEmpty() && e != emoji.trim() }
+            val combined = listOf(emoji.trim()) + existing
+            it[lastUsedEmoji] = combined.take(128).joinToString("<|>")
         }
     }
 
@@ -39,10 +51,19 @@ object EmojiTracker {
     suspend fun Context.getRecentEmojis(): List<String> {
         if(isDeviceLocked) return listOf()
 
-        return getSetting(lastUsedEmoji, "")
-            .split("<|>")
-            .filter { it.isNotBlank() }
+        val raw = getSetting(lastUsedEmoji, "")
+        val userEmojis = raw.split("<|>")
+            .map { it.trim() }
+            .filter { it.isNotEmpty() }
             .distinct()
+
+        // Maintain at least 32-36 emojis (3-4 full rows) so users always have rich recent emoji access
+        val combined = (userEmojis + DEFAULT_RECENT_EMOJIS).distinct()
+        return if (userEmojis.size >= 36) {
+            userEmojis.take(48)
+        } else {
+            combined.take(36)
+        }
     }
 
     suspend fun Context.resetRecentEmojis() {

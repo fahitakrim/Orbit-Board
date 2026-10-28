@@ -213,4 +213,5 @@
     <string name="layout_bengali_avro">Avro (&#x0985;&#x09AD;&#x09CD;&#x09B0;)</string>
     <string name="layout_bengali_jatiyo">Jatiyo (&#x099C;&#x09BE;&#x09A4;&#x09C0;&#x09DF;)</string>
     <string name="layout_bengali_probhat">Probhat (&#x09AA;&#x09CD;&#x09B0;&#x09AD;&#x09BE;&#x09A4;)</string>
+    <string name="layout_bengali_akkhor">Bangla (&#x09AC;&#x09BE;&#x0982;&#x09B2;&#x09BE;)</string>
 </resources>

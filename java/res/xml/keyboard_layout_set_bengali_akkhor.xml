@@ -47,7 +47,7 @@
         latin:elementKeyboard="@xml/kbd_symbols_shift_bengali"
         latin:elementName="symbolsShifted" />
     <Element
-        latin:elementKeyboard="@xml/kbd_symbols_3"
+        latin:elementKeyboard="@xml/kbd_symbols_3_bengali"
         latin:elementName="symbols3" />
     <Element
         latin:elementKeyboard="@xml/kbd_phone"

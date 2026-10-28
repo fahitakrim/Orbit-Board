@@ -3,6 +3,7 @@
 /*
 **
 ** Copyright 2014, The Android Open Source Project
+** Modifications Copyright 2026 Fahim Takrim
 **
 ** Licensed under the Apache License, Version 2.0 (the "License");
 ** you may not use this file except in compliance with the License.
@@ -18,6 +19,11 @@
 */
 -->
 
-<Keyboard xmlns:latin="http://schemas.android.com/apk/res-auto" >
+<Keyboard
+    xmlns:latin="http://schemas.android.com/apk/res-auto"
+    latin:rowHeight="16.666%p"
+    latin:keyLetterSize="@fraction/config_key_letter_ratio_5row"
+    latin:touchPositionCorrectionData="@array/touch_position_correction_data_default"
+>
     <include latin:keyboardLayout="@xml/rows_bengali_akkhor" />
 </Keyboard>
