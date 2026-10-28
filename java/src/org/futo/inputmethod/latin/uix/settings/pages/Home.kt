@@ -1,4 +1,4 @@
-package org.futo.inputmethod.latin.uix.settings.pages
+﻿package org.futo.inputmethod.latin.uix.settings.pages
 
 import android.content.Intent
 import android.widget.Toast
@@ -65,7 +65,10 @@ import org.futo.inputmethod.latin.uix.settings.NavigationItem
 import org.futo.inputmethod.latin.uix.settings.NavigationItemStyle
 import org.futo.inputmethod.latin.uix.settings.NeuCard
 import org.futo.inputmethod.latin.uix.settings.SectionHeader
+import org.futo.inputmethod.latin.settings.Settings
+import org.futo.inputmethod.latin.uix.settings.useDataStore
 import org.futo.inputmethod.latin.uix.settings.useDataStoreValue
+import org.futo.inputmethod.latin.uix.settings.useSharedPrefsBool
 import org.futo.inputmethod.latin.uix.theme.Doto
 import org.futo.inputmethod.latin.uix.theme.Inter
 import org.futo.inputmethod.updates.AppUpdate
@@ -136,6 +139,9 @@ fun HomeScreen(navController: NavHostController = rememberNavController()) {
     val coroutineScope = rememberCoroutineScope()
 
     // Announcement manager & state
+    val (actionBarShown, setActionBarShown) = useDataStore(ActionBarDisplayedSetting)
+    val (isNumberRowActive, setNumberRowActive) = useSharedPrefsBool(Settings.PREF_ENABLE_NUMBER_ROW, false)
+
     val announcementManager = remember { AnnouncementManager.getInstance(context) }
     val availableAnnouncement by announcementManager.availableAnnouncement.collectAsState()
     val isCheckingAnnouncement by announcementManager.isChecking.collectAsState()
@@ -342,7 +348,39 @@ fun HomeScreen(navController: NavHostController = rememberNavController()) {
 
             Spacer(modifier = Modifier.height(14.dp))
 
-            // 3. CUSTOMIZATION & ANNOUNCEMENTS
+            // 3. KEYBOARD ROWS
+            SectionHeader(title = "Keyboard Rows", modifier = Modifier.padding(horizontal = 16.dp))
+            NeuCard(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp),
+                contentPadding = 4.dp
+            ) {
+                BengaliLayoutToggleRow(
+                    title = "Suggestion Row",
+                    subtitle = "Show suggestions and actions bar above keyboard",
+                    active = actionBarShown,
+                    canToggle = true,
+                    onToggle = { enabled -> setActionBarShown(enabled) }
+                )
+                Box(
+                    Modifier
+                        .fillMaxWidth()
+                        .height(1.dp)
+                        .background(DividerColor)
+                )
+                BengaliLayoutToggleRow(
+                    title = "Number Row",
+                    subtitle = "Show dedicated row of numbers (0-9) on keyboard",
+                    active = isNumberRowActive,
+                    canToggle = true,
+                    onToggle = { enabled -> setNumberRowActive(enabled) }
+                )
+            }
+
+            Spacer(modifier = Modifier.height(14.dp))
+
+            // 4. CUSTOMIZATION & ANNOUNCEMENTS
             SectionHeader(title = "Customization", modifier = Modifier.padding(horizontal = 16.dp))
             NeuCard(
                 modifier = Modifier

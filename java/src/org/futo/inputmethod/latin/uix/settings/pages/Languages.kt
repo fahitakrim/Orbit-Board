@@ -177,6 +177,8 @@ fun LayoutConfigurable(
 fun LanguageSurface(
     item: LanguageItem,
     modifier: Modifier = Modifier,
+    totalEnabledKeyboards: Int = 1,
+    onDeleteLanguage: (() -> Unit)? = null,
     onConfigurableSelected: (FileKind) -> Unit,
     onLayoutToggled: (String, Boolean) -> Unit
 ) {
@@ -192,11 +194,28 @@ fun LanguageSurface(
                 .padding(top = 14.dp, bottom = 16.dp)
         ) {
             CompositionLocalProvider(LocalContentColor provides MaterialTheme.colorScheme.onSurfaceVariant) {
-                Text(
-                    item.languageName,
-                    modifier = Modifier.padding(start = 16.dp, end = 16.dp),
-                    style = TextHeadingMediumMlStyle
-                )
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(start = 16.dp, end = 8.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        item.languageName,
+                        modifier = Modifier.weight(1.0f),
+                        style = TextHeadingMediumMlStyle
+                    )
+
+                    if (onDeleteLanguage != null) {
+                        IconButton(onClick = onDeleteLanguage) {
+                            Icon(
+                                painter = painterResource(id = R.drawable.trash),
+                                contentDescription = "Delete language",
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
+                            )
+                        }
+                    }
+                }
 
                 Spacer(modifier = Modifier.height(14.dp))
 
@@ -210,13 +229,12 @@ fun LanguageSurface(
 
                 Spacer(modifier = Modifier.height(8.dp))
 
-                val totalActive = item.layouts.count { it.active }
                 item.layouts.forEach { layoutItem ->
                     LayoutConfigurable(
                         name = layoutItem.name,
                         active = layoutItem.active,
                         onToggle = { newState -> onLayoutToggled(layoutItem.layoutKey, newState) },
-                        canToggle = !layoutItem.active || totalActive > 1
+                        canToggle = !layoutItem.active || totalEnabledKeyboards > 1
                     )
                     Spacer(modifier = Modifier.height(4.dp))
                 }
@@ -482,6 +500,10 @@ fun LanguagesScreen(navController: NavHostController = rememberNavController()) 
                     options = options,
                     layouts = layoutItems
                 ),
+                totalEnabledKeyboards = inputMethods.size,
+                onDeleteLanguage = if (inputMethods.size > 1 && inputMethodKeys.size > 1) {
+                    { languageDeleteInfo.value = locale }
+                } else null,
                 onConfigurableSelected = { kind ->
                     deleteDialogInfo.value = DeleteInfo(locale, kind)
                 },

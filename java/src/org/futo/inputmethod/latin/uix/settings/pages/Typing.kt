@@ -1,4 +1,4 @@
-package org.futo.inputmethod.latin.uix.settings.pages
+﻿package org.futo.inputmethod.latin.uix.settings.pages
 
 import android.content.Context
 import androidx.compose.foundation.ExperimentalFoundationApi
@@ -404,21 +404,30 @@ fun LongPressScreen(navController: NavHostController = rememberNavController()) 
         }
 
         item {
+            SettingToggleSharedPrefs(
+                title = "Pin keyboard name on spacebar",
+                subtitle = "Keep the active keyboard name (English, Avro, Probhat, Bangla) permanently visible on the spacebar",
+                key = Settings.PREF_PIN_KEYBOARD_NAME_ON_SPACEBAR,
+                default = true
+            )
+        }
+
+        item {
             SettingRadio(
                 title = "Spacebar Behavior",
                 options = listOf(
-                    Settings.SPACEBAR_MODE_SWIPE_CURSOR,
                     Settings.SPACEBAR_MODE_SWIPE_LANGUAGE,
+                    Settings.SPACEBAR_MODE_SWIPE_CURSOR,
                     Settings.SPACEBAR_MODE_SWIPE_CURSOR_ONLY
                 ),
                 optionNames = listOf(
-                    "Swiping moves cursor, long-pressing switches language",
                     "Swiping changes language, long-pressing moves cursor",
+                    "Swiping moves cursor, long-pressing switches language",
                     "Swiping and long-pressing only moves cursor"
                 ),
                 setting = useSharedPrefsInt(
                     key = Settings.PREF_SPACEBAR_MODE,
-                    default = Settings.SPACEBAR_MODE_SWIPE_CURSOR
+                    default = Settings.SPACEBAR_MODE_SWIPE_LANGUAGE
                 )
             )
         }
@@ -485,9 +494,20 @@ fun TypingScreen(navController: NavHostController = rememberNavController()) {
             icon = painterResource(id = R.drawable.maximize)
         )
 
+        ScreenTitle(title = "Keyboard Rows")
+
+        SettingToggleDataStore(
+            title = "Suggestion Row",
+            subtitle = "Show word suggestions and actions bar above the keyboard",
+            setting = ActionBarDisplayedSetting,
+            icon = {
+                Icon(painterResource(id = R.drawable.more_horizontal), contentDescription = null)
+            }
+        )
+
         SettingToggleSharedPrefs(
-            title = "Show Number Row",
-            subtitle = "When active, the number row is shown on top of the keyboard at all times",
+            title = "Number Row",
+            subtitle = "Show dedicated row of numbers (0-9) on top of the keyboard",
             key = Settings.PREF_ENABLE_NUMBER_ROW,
             default = false,
             icon = { Text("123", style = TextBodyRegularMlStyle, color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.75f)) }
@@ -515,15 +535,6 @@ fun TypingScreen(navController: NavHostController = rememberNavController()) {
             style = NavigationItemStyle.Misc,
             navigate = { navController.navigate("actionEdit") },
             icon = painterResource(id = R.drawable.smile)
-        )
-
-        SettingToggleDataStore(
-            title = "Show action/suggestions bar",
-            subtitle = "Show the bar containing suggestions. Recommended to keep enabled",
-            setting = ActionBarDisplayedSetting,
-            icon = {
-                Icon(painterResource(id = R.drawable.more_horizontal), contentDescription = null)
-            }
         )
 
         ScreenTitle(title = "Typing preferences")

@@ -934,14 +934,21 @@ public final class PointerTracker implements PointerTrackerQueue.Element,
         final SettingsValues settingsValues = Settings.getInstance().getCurrent();
 
         if (mIsSlidingCursor && oldKey != null && oldKey.getCode() == Constants.CODE_SPACE) {
-            int pointerStep = sPointerStep;
+            final boolean isSwipeLanguage = (settingsValues.mSpacebarMode == Settings.SPACEBAR_MODE_SWIPE_LANGUAGE && !mSpacebarLongPressed);
+            final int pointerStep = isSwipeLanguage
+                    ? (int)(64.0 * Resources.getSystem().getDisplayMetrics().density)
+                    : sPointerStep;
 
             int steps = (x - mStartX) / pointerStep;
             if (steps != 0) {
                 sTimerProxy.cancelKeyTimersOf(this);
                 mCursorMoved = true;
                 mStartX += steps * pointerStep;
-                sListener.onMovePointer(steps);
+                if (isSwipeLanguage) {
+                    sListener.onSwipeLanguage(steps);
+                } else {
+                    sListener.onMovePointer(steps);
+                }
             }
 
             mLastX = x;

@@ -96,6 +96,7 @@ public class SettingsValues {
 
     public final int mSpacebarMode;
     public final int mBackspaceMode;
+    public final boolean mPinKeyboardNameOnSpacebar;
 
     // From the input box
     @Nonnull
@@ -170,8 +171,9 @@ public class SettingsValues {
         mIsSplitKeyboardEnabled = prefs.getBoolean(Settings.PREF_ENABLE_SPLIT_KEYBOARD, false);
         mScreenMetrics = Settings.readScreenMetrics(res);
 
-        mSpacebarMode = prefs.getInt(Settings.PREF_SPACEBAR_MODE, Settings.SPACEBAR_MODE_SWIPE_CURSOR);
+        mSpacebarMode = prefs.getInt(Settings.PREF_SPACEBAR_MODE, Settings.SPACEBAR_MODE_SWIPE_LANGUAGE);
         mBackspaceMode = prefs.getInt(Settings.PREF_BACKSPACE_MODE, Settings.BACKSPACE_MODE_CHARACTERS);
+        mPinKeyboardNameOnSpacebar = prefs.getBoolean(Settings.PREF_PIN_KEYBOARD_NAME_ON_SPACEBAR, true);
 
         mShouldShowLxxSuggestionUi = Settings.SHOULD_SHOW_LXX_SUGGESTION_UI
                 && prefs.getBoolean(DebugSettings.PREF_SHOULD_SHOW_LXX_SUGGESTION_UI, true);

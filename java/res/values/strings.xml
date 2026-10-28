@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="utf-8"?>
+﻿<?xml version="1.0" encoding="utf-8"?>
 <!--
 /*
 **
@@ -577,7 +577,7 @@ Tip: You can download and remove dictionaries by going to &lt;b>Languages&#160;&
     <string name="layout_arabic">Arabic</string>
     <string name="layout_armenian_phonetic">Armenian (Phonetic)</string>
     <string name="layout_azerty">AZERTY</string>
-    <string name="layout_bengali">Bengali</string>
+    <string name="layout_bengali">Bangla (&#x09AC;&#x09BE;&#x0982;&#x09B2;&#x09BE;)</string>
     <string name="layout_bengali_akkhor">Bangla</string>
     <string name="layout_bepo">BÉPO</string>
     <string name="layout_bulgarian">Bulgarian</string>

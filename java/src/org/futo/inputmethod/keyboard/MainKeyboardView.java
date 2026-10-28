@@ -59,6 +59,7 @@ import org.futo.inputmethod.latin.SuggestedWords;
 import org.futo.inputmethod.latin.common.Constants;
 import org.futo.inputmethod.latin.common.CoordinateUtils;
 import org.futo.inputmethod.latin.settings.DebugSettings;
+import org.futo.inputmethod.latin.settings.Settings;
 import org.futo.inputmethod.latin.utils.LanguageOnSpacebarUtils;
 import org.futo.inputmethod.latin.utils.TypefaceUtils;
 
@@ -817,7 +818,13 @@ public final class MainKeyboardView extends KeyboardView implements DrawingProxy
         mLanguageOnSpacebarFormatType = languageOnSpacebarFormatType;
         mHasMultipleEnabledIMEsOrSubtypes = hasMultipleEnabledIMEsOrSubtypes;
         final ObjectAnimator animator = mLanguageOnSpacebarFadeoutAnimator;
-        if (animator == null) {
+        final boolean pinOnSpacebar = Settings.getInstance().getCurrent().mPinKeyboardNameOnSpacebar;
+        if (pinOnSpacebar) {
+            if (animator != null && animator.isStarted()) {
+                animator.cancel();
+            }
+            setLanguageOnSpacebarAnimAlpha(Constants.Color.ALPHA_OPAQUE);
+        } else if (animator == null) {
             mLanguageOnSpacebarFormatType = LanguageOnSpacebarUtils.FORMAT_TYPE_NONE;
         } else {
             if (subtypeChanged
@@ -877,17 +884,17 @@ public final class MainKeyboardView extends KeyboardView implements DrawingProxy
             final RichInputMethodSubtype subtype, final int width) {
         final String layoutSet = subtype.getKeyboardLayoutSetName();
         if ("bengali_avro".equals(layoutSet)) {
-            return mHasMultipleEnabledIMEsOrSubtypes ? "\u25C0 \u0985\u09AD\u09CD\u09B0 \u25B6" : "\u0985\u09AD\u09CD\u09B0";
+            return "\u0985\u09AD\u09CD\u09B0";
         } else if ("bengali_jatiyo".equals(layoutSet)) {
-            return mHasMultipleEnabledIMEsOrSubtypes ? "\u25C0 \u099C\u09BE\u09A4\u09C0\u09DF \u25B6" : "\u099C\u09BE\u09A4\u09C0\u09DF";
+            return "\u099C\u09BE\u09A4\u09C0\u09DF";
         } else if ("bengali_probhat".equals(layoutSet)) {
-            return mHasMultipleEnabledIMEsOrSubtypes ? "\u25C0 \u09AA\u09CD\u09B0\u09AD\u09BE\u09A4 \u25B6" : "\u09AA\u09CD\u09B0\u09AD\u09BE\u09A4";
-        } else if ("bengali_akkhor".equals(layoutSet)) {
-            return mHasMultipleEnabledIMEsOrSubtypes ? "\u25C0 \u09AC\u09BE\u0982\u09B2\u09BE \u25B6" : "\u09AC\u09BE\u0982\u09B2\u09BE";
+            return "\u09AA\u09CD\u09B0\u09AD\u09BE\u09A4";
+        } else if ("bengali".equals(layoutSet) || "bengali_akkhor".equals(layoutSet)) {
+            return "\u09AC\u09BE\u0982\u09B2\u09BE";
         }
 
-        if (mHasMultipleEnabledIMEsOrSubtypes && (subtype.getRawSubtype().isAsciiCapable() || (subtype.getLocale() != null && "en".equals(subtype.getLocale().getLanguage())))) {
-            final String engText = "\u25C0 English \u25B6";
+        if (subtype.getRawSubtype().isAsciiCapable() || (subtype.getLocale() != null && "en".equals(subtype.getLocale().getLanguage()))) {
+            final String engText = "English";
             if (fitsTextIntoWidth(width, engText, paint)) {
                 return engText;
             }
@@ -939,8 +946,9 @@ public final class MainKeyboardView extends KeyboardView implements DrawingProxy
         } else {
             paint.clearShadowLayer();
         }
+        final boolean pinOnSpacebar = Settings.getInstance().getCurrent().mPinKeyboardNameOnSpacebar;
         paint.setColor(mLanguageOnSpacebarTextColor);
-        paint.setAlpha(mLanguageOnSpacebarAnimAlpha);
+        paint.setAlpha(pinOnSpacebar ? Constants.Color.ALPHA_OPAQUE : mLanguageOnSpacebarAnimAlpha);
         canvas.drawText(language, width / 2, baseline - descent, paint);
         paint.clearShadowLayer();
         paint.setTextScaleX(1.0f);
