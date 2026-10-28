@@ -201,6 +201,9 @@ public class Key implements Comparable<Key> {
     }
 
     private final int mHashCode;
+    @Nullable
+    private final String mKeyboardLayoutSetName;
+    private final boolean mIsAlphabetKeyboard;
 
     /** The current pressed state of this key */
     private boolean mPressed;
@@ -237,6 +240,8 @@ public class Key implements Comparable<Key> {
         mY = y;
         mHitBox.set(x, y, x + width + 1, y + height);
         mKeyVisualAttributes = null;
+        mKeyboardLayoutSetName = null;
+        mIsAlphabetKeyboard = false;
 
         mHashCode = computeHashCode(this);
     }
@@ -277,6 +282,9 @@ public class Key implements Comparable<Key> {
 
         mBackgroundType = style.getInt(keyAttr,
                 R.styleable.Keyboard_Key_backgroundType, row.getDefaultBackgroundType());
+        mKeyboardLayoutSetName = (params != null && params.mId != null && params.mId.mSubtype != null)
+                ? params.mId.mSubtype.getKeyboardLayoutSetName() : null;
+        mIsAlphabetKeyboard = (params != null && params.mId != null && params.mId.isAlphabetKeyboard());
 
         final int baseWidth = params.mBaseWidth;
         final int visualInsetsLeft = Math.round(keyAttr.getFraction(
@@ -463,6 +471,8 @@ public class Key implements Comparable<Key> {
         mKeyVisualAttributes = key.mKeyVisualAttributes;
         mOptionalAttributes = key.mOptionalAttributes;
         mHashCode = key.mHashCode;
+        mKeyboardLayoutSetName = key.mKeyboardLayoutSetName;
+        mIsAlphabetKeyboard = key.mIsAlphabetKeyboard;
         // Key state.
         mPressed = key.mPressed;
         mEnabled = key.mEnabled;
@@ -970,6 +980,15 @@ public class Key implements Comparable<Key> {
      */
     public int getY() {
         return mY;
+    }
+
+    @Nullable
+    public String getKeyboardLayoutSetName() {
+        return mKeyboardLayoutSetName;
+    }
+
+    public boolean isAlphabetKeyboard() {
+        return mIsAlphabetKeyboard;
     }
 
     public final int getDrawX() {

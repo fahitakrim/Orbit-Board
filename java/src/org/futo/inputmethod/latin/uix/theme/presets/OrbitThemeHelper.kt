@@ -58,9 +58,93 @@ object OrbitThemeHelper {
         COLOR_DARK, COLOR_YELLOW, COLOR_DARK
     )
 
+    // Dedicated Bauhaus color palette for 5-row alphabetical Bangla layout (bengali_akkhor)
+    private val banglaAkkhorColorByLabel = mapOf(
+        // Row 0: Vowels (10 keys)
+        "অ" to COLOR_YELLOW,
+        "আ" to COLOR_BLUE,
+        "ই" to COLOR_DARK,
+        "ঈ" to COLOR_WHITE,
+        "উ" to COLOR_RED,
+        "ঊ" to COLOR_BLUE,
+        "এ" to COLOR_WHITE,
+        "ঐ" to COLOR_RED,
+        "ও" to COLOR_YELLOW,
+        "ঔ" to COLOR_DARK,
+
+        // Row 1: Consonants 1 (10 keys)
+        "ক" to COLOR_WHITE,
+        "খ" to COLOR_RED,
+        "গ" to COLOR_BLUE,
+        "ঘ" to COLOR_DARK,
+        "ঙ" to COLOR_YELLOW,
+        "চ" to COLOR_WHITE,
+        "ছ" to COLOR_RED,
+        "জ" to COLOR_BLUE,
+        "ঝ" to COLOR_DARK,
+        "ঞ" to COLOR_YELLOW,
+
+        // Row 2: Consonants 2 (10 keys)
+        "ট" to COLOR_DARK,
+        "ঠ" to COLOR_YELLOW,
+        "ড" to COLOR_WHITE,
+        "ঢ" to COLOR_RED,
+        "ণ" to COLOR_BLUE,
+        "ত" to COLOR_DARK,
+        "থ" to COLOR_YELLOW,
+        "দ" to COLOR_WHITE,
+        "ধ" to COLOR_RED,
+        "ন" to COLOR_BLUE,
+
+        // Row 3: Consonants 3 (10 keys)
+        "প" to COLOR_BLUE,
+        "ফ" to COLOR_WHITE,
+        "ব" to COLOR_RED,
+        "ভ" to COLOR_YELLOW,
+        "ম" to COLOR_DARK,
+        "য" to COLOR_BLUE,
+        "র" to COLOR_WHITE,
+        "ল" to COLOR_RED,
+        "শ" to COLOR_YELLOW,
+        "ষ" to COLOR_DARK,
+
+        // Row 4: Consonants 4 & Signs (10 keys)
+        "স" to COLOR_RED,
+        "হ" to COLOR_BLUE,
+        "ড়" to COLOR_YELLOW,
+        "ঢ়" to COLOR_DARK,
+        "য়" to COLOR_WHITE,
+        "ৎ" to COLOR_RED,
+        "\u25CC\u09CD\u09AF" to COLOR_BLUE, // ◌্য
+        "◌্য" to COLOR_BLUE,
+        "ক্ষ" to COLOR_YELLOW,
+        "\u09CD" to COLOR_DARK,             // ্
+        "্" to COLOR_DARK,
+
+        // Punctuation
+        "।" to COLOR_DARK,
+        "\u0964" to COLOR_DARK,
+        "," to COLOR_WHITE,
+        "." to COLOR_DARK
+    )
+
+    private val banglaAkkhorRowColors = arrayOf(
+        // Row 0
+        intArrayOf(COLOR_YELLOW, COLOR_BLUE, COLOR_DARK, COLOR_WHITE, COLOR_RED, COLOR_BLUE, COLOR_WHITE, COLOR_RED, COLOR_YELLOW, COLOR_DARK),
+        // Row 1
+        intArrayOf(COLOR_WHITE, COLOR_RED, COLOR_BLUE, COLOR_DARK, COLOR_YELLOW, COLOR_WHITE, COLOR_RED, COLOR_BLUE, COLOR_DARK, COLOR_YELLOW),
+        // Row 2
+        intArrayOf(COLOR_DARK, COLOR_YELLOW, COLOR_WHITE, COLOR_RED, COLOR_BLUE, COLOR_DARK, COLOR_YELLOW, COLOR_WHITE, COLOR_RED, COLOR_BLUE),
+        // Row 3
+        intArrayOf(COLOR_BLUE, COLOR_WHITE, COLOR_RED, COLOR_YELLOW, COLOR_DARK, COLOR_BLUE, COLOR_WHITE, COLOR_RED, COLOR_YELLOW, COLOR_DARK),
+        // Row 4
+        intArrayOf(COLOR_RED, COLOR_BLUE, COLOR_YELLOW, COLOR_DARK, COLOR_WHITE, COLOR_RED, COLOR_BLUE, COLOR_YELLOW, COLOR_DARK, COLOR_WHITE)
+    )
+
     fun getKeyBaseColor(key: Key): Int {
         val code = key.code
-        val label = key.label?.lowercase()
+        val rawLabel = key.label
+        val label = rawLabel?.lowercase()
 
         if (code == Constants.CODE_SHIFT) return COLOR_YELLOW
         if (code == Constants.CODE_DELETE) return COLOR_WHITE
@@ -68,6 +152,32 @@ object OrbitThemeHelper {
         if (code == Constants.CODE_SWITCH_ALPHA_SYMBOL) return COLOR_RED
         if (code == Constants.CODE_EMOJI || code == Constants.CODE_SHORTCUT) return COLOR_BLUE
         if (code == Constants.CODE_SPACE) return customSpacebarColor ?: COLOR_DARK
+        if (rawLabel == "।" || rawLabel == "\u0964") return COLOR_DARK
+
+        // Dedicated balanced Bauhaus palette for 5-row alphabetical Bangla layout (bengali_akkhor)
+        // Scoped strictly so other layouts are never affected
+        if (key.keyboardLayoutSetName == "bengali_akkhor" && key.isAlphabetKeyboard) {
+            if (rawLabel != null && banglaAkkhorColorByLabel.containsKey(rawLabel)) {
+                return banglaAkkhorColorByLabel[rawLabel]!!
+            }
+            val y = key.y
+            val x = key.x
+            val h = key.height
+            val w = key.width
+            if (h > 0) {
+                val row = y / h
+                if (row in 0..4) {
+                    val colors = banglaAkkhorRowColors[row]
+                    val idx = if (w > 0) (x / w).coerceIn(0, colors.size - 1) else 0
+                    return colors[idx]
+                }
+                // Bottom row fallback
+                return if (w > 0 && x < w * 2) COLOR_RED
+                else if (w > 0 && x > w * 6) COLOR_RED
+                else COLOR_DARK
+            }
+            return COLOR_DARK
+        }
 
         if (label != null && colorByLabel.containsKey(label)) {
             return colorByLabel[label]!!
