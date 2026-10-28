@@ -45,6 +45,7 @@ fun SettingsNavigator(
     ) {
         composable("home") { HomeScreen(navController) }
         composable("languages") { LanguagesScreen(navController) }
+        composable("addLanguage") { org.futo.inputmethod.latin.uix.settings.pages.AddLanguageScreen(navController) }
         composable("predictiveText") { PredictiveTextScreen(navController) }
         composable("advancedparams") { AdvancedParametersScreen(navController) }
         addTypingNavigation(navController)

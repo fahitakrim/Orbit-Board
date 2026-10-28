@@ -418,7 +418,7 @@ fun LongPressScreen(navController: NavHostController = rememberNavController()) 
                 ),
                 setting = useSharedPrefsInt(
                     key = Settings.PREF_SPACEBAR_MODE,
-                    default = Settings.SPACEBAR_MODE_SWIPE_LANGUAGE
+                    default = Settings.SPACEBAR_MODE_SWIPE_CURSOR
                 )
             )
         }

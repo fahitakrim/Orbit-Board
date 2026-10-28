@@ -142,15 +142,21 @@ fun HomeScreen(navController: NavHostController = rememberNavController()) {
     var showAnnouncementSheet by remember { mutableStateOf(false) }
 
     val currentSubtypes = useDataStoreValue(SubtypesSetting)
+    val akkhorSubtype = "bn_BD:KeyboardLayoutSet=bengali_akkhor:"
     val avroSubtype = "bn_BD:KeyboardLayoutSet=bengali_avro:"
     val jatiyoSubtype = "bn_BD:KeyboardLayoutSet=bengali_jatiyo:"
     val probhatSubtype = "bn_BD:KeyboardLayoutSet=bengali_probhat:"
 
+    val isAkkhorActive = currentSubtypes.contains(akkhorSubtype)
     val isAvroActive = currentSubtypes.contains(avroSubtype)
     val isJatiyoActive = currentSubtypes.contains(jatiyoSubtype)
     val isProbhatActive = currentSubtypes.contains(probhatSubtype)
 
     fun toggleSubtype(subtypeStr: String, enabled: Boolean) {
+        if (enabled && currentSubtypes.size >= 3) {
+            Toast.makeText(context, "Maximum 3 keyboards can be selected at a time", Toast.LENGTH_SHORT).show()
+            return
+        }
         val newSubtypes = if (enabled) {
             currentSubtypes + subtypeStr
         } else {
@@ -273,34 +279,32 @@ fun HomeScreen(navController: NavHostController = rememberNavController()) {
                     navigate = { navController.navigate("predictiveText") },
                     icon = painterResource(id = R.drawable.text_prediction)
                 )
-                Box(
-                    Modifier
-                        .fillMaxWidth()
-                        .height(1.dp)
-                        .background(DividerColor)
-                )
-                NavigationItem(
-                    title = stringResource(R.string.edit_personal_dictionary),
-                    style = NavigationItemStyle.HomeSecondary,
-                    icon = painterResource(id = R.drawable.book),
-                    navigate = {
-                        val intent = Intent("android.settings.USER_DICTIONARY_SETTINGS")
-                        intent.flags = Intent.FLAG_ACTIVITY_NEW_TASK
-                        context.startActivity(intent)
-                    }
-                )
+
             }
 
             Spacer(modifier = Modifier.height(14.dp))
 
             // 2. BENGALI KEYBOARD LAYOUTS
-            SectionHeader(title = "Bengali Layouts", modifier = Modifier.padding(horizontal = 16.dp))
+            SectionHeader(title = "Bengali Layouts (Max 3 Active)", modifier = Modifier.padding(horizontal = 16.dp))
             NeuCard(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(horizontal = 16.dp),
                 contentPadding = 4.dp
             ) {
+                BengaliLayoutToggleRow(
+                    title = "Bangla (বাংলা)",
+                    subtitle = "Alphabetical layout (অ আ ক খ)",
+                    active = isAkkhorActive,
+                    canToggle = !isAkkhorActive || currentSubtypes.size > 1,
+                    onToggle = { enabled -> toggleSubtype(akkhorSubtype, enabled) }
+                )
+                Box(
+                    Modifier
+                        .fillMaxWidth()
+                        .height(1.dp)
+                        .background(DividerColor)
+                )
                 BengaliLayoutToggleRow(
                     title = "Avro (অভ্র)",
                     subtitle = "Phonetic typing (ami -> আমি)",

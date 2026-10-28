@@ -227,16 +227,22 @@ object Subtypes {
         }
     }
 
-    fun addLanguage(context: Context, language: Locale, layout: String) {
+    const val MAX_ACTIVE_KEYBOARDS = 3
+
+    fun addLanguage(context: Context, language: Locale, layout: String): Boolean {
+        val currentSetting = context.getSettingBlocking(SubtypesSetting)
+        if (currentSetting.size >= MAX_ACTIVE_KEYBOARDS) {
+            Toast.makeText(context, "Maximum 3 keyboards can be selected at a time", Toast.LENGTH_SHORT).show()
+            return false
+        }
         val value = subtypeToString(
             InputMethodSubtypeBuilder()
                 .setSubtypeLocale(language.stripExtensionsIfNeeded().toString())
                 .setSubtypeExtraValue("KeyboardLayoutSet=$layout")
                 .build()
         )
-        val currentSetting = context.getSettingBlocking(SubtypesSetting)
-
         context.setSettingBlocking(SubtypesSetting.key, currentSetting + setOf(value))
+        return true
     }
 
     fun getName(inputMethodSubtype: InputMethodSubtype): String {

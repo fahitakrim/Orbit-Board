@@ -418,7 +418,13 @@ public final class InputLogic {
      */
     public void finishInput() {
         if (mWordComposer.isComposingWord()) {
-            mConnection.finishComposingText();
+            if (isAvroActive()) {
+                final String typedWord = mWordComposer.getTypedWord();
+                final String bangla = mRidmikParser.toBangla(typedWord);
+                mConnection.commitText(bangla, 1);
+            } else {
+                mConnection.finishComposingText();
+            }
             StatsUtils.onWordCommitUserTyped(
                     mWordComposer.getTypedWord(), mWordComposer.isBatchMode());
         }

@@ -882,6 +882,8 @@ public final class MainKeyboardView extends KeyboardView implements DrawingProxy
             return mHasMultipleEnabledIMEsOrSubtypes ? "\u25C0 \u099C\u09BE\u09A4\u09C0\u09DF \u25B6" : "\u099C\u09BE\u09A4\u09C0\u09DF";
         } else if ("bengali_probhat".equals(layoutSet)) {
             return mHasMultipleEnabledIMEsOrSubtypes ? "\u25C0 \u09AA\u09CD\u09B0\u09AD\u09BE\u09A4 \u25B6" : "\u09AA\u09CD\u09B0\u09AD\u09BE\u09A4";
+        } else if ("bengali_akkhor".equals(layoutSet)) {
+            return mHasMultipleEnabledIMEsOrSubtypes ? "\u25C0 \u09AC\u09BE\u0982\u09B2\u09BE \u25B6" : "\u09AC\u09BE\u0982\u09B2\u09BE";
         }
 
         if (mHasMultipleEnabledIMEsOrSubtypes && (subtype.getRawSubtype().isAsciiCapable() || (subtype.getLocale() != null && "en".equals(subtype.getLocale().getLanguage())))) {

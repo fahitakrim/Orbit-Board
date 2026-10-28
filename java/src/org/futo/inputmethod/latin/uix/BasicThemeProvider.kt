@@ -458,9 +458,24 @@ class BasicThemeProvider(
     }
 
 
+    private var cachedCornerRadius = -1f
+    private var cachedPreviewWidth = 0
+    private var cachedPreviewHeight = 0
+    private var cachedPreviewPadding = 0
+
+    private fun ensureDimensions() {
+        if (cachedCornerRadius < 0f) {
+            cachedCornerRadius = dp(8.dp)
+            cachedPreviewWidth = dp(48.dp).roundToInt()
+            cachedPreviewHeight = dp(24.dp).roundToInt()
+            cachedPreviewPadding = dp(50.dp).roundToInt()
+        }
+    }
+
     override fun getKeyBackground(key: Key, isPressed: Boolean): Drawable? {
         if (!isOrbitTheme) return null
-        return OrbitThemeHelper.getKeyBackground(key, isPressed, dp(8.dp))
+        ensureDimensions()
+        return OrbitThemeHelper.getKeyBackground(key, isPressed, cachedCornerRadius)
     }
 
     override fun getKeyTextColor(key: Key): Int? {
@@ -475,12 +490,13 @@ class BasicThemeProvider(
 
     override fun getKeyPreviewBackground(key: Key): Drawable? {
         if (!isOrbitTheme) return null
+        ensureDimensions()
         return OrbitThemeHelper.getKeyPreviewBackground(
             key,
-            dp(8.dp),
-            dp(48.dp).roundToInt(),
-            dp(24.dp).roundToInt(),
-            dp(50.dp).roundToInt()
+            cachedCornerRadius,
+            cachedPreviewWidth,
+            cachedPreviewHeight,
+            cachedPreviewPadding
         )
     }
 }

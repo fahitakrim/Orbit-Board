@@ -198,14 +198,7 @@ fun LanguageSurface(
                     style = TextHeadingMediumMlStyle
                 )
 
-                Spacer(modifier = Modifier.height(16.dp))
-
-                LanguageConfigurable(
-                    kind = FileKind.Dictionary,
-                    selection = item.options.dictionary ?: "(None)"
-                ) { onConfigurableSelected(FileKind.Dictionary) }
-
-                Spacer(modifier = Modifier.height(20.dp))
+                Spacer(modifier = Modifier.height(14.dp))
 
                 Text(
                     "Keyboard Layouts",
@@ -494,7 +487,11 @@ fun LanguagesScreen(navController: NavHostController = rememberNavController()) 
                 },
                 onLayoutToggled = { layoutKey, enabled ->
                     if (enabled) {
-                        Subtypes.addLanguage(context, locale, layoutKey)
+                        if (inputMethods.size >= Subtypes.MAX_ACTIVE_KEYBOARDS) {
+                            android.widget.Toast.makeText(context, "Maximum 3 keyboards can be selected at a time", android.widget.Toast.LENGTH_SHORT).show()
+                        } else {
+                            Subtypes.addLanguage(context, locale, layoutKey)
+                        }
                     } else {
                         val subtypeToRemove = subtypes.find {
                             (it.getExtraValueOf(Constants.Subtype.ExtraValue.KEYBOARD_LAYOUT_SET) ?: "default") == layoutKey

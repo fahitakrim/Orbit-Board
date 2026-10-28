@@ -251,6 +251,7 @@ public final class RichInputConnection implements PrivateCommandPerformer {
         }
         if (isConnected() && shouldFinishComposition) {
             mIC.finishComposingText();
+            mIC.setSelection(newSelStart, newSelEnd);
         }
         return true;
     }

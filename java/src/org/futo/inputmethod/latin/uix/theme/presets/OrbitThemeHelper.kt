@@ -27,21 +27,21 @@ object OrbitThemeHelper {
     const val COLOR_RED_PRESSED = 0xFF9E2828.toInt()
     const val COLOR_WHITE_PRESSED = 0xFFC8C4BE.toInt()
 
-    private val colorByLabel = mapOf(
-        // Row 1
-        "q" to COLOR_YELLOW, "w" to COLOR_BLUE, "e" to COLOR_DARK, "r" to COLOR_WHITE, "t" to COLOR_RED,
-        "y" to COLOR_BLUE, "u" to COLOR_WHITE, "i" to COLOR_RED, "o" to COLOR_YELLOW, "p" to COLOR_DARK,
-        "1" to COLOR_YELLOW, "2" to COLOR_BLUE, "3" to COLOR_DARK, "4" to COLOR_WHITE, "5" to COLOR_RED,
-        "6" to COLOR_BLUE, "7" to COLOR_WHITE, "8" to COLOR_RED, "9" to COLOR_YELLOW, "0" to COLOR_DARK,
-        // Row 2
-        "a" to COLOR_WHITE, "s" to COLOR_RED, "d" to COLOR_BLUE, "f" to COLOR_DARK, "g" to COLOR_YELLOW,
-        "h" to COLOR_WHITE, "j" to COLOR_RED, "k" to COLOR_BLUE, "l" to COLOR_DARK,
-        // Row 3
-        "z" to COLOR_DARK, "x" to COLOR_YELLOW, "c" to COLOR_WHITE, "v" to COLOR_RED, "b" to COLOR_BLUE,
-        "n" to COLOR_DARK, "m" to COLOR_YELLOW,
-        // Punctuation
-        "," to COLOR_WHITE, "." to COLOR_DARK
-    )
+    private val colorByLabel = buildMap<String, Int> {
+        val base = mapOf(
+            "q" to COLOR_YELLOW, "w" to COLOR_BLUE, "e" to COLOR_DARK, "r" to COLOR_WHITE, "t" to COLOR_RED,
+            "y" to COLOR_BLUE, "u" to COLOR_WHITE, "i" to COLOR_RED, "o" to COLOR_YELLOW, "p" to COLOR_DARK,
+            "1" to COLOR_YELLOW, "2" to COLOR_BLUE, "3" to COLOR_DARK, "4" to COLOR_WHITE, "5" to COLOR_RED,
+            "6" to COLOR_BLUE, "7" to COLOR_WHITE, "8" to COLOR_RED, "9" to COLOR_YELLOW, "0" to COLOR_DARK,
+            "a" to COLOR_WHITE, "s" to COLOR_RED, "d" to COLOR_BLUE, "f" to COLOR_DARK, "g" to COLOR_YELLOW,
+            "h" to COLOR_WHITE, "j" to COLOR_RED, "k" to COLOR_BLUE, "l" to COLOR_DARK,
+            "z" to COLOR_DARK, "x" to COLOR_YELLOW, "c" to COLOR_WHITE, "v" to COLOR_RED, "b" to COLOR_BLUE,
+            "n" to COLOR_DARK, "m" to COLOR_YELLOW,
+            "," to COLOR_WHITE, "." to COLOR_DARK
+        )
+        putAll(base)
+        base.forEach { (k, v) -> put(k.uppercase(), v) }
+    }
 
     private val row1Colors = intArrayOf(
         COLOR_YELLOW, COLOR_BLUE, COLOR_DARK, COLOR_WHITE, COLOR_RED,
@@ -144,7 +144,6 @@ object OrbitThemeHelper {
     fun getKeyBaseColor(key: Key): Int {
         val code = key.code
         val rawLabel = key.label
-        val label = rawLabel?.lowercase()
 
         if (code == Constants.CODE_SHIFT) return COLOR_YELLOW
         if (code == Constants.CODE_DELETE) return COLOR_WHITE
@@ -179,8 +178,9 @@ object OrbitThemeHelper {
             return COLOR_DARK
         }
 
-        if (label != null && colorByLabel.containsKey(label)) {
-            return colorByLabel[label]!!
+        if (rawLabel != null) {
+            val c = colorByLabel[rawLabel]
+            if (c != null) return c
         }
 
         // Coordinate-based fallback for Bengali / other script layouts
