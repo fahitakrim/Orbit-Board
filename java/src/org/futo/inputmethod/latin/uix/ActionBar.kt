@@ -553,7 +553,7 @@ fun ExpandActionsButton(isActionsOpen: Boolean, onClick: () -> Unit) {
             .width(42.dp)
             .rotate(
                 if (isActionsOpen) {
-                    -90.0f
+                    90.0f
                 } else {
                     0.0f
                 }
@@ -682,49 +682,59 @@ fun ActionBar(
                     )
                 }
 
-                if(isActionsExpanded) {
-                    Box(modifier = Modifier
-                        .weight(1.0f)
-                        .fillMaxHeight()) {
-                        ActionItems(onActionActivated, onActionAltActivated)
-                    }
+                if (importantNotice != null) {
+                    ImportantNoticeView(importantNotice)
                 } else {
-                    if (importantNotice != null) {
-                        ImportantNoticeView(importantNotice)
-                    } else {
-                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-                            AnimatedVisibility(
-                                inlineSuggestions.isNotEmpty(),
-                                enter = fadeIn(),
-                                exit = fadeOut()
-                            ) {
-                                InlineSuggestions(inlineSuggestions)
-                            }
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+                        AnimatedVisibility(
+                            inlineSuggestions.isNotEmpty(),
+                            enter = fadeIn(),
+                            exit = fadeOut()
+                        ) {
+                            InlineSuggestions(inlineSuggestions)
                         }
-
-                        if (words != null && inlineSuggestions.isEmpty()) {
-                            SuggestionItems(
-                                words,
-                                onClick = {
-                                    suggestionStripListener.pickSuggestionManually(
-                                        words.getInfo(it)
-                                    )
-                                    keyboardManagerForAction?.performHapticAndAudioFeedback(
-                                        Constants.CODE_TAB,
-                                        view
-                                    )
-                                },
-                                onLongClick = {
-                                    suggestionStripListener.requestForgetWord(
-                                        words.getInfo(it)
-                                    )
-                                })
-                        } else {
-                            Spacer(modifier = Modifier.weight(1.0f))
-                        }
-
-                        PinnedActionItems(onActionActivated, onActionAltActivated)
                     }
+
+                    if (words != null && inlineSuggestions.isEmpty()) {
+                        SuggestionItems(
+                            words,
+                            onClick = {
+                                suggestionStripListener.pickSuggestionManually(
+                                    words.getInfo(it)
+                                )
+                                keyboardManagerForAction?.performHapticAndAudioFeedback(
+                                    Constants.CODE_TAB,
+                                    view
+                                )
+                            },
+                            onLongClick = {
+                                suggestionStripListener.requestForgetWord(
+                                    words.getInfo(it)
+                                )
+                            })
+                    } else {
+                        Spacer(modifier = Modifier.weight(1.0f))
+                    }
+
+                    PinnedActionItems(onActionActivated, onActionAltActivated)
+                }
+            }
+        }
+
+        if (isActionsExpanded) {
+            ActionSep()
+            Surface(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(actionBarHeight),
+                color = MaterialTheme.colorScheme.background
+            ) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .fillMaxHeight()
+                ) {
+                    ActionItems(onActionActivated, onActionAltActivated)
                 }
             }
         }

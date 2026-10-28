@@ -1,4 +1,4 @@
-﻿package org.futo.inputmethod.latin.uix.settings.pages
+package org.futo.inputmethod.latin.uix.settings.pages
 
 import android.content.Context
 import androidx.compose.foundation.ExperimentalFoundationApi
@@ -511,6 +511,17 @@ fun TypingScreen(navController: NavHostController = rememberNavController()) {
             key = Settings.PREF_ENABLE_NUMBER_ROW,
             default = false,
             icon = { Text("123", style = TextBodyRegularMlStyle, color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.75f)) }
+        )
+
+        SettingToggleSharedPrefs(
+            title = "Pin Name on Spacebar",
+            subtitle = "Keep active keyboard name visible on spacebar. When off, it shows briefly then fades out.",
+            key = Settings.PREF_PIN_KEYBOARD_NAME_ON_SPACEBAR,
+            default = true,
+            icon = {
+                Icon(painterResource(id = R.drawable.keyboard), contentDescription = null,
+                    tint = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.75f))
+            }
         )
 
         NavigationItem(

@@ -1,4 +1,4 @@
-﻿package org.futo.inputmethod.latin.uix.settings.pages
+package org.futo.inputmethod.latin.uix.settings.pages
 
 import android.content.Intent
 import android.widget.Toast
@@ -141,6 +141,7 @@ fun HomeScreen(navController: NavHostController = rememberNavController()) {
     // Announcement manager & state
     val (actionBarShown, setActionBarShown) = useDataStore(ActionBarDisplayedSetting)
     val (isNumberRowActive, setNumberRowActive) = useSharedPrefsBool(Settings.PREF_ENABLE_NUMBER_ROW, false)
+    val (isPinSpacebarActive, setPinSpacebarActive) = useSharedPrefsBool(Settings.PREF_PIN_KEYBOARD_NAME_ON_SPACEBAR, true)
 
     val announcementManager = remember { AnnouncementManager.getInstance(context) }
     val availableAnnouncement by announcementManager.availableAnnouncement.collectAsState()
@@ -348,8 +349,8 @@ fun HomeScreen(navController: NavHostController = rememberNavController()) {
 
             Spacer(modifier = Modifier.height(14.dp))
 
-            // 3. KEYBOARD ROWS
-            SectionHeader(title = "Keyboard Rows", modifier = Modifier.padding(horizontal = 16.dp))
+            // 3. KEYBOARD ROWS & SPACEBAR
+            SectionHeader(title = "Keyboard Rows & Spacebar", modifier = Modifier.padding(horizontal = 16.dp))
             NeuCard(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -375,6 +376,19 @@ fun HomeScreen(navController: NavHostController = rememberNavController()) {
                     active = isNumberRowActive,
                     canToggle = true,
                     onToggle = { enabled -> setNumberRowActive(enabled) }
+                )
+                Box(
+                    Modifier
+                        .fillMaxWidth()
+                        .height(1.dp)
+                        .background(DividerColor)
+                )
+                BengaliLayoutToggleRow(
+                    title = "Pin Name on Spacebar",
+                    subtitle = if (isPinSpacebarActive) "Always show active keyboard name on spacebar" else "Show briefly when switching, then fade out",
+                    active = isPinSpacebarActive,
+                    canToggle = true,
+                    onToggle = { enabled -> setPinSpacebarActive(enabled) }
                 )
             }
 

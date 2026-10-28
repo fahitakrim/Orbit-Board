@@ -73,7 +73,7 @@
             latin:visualInsetsRight="1%p" />
         <switch>
             <case latin:keyboardLayoutSetElement="alphabetManualShifted|alphabetShiftLocked|alphabetShiftLockShifted">
-                <Key latin:keySpec="&#x09AF;" latin:moreKeys="&#x09CD;&#x09AF;,&#x09DF;,&#x09B0;&#x09CD;&#x200D;&#x09AF;,!noPanelAutoMoreKey!" />
+                <Key latin:keySpec="&#x09AF;" latin:moreKeys="!fixedColumnOrder!3,!needsDividers!,&#x09CD;&#x09AF;,&#x09DF;,&#x09B0;&#x09CD;&#x200D;&#x09AF;" />
                 <Key latin:keySpec="&#x09DD;" />
                 <Key latin:keySpec="&#x099B;" />
                 <Key latin:keySpec="&#x098B;" latin:moreKeys="&#x09C3;,!noPanelAutoMoreKey!" />
@@ -84,7 +84,7 @@
                 <Key latin:keySpec="&#x0981;" />
             </case>
             <default>
-                <Key latin:keySpec="&#x09DF;" latin:moreKeys="&#x09CD;&#x09AF;,&#x09AF;,&#x09B0;&#x09CD;&#x200D;&#x09AF;,!noPanelAutoMoreKey!" />
+                <Key latin:keySpec="&#x09DF;" latin:moreKeys="!fixedColumnOrder!3,!needsDividers!,&#x09CD;&#x09AF;,&#x09AF;,&#x09B0;&#x09CD;&#x200D;&#x09AF;" />
                 <Key latin:keySpec="&#x09B6;" latin:moreKeys="&#x09DD;,!noPanelAutoMoreKey!" />
                 <Key latin:keySpec="&#x099A;" latin:moreKeys="&#x099B;,!noPanelAutoMoreKey!" />
                 <Key latin:keySpec="&#x0986;" latin:moreKeys="&#x098B;,!noPanelAutoMoreKey!,&#x09C3;" />

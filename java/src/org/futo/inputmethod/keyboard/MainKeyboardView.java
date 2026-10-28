@@ -828,7 +828,7 @@ public final class MainKeyboardView extends KeyboardView implements DrawingProxy
             mLanguageOnSpacebarFormatType = LanguageOnSpacebarUtils.FORMAT_TYPE_NONE;
         } else {
             if (subtypeChanged
-                    && languageOnSpacebarFormatType != LanguageOnSpacebarUtils.FORMAT_TYPE_NONE) {
+                    && (mHasMultipleEnabledIMEsOrSubtypes || languageOnSpacebarFormatType != LanguageOnSpacebarUtils.FORMAT_TYPE_NONE)) {
                 setLanguageOnSpacebarAnimAlpha(Constants.Color.ALPHA_OPAQUE);
                 if (animator.isStarted()) {
                     animator.cancel();
