@@ -935,21 +935,13 @@ public final class PointerTracker implements PointerTrackerQueue.Element,
 
         if (mIsSlidingCursor && oldKey != null && oldKey.getCode() == Constants.CODE_SPACE) {
             int pointerStep = sPointerStep;
-            if(settingsValues.mSpacebarMode == Settings.SPACEBAR_MODE_SWIPE_LANGUAGE && !mSpacebarLongPressed) {
-                pointerStep = sPointerHugeStep;
-            }
 
             int steps = (x - mStartX) / pointerStep;
-            final int swipeIgnoreTime = settingsValues.mKeyLongpressTimeout / MULTIPLIER_FOR_LONG_PRESS_TIMEOUT_IN_SLIDING_INPUT;
-            if (steps != 0 && mStartTime + swipeIgnoreTime < System.currentTimeMillis()) {
+            if (steps != 0) {
+                sTimerProxy.cancelKeyTimersOf(this);
                 mCursorMoved = true;
                 mStartX += steps * pointerStep;
-
-                if(settingsValues.mSpacebarMode == Settings.SPACEBAR_MODE_SWIPE_LANGUAGE && !mSpacebarLongPressed) {
-                    sListener.onSwipeLanguage(steps);
-                } else {
-                    sListener.onMovePointer(steps);
-                }
+                sListener.onMovePointer(steps);
             }
 
             mLastX = x;
@@ -1202,6 +1194,9 @@ public final class PointerTracker implements PointerTrackerQueue.Element,
                 }
             }
             if (code == Constants.CODE_SPACE || code == Constants.CODE_LANGUAGE_SWITCH) {
+                if (mCursorMoved) {
+                    return;
+                }
                 int spacebarMode = Settings.getInstance().getCurrent().mSpacebarMode;
                 if(spacebarMode == Settings.SPACEBAR_MODE_SWIPE_LANGUAGE) {
                     mSpacebarLongPressed = true;

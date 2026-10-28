@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.GridItemSpan
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
@@ -287,24 +288,29 @@ fun ThemePicker(onSelected: (ThemeOption) -> Unit) {
 
                 item(span = { GridItemSpan(maxCurrentLineSpan) }) {
                     CompositionLocalProvider(LocalLayoutDirection provides originalDirection) {
-                        SettingToggleDataStore(
-                            title = "Key borders",
-                            setting = KeyBordersSetting
-                        )
+                        Column(modifier = Modifier.fillMaxWidth()) {
+                            SettingToggleDataStore(
+                                title = "Key borders",
+                                setting = KeyBordersSetting
+                            )
+                            Spacer(modifier = Modifier.height(16.dp))
+                        }
                     }
                 }
 
                 item(span = { GridItemSpan(maxCurrentLineSpan) }) {
                     CompositionLocalProvider(LocalLayoutDirection provides originalDirection) {
-                        SettingRadio(
-                            title = "Spacebar Color",
-                            options = listOf("default", "red", "blue", "yellow", "white", "dark"),
-                            optionNames = listOf("Default", "Matte Red", "Matte Blue", "Matte Yellow", "Matte White", "Matte Dark"),
-                            setting = useDataStore(
-                                key = SpacebarColorSetting.key,
-                                default = SpacebarColorSetting.default
+                        Column(modifier = Modifier.fillMaxWidth()) {
+                            SettingRadio(
+                                title = "Spacebar Color",
+                                options = listOf("default", "red", "blue", "yellow", "white", "dark"),
+                                optionNames = listOf("Default", "Matte Red", "Matte Blue", "Matte Yellow", "Matte White", "Matte Dark"),
+                                setting = useDataStore(
+                                    key = SpacebarColorSetting.key,
+                                    default = SpacebarColorSetting.default
+                                )
                             )
-                        )
+                        }
                     }
                 }
             }

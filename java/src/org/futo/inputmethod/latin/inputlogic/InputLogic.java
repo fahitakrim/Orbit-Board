@@ -2847,6 +2847,7 @@ public final class InputLogic {
 
             for(int i=0; i<steps; i++)
                 sendDownUpKeyEvent(KeyEvent.KEYCODE_DPAD_LEFT, meta);
+            return;
         }
 
         finishInput();
@@ -2871,6 +2872,7 @@ public final class InputLogic {
 
             for(int i=0; i<steps; i++)
                 sendDownUpKeyEvent(KeyEvent.KEYCODE_DPAD_RIGHT, meta);
+            return;
         }
 
         finishInput();

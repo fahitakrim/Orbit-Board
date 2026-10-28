@@ -306,8 +306,8 @@ fun<T> SettingRadio(
     optionNames: List<String>,
     setting: DataStoreItem<T>,
 ) {
-    ScreenTitle(title, showBack = false)
-    Column {
+    Column(modifier = Modifier.fillMaxWidth()) {
+        ScreenTitle(title, showBack = false)
         options.zip(optionNames).forEach {
             SettingItem(title = it.second, onClick = { setting.setValue(it.first) }, icon = {
                 RadioButton(selected = setting.value == it.first, onClick = null)

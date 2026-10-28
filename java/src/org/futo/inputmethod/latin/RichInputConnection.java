@@ -1105,25 +1105,29 @@ public final class RichInputConnection implements PrivateCommandPerformer {
             CharSequence charsBeforeCursor = !rightSidePointer && hasSelection() ?
                     getSelectedText(0) :
                     getTextBeforeCursor(-chars * 2, 0);
-            if (charsBeforeCursor != null) {
+            if (charsBeforeCursor != null && charsBeforeCursor.length() > 0) {
                 for (int i = charsBeforeCursor.length() - 1; i >= 0 && chars < 0; i--, chars++, steps--) {
                     if (Character.isSurrogate(charsBeforeCursor.charAt(i))) {
                         steps--;
                         i--;
                     }
                 }
+            } else {
+                steps = chars;
             }
         } else if (chars > 0) {
             CharSequence charsAfterCursor = rightSidePointer && hasSelection() ?
                     getSelectedText(0) :
                     getTextAfterCursor(chars * 2, 0);
-            if (charsAfterCursor != null) {
+            if (charsAfterCursor != null && charsAfterCursor.length() > 0) {
                 for (int i = 0; i < charsAfterCursor.length() && chars > 0; i++, chars--, steps++) {
                     if (Character.isSurrogate(charsAfterCursor.charAt(i))) {
                         steps++;
                         i++;
                     }
                 }
+            } else {
+                steps = chars;
             }
         }
         return steps;
