@@ -216,12 +216,28 @@ class UixActionKeyboardManager(val uixManager: UixManager, val latinIME: LatinIM
     }
 
     override fun triggerSystemVoiceInput() {
-        latinIME.latinIMELegacy.onCodeInput(
-            Constants.CODE_SHORTCUT,
-            Constants.SUGGESTION_STRIP_COORDINATE,
-            Constants.SUGGESTION_STRIP_COORDINATE,
-            false
-        );
+        val richImm = org.futo.inputmethod.latin.RichInputMethodManager.getInstance()
+        if (richImm != null && richImm.isShortcutImeReady) {
+            latinIME.latinIMELegacy.onCodeInput(
+                Constants.CODE_SHORTCUT,
+                Constants.SUGGESTION_STRIP_COORDINATE,
+                Constants.SUGGESTION_STRIP_COORDINATE,
+                false
+            )
+        } else {
+            try {
+                val locale = getActiveLocale()
+                val intent = android.content.Intent(android.speech.RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
+                    putExtra(android.speech.RecognizerIntent.EXTRA_LANGUAGE_MODEL, android.speech.RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
+                    putExtra(android.speech.RecognizerIntent.EXTRA_LANGUAGE, locale.toLanguageTag())
+                    putExtra(android.speech.RecognizerIntent.EXTRA_PROMPT, "Speak now...")
+                    flags = android.content.Intent.FLAG_ACTIVITY_NEW_TASK
+                }
+                latinIME.startActivity(intent)
+            } catch (e: Exception) {
+                uixManager.onActionActivated(org.futo.inputmethod.latin.uix.actions.VoiceInputAction)
+            }
+        }
     }
 
     override fun updateTheme(newTheme: ThemeOption) {

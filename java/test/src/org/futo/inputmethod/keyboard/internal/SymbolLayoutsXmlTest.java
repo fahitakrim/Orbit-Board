@@ -240,6 +240,7 @@ public class SymbolLayoutsXmlTest {
                 "keyboard_layout_set_qwerty.xml",
                 "keyboard_layout_set_bengali_avro.xml",
                 "keyboard_layout_set_bengali_jatiyo.xml",
+                "keyboard_layout_set_bengali_jatiyo_classic.xml",
                 "keyboard_layout_set_bengali_probhat.xml",
                 "keyboard_layout_set_bengali.xml"
         };

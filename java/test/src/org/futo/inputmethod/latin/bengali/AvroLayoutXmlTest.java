@@ -140,7 +140,7 @@ public class AvroLayoutXmlTest {
         assertEquals("\"", keyHints.get("z"));
         assertEquals("'", keyHints.get("b"));
         assertEquals(":", keyHints.get("n"));
-        assertEquals("/", keyHints.get("m"));
+        assertEquals("?", keyHints.get("m"));
     }
 
     @Test

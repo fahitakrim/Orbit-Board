@@ -65,7 +65,7 @@ val SystemVoiceInputAction = Action(
     },
     persistentState = null,
     windowImpl = null,
-    shownInEditor = false
+    shownInEditor = true
 )
 
 
@@ -280,7 +280,7 @@ val VoiceInputAction = Action(icon = R.drawable.mic_fill,
     simplePressImpl = null,
     keepScreenAwake = true,
     persistentState = { VoiceInputPersistentState(it) },
-    shownInEditor = false,
+    shownInEditor = true,
     windowImpl = { manager, persistentState ->
         val locale = manager.getActiveLocale()
 

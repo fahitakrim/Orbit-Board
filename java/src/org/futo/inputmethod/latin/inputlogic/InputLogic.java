@@ -1109,6 +1109,15 @@ public final class InputLogic {
                     resetEntireInputState(mConnection.getExpectedSelectionStart(),
                             mConnection.getExpectedSelectionEnd(), true /* clearSuggestionStrip */);
                 }
+                if (codePoint == '.') {
+                    final CharSequence before = mConnection.getTextBeforeCursor(1, 0);
+                    if (before != null && before.length() > 0 && before.charAt(before.length() - 1) == '.') {
+                        mConnection.deleteSurroundingText(1, 0);
+                        mConnection.commitText("\u0964", 1);
+                        inputTransaction.setRequiresUpdateSuggestions();
+                        return;
+                    }
+                }
                 mConnection.commitText(StringUtils.newSingleCodePointString(codePoint), 1);
                 inputTransaction.setRequiresUpdateSuggestions();
                 return;

@@ -885,7 +885,7 @@ public final class MainKeyboardView extends KeyboardView implements DrawingProxy
         final String layoutSet = subtype.getKeyboardLayoutSetName();
         if ("bengali_avro".equals(layoutSet)) {
             return "\u0985\u09AD\u09CD\u09B0";
-        } else if ("bengali_jatiyo".equals(layoutSet)) {
+        } else if ("bengali_jatiyo".equals(layoutSet) || "bengali_jatiyo_classic".equals(layoutSet)) {
             return "\u099C\u09BE\u09A4\u09C0\u09DF";
         } else if ("bengali_probhat".equals(layoutSet)) {
             return "\u09AA\u09CD\u09B0\u09AD\u09BE\u09A4";
