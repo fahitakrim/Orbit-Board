@@ -1,5 +1,11 @@
 # Orbit Board 🪐 — The Ultimate Nothing OS Aesthetic & Privacy-First Android Keyboard
 
+> [!IMPORTANT]
+> 🚀 **Latest Release Available:** [**Orbit Board v1.2.3**](https://github.com/fahitakrim/Orbit-Board/releases/tag/v1.2.3) is now available! Featuring **Voice Typing**, our **Complete UI Redesign** (Concept & Figma design by [Ali](https://www.facebook.com/aalidmg)), **Real-Time Keyboard Resizer**, and **Instant Bangla Number Pad Switcher**.
+> 📲 **Direct Downloads:** [⬇️ Download ARM64 APK (v1.2.3)](https://github.com/fahitakrim/Orbit-Board/releases/download/v1.2.3/Orbit-Board-v1.2.3-arm64.apk) | [⬇️ Download Universal APK](https://github.com/fahitakrim/Orbit-Board/releases/download/v1.2.3/Orbit-Board-v1.2.3-universal.apk)
+> 🔒 *This public repository preserves the open-source code up to v1.0.8. Newer versions (v1.2.3+) are maintained in private development and distributed via official release binaries.*
+
+
 [![Release](https://img.shields.io/badge/Release-v1.0.8%20Stable-E5252A?style=for-the-badge&logo=android&logoColor=white)](https://github.com/fahitakrim/Orbit-Board/releases/tag/v1.0.8)
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue?style=for-the-badge)](LICENSE.md)
 [![Platform](https://img.shields.io/badge/Platform-Android%207.0%2B%20(API%2024--35)-black?style=for-the-badge&logo=google)](https://developer.android.com)
