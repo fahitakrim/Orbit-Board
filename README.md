@@ -136,6 +136,29 @@ When reporting a bug, please include:
 
 ---
 
+
+---
+
+## 🎙️ Voice Typing and Microphone Permission
+
+If your voice typing is not responding or the microphone does not detect audio, Android may have restricted microphone access by default. Follow these steps to grant permission:
+
+1. **Quick Method:**
+   - On your home screen or app drawer, **long-press the Orbit Board app icon**.
+   - Tap **App info** (the ⓘ icon).
+   - Go to **Permissions** -> **Microphone**.
+   - Select **"Allow only while using the app"**.
+
+2. **From Android Settings:**
+   - Open your phone's **Settings** app.
+   - Navigate to **Apps** (or *Apps & Notifications*) -> **Orbit Board**.
+   - Tap **Permissions** -> **Microphone** -> Select **Allow**.
+
+3. **Mute Audio Click Feedback (Optional):**
+   - If you want completely silent voice typing without the microphone activation click sound, open **Orbit Board** -> **Keyboard** tab (or **More Settings**) -> **Typing** -> Toggle **Mute Voice Typing Sound**.
+
+*Note: Orbit Board operates 100% offline. Microphone audio is processed entirely on-device and is never recorded, stored, or sent to any server.*
+
 ## 📄 License & Legal Notice
 
 Orbit Board is released under the **Apache License 2.0**.
