@@ -24,6 +24,7 @@
 
     <string name="amoled_dark_theme_name">AMOLED Dark Purple</string>
     <string name="theme_orbit">Orbit Theme</string>
+    <string name="theme_bakery">Taiyaki Bakery</string>
     <string name="amoled_nothing_theme_name">Nothing</string>
     <string name="nothing_light_theme_name">Nothing Light</string>
     <string name="nothing_dark_theme_name">Nothing Dark</string>
@@ -102,4 +103,5 @@
     <string name="thank_you_for_using_paid">Thank you for using the paid version of FUTO Keyboard!</string>
     <string name="payment_text_3">Note: If you already paid for either FUTO Keyboard or FUTO Voice Input in the past, feel free to tap I already paid.</string>
     <string name="payment_processing_note">If you just paid, your payment may still be processing, you should get an email with more information.</string>
+    <string name="action_number_pad">Number Pad</string>
 </resources>

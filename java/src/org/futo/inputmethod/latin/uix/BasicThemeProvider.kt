@@ -13,6 +13,7 @@ import android.util.TypedValue
 import androidx.annotation.ColorInt
 import org.futo.inputmethod.keyboard.Key
 import org.futo.inputmethod.latin.uix.theme.presets.OrbitThemeHelper
+import org.futo.inputmethod.latin.uix.theme.presets.BakeryThemeHelper
 import androidx.appcompat.content.res.AppCompatResources
 import androidx.compose.material3.ColorScheme
 import androidx.compose.material3.dynamicLightColorScheme
@@ -39,7 +40,8 @@ val HiddenKeysSetting = SettingsKey(booleanPreferencesKey("hiddenKeys"), false)
 val KeyHintsSetting   = SettingsKey(booleanPreferencesKey("keyHints"), true)
 val KeyboardFontSetting = SettingsKey(stringPreferencesKey("keyboard_font"), "nothing")
 val KeyHintColorSetting = SettingsKey(stringPreferencesKey("key_hint_color"), "subtle")
-val SpacebarColorSetting = SettingsKey(stringPreferencesKey("spacebar_color"), "default")
+val SpacebarColorSetting = SettingsKey(stringPreferencesKey("spacebar_color"), "theme")
+val SpacebarBorderSetting = SettingsKey(stringPreferencesKey("spacebar_border"), "none")
 
 val KeyboardHeightMultiplierSetting = SettingsKey(floatPreferencesKey("keyboardHeightMultiplier"), 1.0f)
 val KeyboardBottomOffsetSetting = SettingsKey(floatPreferencesKey("keyboardOffset"), 0.0f)
@@ -78,6 +80,7 @@ class BasicThemeProvider(
 ) : DynamicThemeProvider {
     val currentThemeKey: String = themeKey ?: context.getSettingBlocking(THEME_KEY)
     val isOrbitTheme: Boolean = currentThemeKey == "OrbitTheme"
+    val isBakeryTheme: Boolean = currentThemeKey == "BakeryTheme"
     override val primaryKeyboardColor: Int
     override val keyColor: Int
 
@@ -167,6 +170,10 @@ class BasicThemeProvider(
     val keyboardHeight: Float
     val keyboardFont: String
     val spacebarColorPref: String
+    val spacebarBorderPref: String
+    val isNothingDarkTheme: Boolean = currentThemeKey == "NothingDark" || currentThemeKey == "AMOLEDNothing" || currentThemeKey == "DynamicNothing"
+    val popupBgColor: Int
+    val popupTextColor: Int
     override val keyboardTypeface: Typeface?
 
     fun hasUpdated(np: Preferences): Boolean {
@@ -177,6 +184,7 @@ class BasicThemeProvider(
                 || np.get(KeyboardHeightMultiplierSetting) != keyboardHeight
                 || np.get(KeyboardFontSetting) != keyboardFont
                 || np.get(SpacebarColorSetting) != spacebarColorPref
+                || np.get(SpacebarBorderSetting) != spacebarBorderPref
     }
 
 
@@ -211,24 +219,33 @@ class BasicThemeProvider(
         keyboardHeight = context.getSettingBlocking(KeyboardHeightMultiplierSetting)
         keyboardFont = context.getSettingBlocking(KeyboardFontSetting)
         spacebarColorPref = context.getSettingBlocking(SpacebarColorSetting)
+        spacebarBorderPref = context.getSettingBlocking(SpacebarBorderSetting)
+        val primary = colorScheme.primary.toArgb()
         val customSpaceColor = when (spacebarColorPref) {
+            "theme" -> primary
             "red" -> OrbitThemeHelper.COLOR_RED
             "blue" -> OrbitThemeHelper.COLOR_BLUE
             "yellow" -> OrbitThemeHelper.COLOR_YELLOW
             "white" -> OrbitThemeHelper.COLOR_WHITE
             "dark" -> OrbitThemeHelper.COLOR_DARK
-            else -> null
+            "default" -> null
+            else -> primary
         }
         OrbitThemeHelper.customSpacebarColor = customSpaceColor
         keyboardTypeface = if (isOrbitTheme) {
             ResourcesCompat.getFont(context, R.font.ndot_family) ?: Typeface.DEFAULT
+        } else if (isBakeryTheme) {
+            try {
+                Typeface.create("sans-serif-rounded", Typeface.BOLD)
+            } catch (e: Exception) {
+                Typeface.DEFAULT_BOLD
+            }
         } else if (keyboardFont == "normal") {
             Typeface.DEFAULT
         } else {
             ResourcesCompat.getFont(context, R.font.ndot_family)
         }
 
-        val primary = colorScheme.primary.toArgb()
         val secondary = colorScheme.secondary.toArgb()
         val highlight = colorScheme.outline.copy(alpha = 0.33f).toArgb()
 
@@ -242,13 +259,15 @@ class BasicThemeProvider(
         val onPrimary = colorScheme.onPrimary.toArgb()
         val onPrimaryThird = colorScheme.onPrimary.copy(alpha = 0.33f).toArgb()
         val onSecondary = colorScheme.onSecondary.toArgb()
-        val onBackground = colorScheme.onBackground.toArgb()
-        val onBackgroundHalf = colorScheme.onBackground.copy(alpha = 0.5f).toArgb()
-        val onBackgroundThird = colorScheme.onBackground.copy(alpha = 0.33f).toArgb()
+        val onBackground = if (isBakeryTheme) 0xFF3C2415.toInt() else colorScheme.onBackground.toArgb()
+        val onBackgroundHalf = if (isBakeryTheme) 0x883C2415.toInt() else colorScheme.onBackground.copy(alpha = 0.5f).toArgb()
+        val onBackgroundThird = if (isBakeryTheme) 0x553C2415.toInt() else colorScheme.onBackground.copy(alpha = 0.33f).toArgb()
 
         val transparent = Color.Transparent.toArgb()
         val yellowAccent = 0xFFFFCC00.toInt()
-        primaryKeyboardColor = if(keyBorders) {
+        primaryKeyboardColor = if (isBakeryTheme) {
+            0xFFFBF4DE.toInt()
+        } else if(keyBorders) {
             colorScheme.background.toArgb()
         } else {
             colorScheme.surface.toArgb()
@@ -288,8 +307,10 @@ class BasicThemeProvider(
         colors[R.styleable.Keyboard_Key_keyHintLabelColor] = hintColor
         colors[R.styleable.Keyboard_Key_keyShiftedLetterHintInactivatedColor] = hintColor
         colors[R.styleable.Keyboard_Key_keyShiftedLetterHintActivatedColor] = hintColor
-        colors[R.styleable.Keyboard_Key_keyPreviewTextColor] = onSecondary
-        colors[R.styleable.MainKeyboardView_languageOnSpacebarTextColor] = yellowAccent
+        popupBgColor = if (isNothingDarkTheme) 0xFFD71921.toInt() else if (isBakeryTheme) 0xFFFFF2D8.toInt() else primary
+        popupTextColor = if (isBakeryTheme) 0xFF3C2415.toInt() else if (ColorUtils.calculateLuminance(popupBgColor) > 0.5) 0xFF1C1D20.toInt() else 0xFFFFFFFF.toInt()
+        colors[R.styleable.Keyboard_Key_keyPreviewTextColor] = popupTextColor
+        colors[R.styleable.MainKeyboardView_languageOnSpacebarTextColor] = if (isBakeryTheme) 0xFF3C2415.toInt() else yellowAccent
         colors[R.styleable.MainKeyboardView_gestureTrailColor] = primary
         colors[R.styleable.MainKeyboardView_slidingKeyInputPreviewColor] = primary
 
@@ -297,6 +318,7 @@ class BasicThemeProvider(
         addIcon(KeyboardIconsSet.NAME_SHIFT_KEY_SHIFTED, R.drawable.nth_shifted, onBackground)
         addIcon(KeyboardIconsSet.NAME_DELETE_KEY, R.drawable.nth_delete, onBackground)
         addIcon(KeyboardIconsSet.NAME_SETTINGS_KEY, R.drawable.settings, onBackground)
+        addIcon(KeyboardIconsSet.NAME_SHORTCUT_KEY, R.drawable.mic, onBackground)
         addIcon(KeyboardIconsSet.NAME_SPACE_KEY, null, onBackground)
         addIcon(KeyboardIconsSet.NAME_ENTER_KEY, R.drawable.nth_enter, enterKeyForeground)
         addIcon(KeyboardIconsSet.NAME_GO_KEY, R.drawable.sym_keyboard_go_lxx_light, enterKeyForeground)
@@ -340,10 +362,10 @@ class BasicThemeProvider(
             colors[R.styleable.Keyboard_Key_functionalTextColor] = onBackgroundThird
         }
 
-        keyboardBackground = if (isOrbitTheme) {
-            coloredRectangle(0xFF000000.toInt())
-        } else {
-            coloredRectangle(primaryKeyboardColor)
+        keyboardBackground = when {
+            isOrbitTheme -> coloredRectangle(0xFF000000.toInt())
+            isBakeryTheme -> coloredRectangle(0xFFFBF4DE.toInt())
+            else -> coloredRectangle(primaryKeyboardColor)
         }
 
         keyBackground = StateListDrawable().apply {
@@ -395,20 +417,31 @@ class BasicThemeProvider(
             48.dp
         }
 
+        val strokeColor: Int? = when (spacebarBorderPref) {
+            "accent" -> primary
+            "yellow" -> yellowAccent
+            "red" -> 0xFFD71921.toInt()
+            "white" -> 0xFFFFFFFF.toInt()
+            "none" -> null
+            else -> null
+        }
+        OrbitThemeHelper.customSpacebarBorderColor = strokeColor
+        OrbitThemeHelper.customSpacebarBorderWidth = if (strokeColor != null) dp(1.5.dp).roundToInt() else 0
+
         val effectiveSpaceColor = customSpaceColor ?: (if(keyBorders) keyColor else highlight)
         val spaceDrawable = if(customSpaceColor != null) {
             coloredRoundedRectangle(effectiveSpaceColor, dp(spaceCornerRadius)).apply {
-                setStroke(dp(1.5.dp).roundToInt(), if (spacebarColorPref == "yellow") OrbitThemeHelper.COLOR_DARK else yellowAccent)
+                if (strokeColor != null) setStroke(dp(1.5.dp).roundToInt(), strokeColor)
             }
         } else if(keyBorders) {
             coloredRoundedRectangle(keyColor, dp(spaceCornerRadius)).apply {
-                setStroke(dp(1.5.dp).roundToInt(), yellowAccent)
+                if (strokeColor != null) setStroke(dp(1.5.dp).roundToInt(), strokeColor)
             }
         } else if(expertMode) {
-            coloredRoundedRectangle(colorScheme.outline.copy(alpha = 0.1f).toArgb(), dp(spaceCornerRadius))
+            coloredRoundedRectangle(colorScheme.outline.copy(alpha = 0.1f).toArgb(), dp(spaceCornerRadius)).apply { if (strokeColor != null) setStroke(dp(1.5.dp).roundToInt(), strokeColor) }
         } else {
             coloredRoundedRectangle(highlight, dp(spaceCornerRadius)).apply {
-                setStroke(dp(1.5.dp).roundToInt(), yellowAccent)
+                if (strokeColor != null) setStroke(dp(1.5.dp).roundToInt(), strokeColor)
             }
         }
 
@@ -427,7 +460,7 @@ class BasicThemeProvider(
         }
 
         keyFeedback = ShapeDrawable().apply {
-            paint.color = secondary
+            paint.color = popupBgColor
             shape = RoundRectShape(
                 floatArrayOf(
                     dp(8.dp), dp(8.dp), dp(8.dp), dp(8.dp),
@@ -441,18 +474,39 @@ class BasicThemeProvider(
             setPadding(0, 0, 0, dp(50.dp).roundToInt())
         }
 
-        moreKeysTextColor = onPrimaryContainer
-        moreKeysKeyboardBackground = coloredRoundedRectangle(primaryContainer, dp(8.dp))
-        popupKey = StateListDrawable().apply {
-            addStateWithHighlightLayerOnPressed(primary, intArrayOf(),
-                coloredRoundedRectangle(primaryContainer, dp(8.dp))
-            )
-        }
-        actionPopupKey = StateListDrawable().apply {
-            addStateWithHighlightLayerOnPressed(primary, intArrayOf(),
-                coloredRoundedRectangle(primaryContainer, dp(128.dp)),
-                128.dp
-            )
+        if (isBakeryTheme) {
+            moreKeysTextColor = 0xFF3C2415.toInt()
+            moreKeysKeyboardBackground = GradientDrawable().apply {
+                shape = GradientDrawable.RECTANGLE
+                cornerRadius = dp(12.dp)
+                setColor(0xFFFFF3DC.toInt())
+                setStroke(dp(1.8.dp).roundToInt(), 0xFF683F1D.toInt())
+            }
+            popupKey = StateListDrawable().apply {
+                addStateWithHighlightLayerOnPressed(0xFFE8B872.toInt(), intArrayOf(),
+                    GradientDrawable().apply {
+                        shape = GradientDrawable.RECTANGLE
+                        cornerRadius = dp(10.dp)
+                        setColor(0xFFFEE8C4.toInt())
+                        setStroke(dp(1.5.dp).roundToInt(), 0xFF683F1D.toInt())
+                    }
+                )
+            }
+            actionPopupKey = popupKey
+        } else {
+            moreKeysTextColor = onPrimaryContainer
+            moreKeysKeyboardBackground = coloredRoundedRectangle(primaryContainer, dp(8.dp))
+            popupKey = StateListDrawable().apply {
+                addStateWithHighlightLayerOnPressed(primary, intArrayOf(),
+                    coloredRoundedRectangle(primaryContainer, dp(8.dp))
+                )
+            }
+            actionPopupKey = StateListDrawable().apply {
+                addStateWithHighlightLayerOnPressed(primary, intArrayOf(),
+                    coloredRoundedRectangle(primaryContainer, dp(128.dp)),
+                    128.dp
+                )
+            }
         }
 
     }
@@ -473,30 +527,68 @@ class BasicThemeProvider(
     }
 
     override fun getKeyBackground(key: Key, isPressed: Boolean): Drawable? {
-        if (!isOrbitTheme) return null
-        ensureDimensions()
-        return OrbitThemeHelper.getKeyBackground(key, isPressed, cachedCornerRadius)
+        if (isOrbitTheme) {
+            ensureDimensions()
+            return OrbitThemeHelper.getKeyBackground(key, isPressed, cachedCornerRadius)
+        }
+        if (isBakeryTheme) {
+            ensureDimensions()
+            return BakeryThemeHelper.getKeyBackground(key, isPressed, dp(12.dp))
+        }
+        return null
     }
 
     override fun getKeyTextColor(key: Key): Int? {
-        if (!isOrbitTheme) return null
-        return OrbitThemeHelper.getKeyTextColor(key)
+        if (isOrbitTheme) {
+            return OrbitThemeHelper.getKeyTextColor(key)
+        }
+        if (isBakeryTheme) {
+            return BakeryThemeHelper.getKeyTextColor(key)
+        }
+        return null
     }
 
     override fun getKeyHintColor(key: Key): Int? {
-        if (!isOrbitTheme) return null
-        return OrbitThemeHelper.getKeyHintColor(key)
+        if (!showKeyHints) return Color.Transparent.toArgb()
+        if (keyHintColor == "yellow") return 0xFFFFD600.toInt()
+        if (isOrbitTheme) {
+            return OrbitThemeHelper.getKeyHintColor(key)
+        }
+        if (isBakeryTheme) {
+            return BakeryThemeHelper.getKeyHintColor(key)
+        }
+        return colors[R.styleable.Keyboard_Key_keyHintLetterColor]
     }
 
     override fun getKeyPreviewBackground(key: Key): Drawable? {
-        if (!isOrbitTheme) return null
+        if (isOrbitTheme) {
+            ensureDimensions()
+            return OrbitThemeHelper.getKeyPreviewBackground(
+                key,
+                cachedCornerRadius,
+                cachedPreviewWidth,
+                cachedPreviewHeight,
+                cachedPreviewPadding
+            )
+        }
+        if (isBakeryTheme) {
+            ensureDimensions()
+            return BakeryThemeHelper.getKeyPreviewBackground(
+                key,
+                dp(12.dp),
+                cachedPreviewWidth,
+                cachedPreviewHeight,
+                cachedPreviewPadding
+            )
+        }
         ensureDimensions()
-        return OrbitThemeHelper.getKeyPreviewBackground(
-            key,
-            cachedCornerRadius,
-            cachedPreviewWidth,
-            cachedPreviewHeight,
-            cachedPreviewPadding
-        )
+        return ShapeDrawable(RoundRectShape(
+            FloatArray(8) { cachedCornerRadius }, null, null
+        )).apply {
+            paint.color = popupBgColor
+            intrinsicWidth = cachedPreviewWidth
+            intrinsicHeight = cachedPreviewHeight
+            setPadding(0, 0, 0, cachedPreviewPadding)
+        }
     }
 }

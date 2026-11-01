@@ -41,8 +41,10 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.text.font.FontWeight
 import org.futo.inputmethod.latin.uix.KeyBordersSetting
 import org.futo.inputmethod.latin.uix.SpacebarColorSetting
+import org.futo.inputmethod.latin.uix.SpacebarBorderSetting
 import org.futo.inputmethod.latin.uix.settings.SettingRadio
 import org.futo.inputmethod.latin.uix.KeyHintsSetting
 import org.futo.inputmethod.latin.uix.KeyboardBottomOffsetSetting
@@ -59,6 +61,7 @@ import org.futo.inputmethod.latin.uix.theme.UixThemeWrapper
 import org.futo.inputmethod.latin.uix.theme.presets.AMOLEDDarkPurple
 import org.futo.inputmethod.latin.uix.theme.presets.AMOLEDNothing
 import org.futo.inputmethod.latin.uix.theme.presets.OrbitPreviewKeyboard
+import org.futo.inputmethod.latin.uix.theme.presets.BakeryPreviewKeyboard
 import org.futo.inputmethod.latin.uix.theme.presets.NothingLight
 import org.futo.inputmethod.latin.uix.theme.presets.NothingDark
 import org.futo.inputmethod.latin.uix.theme.presets.ClassicMaterialDark
@@ -135,6 +138,8 @@ fun ThemePreview(theme: ThemeOption, isSelected: Boolean = false, overrideName: 
             ) {
                 if (theme.key == "OrbitTheme") {
                     OrbitPreviewKeyboard()
+                } else if (theme.key == "BakeryTheme") {
+                    BakeryPreviewKeyboard()
                 } else {
                     // Spacebar
                     Surface(
@@ -300,16 +305,34 @@ fun ThemePicker(onSelected: (ThemeOption) -> Unit) {
 
                 item(span = { GridItemSpan(maxCurrentLineSpan) }) {
                     CompositionLocalProvider(LocalLayoutDirection provides originalDirection) {
-                        Column(modifier = Modifier.fillMaxWidth()) {
+                        Column(modifier = Modifier.fillMaxWidth().padding(horizontal = 4.dp)) {
+                            Text(
+                                text = "Spacebar Customization",
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.onBackground,
+                                modifier = Modifier.padding(vertical = 8.dp)
+                            )
                             SettingRadio(
                                 title = "Spacebar Color",
-                                options = listOf("default", "red", "blue", "yellow", "white", "dark"),
-                                optionNames = listOf("Default", "Matte Red", "Matte Blue", "Matte Yellow", "Matte White", "Matte Dark"),
+                                options = listOf("theme", "default", "red", "blue", "yellow", "white", "dark"),
+                                optionNames = listOf("Theme Accent", "Classic / Standard", "Matte Red", "Matte Blue", "Matte Yellow", "Matte White", "Matte Dark"),
                                 setting = useDataStore(
                                     key = SpacebarColorSetting.key,
                                     default = SpacebarColorSetting.default
                                 )
                             )
+                            Spacer(modifier = Modifier.height(12.dp))
+                            SettingRadio(
+                                title = "Spacebar Border",
+                                options = listOf("none", "accent", "yellow", "red", "white"),
+                                optionNames = listOf("None", "Theme Accent", "Yellow", "Red", "White"),
+                                setting = useDataStore(
+                                    key = SpacebarBorderSetting.key,
+                                    default = SpacebarBorderSetting.default
+                                )
+                            )
+                            Spacer(modifier = Modifier.height(16.dp))
                         }
                     }
                 }
