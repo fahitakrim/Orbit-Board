@@ -13,6 +13,10 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.wrapContentHeight
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
@@ -113,7 +117,7 @@ object Subtypes {
             cleaned.add(s)
         }
 
-        if (cleaned.size != currentSubtypes.size) {
+        if (cleaned.size != currentSubtypes.size || cleaned != currentSubtypes.toList()) {
             Log.w("Subtypes", "Deduplicated subtypes from $currentSubtypes to $cleaned")
             context.setSettingBlocking(SubtypesSetting.key, cleaned.toSet())
             val active = context.getSettingBlocking(ActiveSubtype)
@@ -128,7 +132,7 @@ object Subtypes {
 
         val defaultBengali = listOf(
             "bn_BD:KeyboardLayoutSet=bengali_avro:",
-            "bn_BD:KeyboardLayoutSet=bengali_jatiyo:",
+            "bn_BD:KeyboardLayoutSet=bengali_jatiyo_classic:",
             "bn_BD:KeyboardLayoutSet=bengali_probhat:"
         )
 
@@ -295,7 +299,7 @@ object Subtypes {
         }
         layouts.addAll(listOf(
             "bn_BD:KeyboardLayoutSet=bengali_avro:",
-            "bn_BD:KeyboardLayoutSet=bengali_jatiyo:",
+            "bn_BD:KeyboardLayoutSet=bengali_jatiyo_classic:",
             "bn_BD:KeyboardLayoutSet=bengali_probhat:"
         ))
 
@@ -375,19 +379,28 @@ fun LanguageSwitcherDialog(
         useDataStoreValue(ActiveSubtype)
     }
 
-    Surface(shape = RoundedCornerShape(48.dp), color = MaterialTheme.colorScheme.background) {
-        Column {
-            Spacer(modifier = Modifier.height(16.dp))
+    Surface(
+        shape = RoundedCornerShape(20.dp),
+        color = MaterialTheme.colorScheme.background,
+        modifier = Modifier.wrapContentHeight().fillMaxWidth()
+    ) {
+        Column(modifier = Modifier.wrapContentHeight().fillMaxWidth()) {
+            Spacer(modifier = Modifier.height(8.dp))
             Text(
                 "Select language",
                 textAlign = TextAlign.Center,
-                style = Typography.titleLarge,
+                style = Typography.titleMedium,
+                fontWeight = FontWeight.Bold,
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(0.dp, 16.dp)
+                    .padding(horizontal = 16.dp, vertical = 8.dp)
             )
 
-            LazyColumn(modifier = Modifier.weight(1.0f)) {
+            LazyColumn(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .heightIn(max = 280.dp)
+            ) {
                 items(keys) { locale ->
 
                     subtypes[locale]!!.forEach { subtype ->
@@ -425,7 +438,12 @@ fun LanguageSwitcherDialog(
                 }
             }
 
-            Row(modifier = Modifier.height(64.dp)) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 12.dp, vertical = 4.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
                 Spacer(modifier = Modifier.weight(1.0f))
                 TextButton(onClick = {
                     val inputMethodManager =
@@ -449,7 +467,7 @@ fun LanguageSwitcherDialog(
                 }) {
                     Text("Languages")
                 }
-                Spacer(modifier = Modifier.width(32.dp))
+                Spacer(modifier = Modifier.width(8.dp))
             }
         }
     }

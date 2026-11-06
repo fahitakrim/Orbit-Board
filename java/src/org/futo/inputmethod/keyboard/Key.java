@@ -380,19 +380,25 @@ public class Key implements Comparable<Key> {
             mHintLabel = null;
             mHintIconId = null;
         } else {
-            String hintLabel = null;
+            String hintLabel = style.getString(keyAttr, R.styleable.Keyboard_Key_keyHintLabel, null);
             String hintIcon = null;
 
-            if(moreKeys != null && moreKeys.length > 0) {
-                String hintLabelCandidate = moreKeys[0];
-                if(hintLabelCandidate.startsWith("\\")) hintLabelCandidate = hintLabelCandidate.substring(1);
+            if (hintLabel == null || hintLabel.isEmpty()) {
+                if (moreKeys != null && moreKeys.length > 0) {
+                    String hintLabelCandidate = moreKeys[0];
+                    if (hintLabelCandidate != null) {
+                        if (hintLabelCandidate.startsWith("\\")) {
+                            hintLabelCandidate = hintLabelCandidate.substring(1);
+                        }
 
-                if(hintLabelCandidate.length() == 1) {
-                    hintLabel = needsToUpcase
-                            ? StringUtils.toTitleCaseOfKeyLabel(hintLabelCandidate, localeForUpcasing)
-                            : hintLabelCandidate;
-                } else if(hintLabelCandidate.contains("!icon/")) {
-                    hintIcon = KeySpecParser.getIconId(hintLabelCandidate);
+                        if (hintLabelCandidate.startsWith(KeyboardIconsSet.PREFIX_ICON)) {
+                            hintIcon = KeySpecParser.getIconId(hintLabelCandidate);
+                        } else if (!hintLabelCandidate.isEmpty() && !isMoreKeyDirective(hintLabelCandidate)) {
+                            hintLabel = needsToUpcase
+                                    ? StringUtils.toTitleCaseOfKeyLabel(hintLabelCandidate, localeForUpcasing)
+                                    : hintLabelCandidate;
+                        }
+                    }
                 }
             }
 
@@ -451,7 +457,7 @@ public class Key implements Comparable<Key> {
         this(key, key.mMoreKeys);
     }
 
-    private Key(@Nonnull final Key key, @Nullable final MoreKeySpec[] moreKeys) {
+    Key(@Nonnull final Key key, @Nullable final MoreKeySpec[] moreKeys) {
         // Final attributes.
         mCode = key.mCode;
         mLabel = key.mLabel;
@@ -478,27 +484,44 @@ public class Key implements Comparable<Key> {
         mEnabled = key.mEnabled;
 
 
-        if (((mLabelFlags & LABEL_FLAGS_DISABLE_HINT_LABEL) != 0) || moreKeys == null || moreKeys.length == 0 || moreKeys[0].mLabel == null) {
+        if (((mLabelFlags & LABEL_FLAGS_DISABLE_HINT_LABEL) != 0)) {
+            mHintLabel = null;
+            mHintIconId = null;
+        } else if (key.mHintLabel != null && !key.mHintLabel.isEmpty()) {
             mHintLabel = key.mHintLabel;
             mHintIconId = key.mHintIconId;
-        } else {
+        } else if (moreKeys != null && moreKeys.length > 0) {
+            final MoreKeySpec firstMoreKey = moreKeys[0];
             String hintLabel = null;
             String hintIcon = null;
 
-            String hintLabelCandidate = moreKeys[0].mLabel;
-            if(hintLabelCandidate.startsWith("\\")) hintLabelCandidate = hintLabelCandidate.substring(1);
-
-            if(hintLabelCandidate.length() == 1) {
-                hintLabel = moreKeys[0].mNeedsToUpperCase
-                        ? StringUtils.toTitleCaseOfKeyLabel(hintLabelCandidate, moreKeys[0].mLocale)
-                        : hintLabelCandidate;
-            } else if(hintLabelCandidate.contains("!icon/")) {
-                hintIcon = KeySpecParser.getIconId(hintLabelCandidate);
+            if (firstMoreKey != null) {
+                if (firstMoreKey.mIconId != null && !firstMoreKey.mIconId.equals(ICON_UNDEFINED)) {
+                    hintIcon = firstMoreKey.mIconId;
+                } else if (firstMoreKey.mLabel != null) {
+                    String hintLabelCandidate = firstMoreKey.mLabel;
+                    if (hintLabelCandidate.startsWith("\\")) {
+                        hintLabelCandidate = hintLabelCandidate.substring(1);
+                    }
+                    if (!hintLabelCandidate.isEmpty() && !isMoreKeyDirective(hintLabelCandidate)) {
+                        hintLabel = firstMoreKey.mNeedsToUpperCase
+                                ? StringUtils.toTitleCaseOfKeyLabel(hintLabelCandidate, firstMoreKey.mLocale)
+                                : hintLabelCandidate;
+                    }
+                }
             }
 
             mHintLabel = hintLabel;
             mHintIconId = hintIcon;
+        } else {
+            mHintLabel = key.mHintLabel;
+            mHintIconId = key.mHintIconId;
         }
+    }
+
+    private static boolean isMoreKeyDirective(@Nullable final String spec) {
+        return spec != null && spec.length() > 1 && spec.startsWith("!")
+                && (spec.endsWith("!") || spec.contains("/"));
     }
 
     @Nonnull
@@ -708,8 +731,12 @@ public class Key implements Comparable<Key> {
         return code == 'v' || code == 'V';
     }
 
+    public static boolean isSelectAllKey(final int code) {
+        return code == 'a' || code == 'A';
+    }
+
     public final boolean isLongPressEnabled() {
-        if (isCutKey(mCode) || isCopyKey(mCode) || isPasteKey(mCode)) {
+        if (isCutKey(mCode) || isCopyKey(mCode) || isPasteKey(mCode) || isSelectAllKey(mCode) || mCode == CODE_SWITCH_ALPHA_SYMBOL) {
             return true;
         }
         // We need not start long press timer on the key which has activated shifted letter.
@@ -805,6 +832,15 @@ public class Key implements Comparable<Key> {
 
     @Nonnull
     public Typeface selectPreviewTypeface(final KeyDrawParams params) {
+        final String label = getPreviewLabel();
+        if (label != null) {
+            for (int i = 0; i < label.length(); i++) {
+                final char c = label.charAt(i);
+                if ((c >= '0' && c <= '9') || (c >= 0x0980 && c <= 0x09FF)) {
+                    return Typeface.DEFAULT;
+                }
+            }
+        }
         if (previewHasLetterSize()) {
             return selectTypeface(params);
         }

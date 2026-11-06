@@ -82,10 +82,16 @@ public final class KeyboardIconsSet {
 
     @Nullable
     public Drawable getIconDrawable(final String iconId) {
+        if (provider != null) {
+            final Drawable icon = provider.getIcon(iconId);
+            if (icon != null) {
+                return icon;
+            }
+        }
         if (NAME_SHORTCUT_KEY.equals(iconId) || NAME_SHORTCUT_KEY_DISABLED.equals(iconId)) {
             return null;
         }
-        return provider.getIcon(iconId);
+        return null;
     }
 
     private static void setDefaultBounds(final Drawable icon)  {

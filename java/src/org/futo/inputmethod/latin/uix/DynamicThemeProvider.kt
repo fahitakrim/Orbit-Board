@@ -5,6 +5,7 @@ import android.graphics.Typeface
 import android.graphics.drawable.Drawable
 import androidx.annotation.ColorInt
 import org.futo.inputmethod.keyboard.Key
+import org.futo.inputmethod.keyboard.internal.TapAnimationType
 
 interface DynamicThemeProvider {
     val primaryKeyboardColor: Int
@@ -21,8 +22,17 @@ interface DynamicThemeProvider {
     val popupKey: Drawable
     val actionPopupKey: Drawable
 
+    val tapAnimationType: TapAnimationType
+        get() = TapAnimationType.NONE
+
     val keyboardTypeface: Typeface?
         get() = null
+
+    val isDotFont: Boolean
+        get() = true
+
+    val isQurovaFont: Boolean
+        get() = false
 
     @ColorInt
     fun getColor(i: Int): Int?
@@ -40,6 +50,23 @@ interface DynamicThemeProvider {
     fun getKeyHintColor(key: Key): Int? = null
 
     fun getKeyPreviewBackground(key: Key): Drawable? = null
+    fun getKeyPreviewBackground(key: Key, existing: org.futo.inputmethod.keyboard.internal.KeyPopupDrawable?): Drawable? = getKeyPreviewBackground(key)
+
+    fun getKeyPreviewTextColor(key: Key): Int? = null
+
+    fun getKeyLabelOverride(key: Key, originalLabel: String): String = originalLabel
+
+    fun getKeyRotation(key: Key): Float = 0f
+
+    fun getKeyHintCoordinates(key: Key, keyWidth: Int, keyHeight: Int, padding: Float): FloatArray? = null
+
+    val spacebarShape: String
+        get() = "boxy"
+
+    val spacebarTextColor: Int?
+        get() = null
+
+    fun getSpacebarCornerRadius(): Float? = null
 
     companion object {
         @ColorInt

@@ -5,8 +5,8 @@ import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
 import android.content.res.Configuration
-import android.app.NotificationManager
 import android.graphics.Color
+
 import android.inputmethodservice.InputMethodService
 import android.os.Build
 import android.os.Bundle
@@ -52,14 +52,6 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withContext
-import okhttp3.MultipartBody
-import okhttp3.OkHttpClient
-import okhttp3.Request
-import okhttp3.RequestBody
-import okhttp3.MediaType.Companion.toMediaType
-import okhttp3.RequestBody.Companion.toRequestBody
-import org.json.JSONObject
-import org.json.JSONArray
 import android.widget.Toast
 import androidx.core.content.ContextCompat
 import org.futo.inputmethod.latin.SuggestedWords.SuggestedWordInfo
@@ -103,6 +95,11 @@ private class UnlockedBroadcastReceiver(val onDeviceUnlocked: () -> Unit) : Broa
 
 class LatinIME : InputMethodService(), LifecycleOwner, ViewModelStoreOwner, SavedStateRegistryOwner,
     LatinIMELegacy.SuggestionStripController, DynamicThemeProviderOwner {
+
+    companion object {
+        var instance: LatinIME? = null
+            private set
+    }
 
     private lateinit var mLifecycleRegistry: LifecycleRegistry
     private lateinit var mViewModelStore: ViewModelStore
@@ -262,19 +259,8 @@ class LatinIME : InputMethodService(), LifecycleOwner, ViewModelStoreOwner, Save
 
     private var unlockReceiver = UnlockedBroadcastReceiver { onDeviceUnlocked() }
 
-    private val screenshotReceiver = object : android.content.BroadcastReceiver() {
-        override fun onReceive(context: Context?, intent: Intent?) {
-            val bytes = intent?.getByteArrayExtra(org.futo.inputmethod.latin.capture.CaptureService.EXTRA_SCREENSHOT_BYTES)
-            val pkg = intent?.getStringExtra(org.futo.inputmethod.latin.capture.CaptureService.EXTRA_TARGET_PACKAGE)
-            if (bytes != null) {
-                lifecycleScope.launch(Dispatchers.IO) {
-                    processScreenshot(bytes, pkg)
-                }
-            }
-        }
-    }
-
     override fun onCreate() {
+        instance = this
         super.onCreate()
 
         val unlockFilter = IntentFilter(Intent.ACTION_USER_UNLOCKED)
@@ -374,10 +360,6 @@ class LatinIME : InputMethodService(), LifecycleOwner, ViewModelStoreOwner, Save
 
         uixManager.onCreate()
 
-        // Register receiver for screenshots captured by CaptureService
-        val screenshotFilter = IntentFilter("org.futo.inputmethod.SCREENSHOT_READY")
-        ContextCompat.registerReceiver(this, screenshotReceiver, screenshotFilter, ContextCompat.RECEIVER_NOT_EXPORTED)
-
         Settings.getInstance().settingsChangedListeners.add { oldSettings, newSettings ->
             val differs = (oldSettings.mActionKeyId != newSettings.mActionKeyId)
                     || (oldSettings.mShowsActionKey != newSettings.mShowsActionKey)
@@ -389,8 +371,10 @@ class LatinIME : InputMethodService(), LifecycleOwner, ViewModelStoreOwner, Save
     }
 
     override fun onDestroy() {
+        if (instance === this) {
+            instance = null
+        }
         unregisterReceiver(unlockReceiver)
-        try { unregisterReceiver(screenshotReceiver) } catch (e: Exception) { /* ignore */ }
 
         stopJobs()
         mLifecycleRegistry.currentState = Lifecycle.State.DESTROYED
@@ -406,228 +390,6 @@ class LatinIME : InputMethodService(), LifecycleOwner, ViewModelStoreOwner, Save
 
         latinIMELegacy.onDestroy()
         super.onDestroy()
-    }
-
-    /** Called by keyboard when AI-assist key is pressed. Starts permission flow. */
-    fun startAiAssist() {
-        val targetPkg = lastEditorInfo?.packageName ?: getCurrentInputEditorInfo()?.packageName
-        val perm = Intent(this, org.futo.inputmethod.latin.capture.CapturePermissionActivity::class.java).apply {
-            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-            putExtra(org.futo.inputmethod.latin.capture.CapturePermissionActivity.EXTRA_TARGET_PACKAGE, targetPkg)
-        }
-        // Log and start the permission activity using ActivityOptions to request launch on the
-        // same display. Background-starts from an IME can be blocked on newer Android versions
-        // unless started with appropriate options.
-        try {
-            Log.i("LatinIME", "Starting CapturePermissionActivity for package=$targetPkg")
-            val currentDisplayId = window?.window?.windowManager?.defaultDisplay?.displayId ?: 0
-            val opts = android.app.ActivityOptions.makeBasic().setLaunchDisplayId(currentDisplayId).toBundle()
-            startActivity(perm, opts)
-        } catch (e: Exception) {
-            // Fallback: try simple startActivity and log the exception
-            Log.w("LatinIME", "startActivity with ActivityOptions failed: ${e.message}. Falling back to startActivity(perm)")
-            try {
-                startActivity(perm)
-            } catch (ex: Exception) {
-                Log.e("LatinIME", "Failed to launch CapturePermissionActivity: ${ex.message}")
-                // Show a notification the user can tap to start the permission flow
-                showCaptureRequestNotification(targetPkg)
-            }
-        }
-    }
-
-    private fun showCaptureRequestNotification(targetPkg: String?) {
-        try {
-            val channelId = "capture_request"
-            val nm = getSystemService(android.app.NotificationManager::class.java)
-            if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
-                val ch = android.app.NotificationChannel(channelId, "Capture Requests", NotificationManager.IMPORTANCE_HIGH)
-                nm.createNotificationChannel(ch)
-            }
-
-            val intent = Intent(this, org.futo.inputmethod.latin.capture.CapturePermissionActivity::class.java).apply {
-                putExtra(org.futo.inputmethod.latin.capture.CapturePermissionActivity.EXTRA_TARGET_PACKAGE, targetPkg)
-                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-            }
-            val pi = android.app.PendingIntent.getActivity(this, 0, intent, android.app.PendingIntent.FLAG_IMMUTABLE)
-
-            val n = android.app.Notification.Builder(this, channelId)
-                .setContentTitle("Allow screen capture")
-                .setContentText("Tap to allow screen capture for AI assistant")
-                .setSmallIcon(android.R.drawable.ic_menu_camera)
-                .setContentIntent(pi)
-                .setAutoCancel(true)
-                .build()
-
-            nm.notify(23456, n)
-            Log.i("LatinIME", "Posted capture request notification for package=$targetPkg")
-        } catch (e: Exception) {
-            Log.e("LatinIME", "Failed to post capture request notification: ${e.message}")
-        }
-    }
-
-    private fun processScreenshot(bytes: ByteArray, packageName: String?) {
-        Log.i("LatinIME", "processScreenshot called: bytes=${bytes.size} package=${packageName}")
-        try {
-            // Notify user we're starting the assistant call
-            try {
-                // Show Compose FakeToast via UixManager (more reliable inside IME UI)
-                uixManager.showAssistantMessage("Assistant thinking…")
-            } catch (e: Exception) {
-                Log.w("LatinIME", "Failed to show assistant message: ${e.message}")
-            }
-
-            // Build JSON payload and embed image as base64 data URL
-            // Use a long timeout for local slow servers. Time is in milliseconds.
-            val longTimeoutMs = 1000000L
-            val client = OkHttpClient.Builder()
-                .connectTimeout(longTimeoutMs, java.util.concurrent.TimeUnit.MILLISECONDS)
-                .writeTimeout(longTimeoutMs, java.util.concurrent.TimeUnit.MILLISECONDS)
-                .readTimeout(longTimeoutMs, java.util.concurrent.TimeUnit.MILLISECONDS)
-                .callTimeout(longTimeoutMs, java.util.concurrent.TimeUnit.MILLISECONDS)
-                .build()
-            val b64 = android.util.Base64.encodeToString(bytes, android.util.Base64.NO_WRAP)
-
-            val systemPrompt = "You are an assistant. Analyze the screenshot and, based on the app context, produce a JSON object (no markdown, no code fences) with exactly two fields: \"textInput\" (the short message the keyboard should type into the conversation) and \"toast\" (a brief rationale/reason to show to the user). Example: {\"textInput\":\"Thanks! I'll be there.\", \"toast\":\"Short confirmation appropriate to the message\"}. Respond ONLY with the JSON object and nothing else."
-            val userPrompt = "Please respond appropriately based on the screenshot."
-
-            val messages = org.json.JSONArray().apply {
-                put(org.json.JSONObject().put("role", "system").put("content", systemPrompt))
-                val user = org.json.JSONObject().put("role", "user")
-                val contentArr = org.json.JSONArray()
-                contentArr.put(org.json.JSONObject().put("type", "text").put("text", userPrompt))
-                contentArr.put(org.json.JSONObject().put("type", "image_url").put("image_url",
-                    org.json.JSONObject().put("url", "data:image/png;base64,$b64")))
-                user.put("content", contentArr)
-                put(user)
-            }
-
-            val bodyJson = org.json.JSONObject().apply {
-                put("model", "huihui_ai/qwen3.5-abliterated:latest")
-                put("messages", messages)
-            }
-
-            val mediaTypeJson = "application/json; charset=utf-8".toMediaType()
-            val reqBody = bodyJson.toString().toRequestBody(mediaTypeJson)
-            val request = Request.Builder().url("https://web.ndpnt.co/api/chat/completions")
-                .header("Authorization", "Bearer ")
-                .post(reqBody)
-                .build()
-
-            Log.i("LatinIME", "AI request -> url=https://web.ndpnt.co/api/chat/completions model=huihui_ai/qwen3.5-abliterated:latest package=${packageName ?: ""} imageBytes=${bytes.size}")
-            val startNanos = System.nanoTime()
-            val resp = client.newCall(request).execute()
-            val durationMs = (System.nanoTime() - startNanos) / 1_000_000
-            val body = resp.body?.string() ?: ""
-            val truncated = if (body.length > 2000) body.substring(0, 2000) + "...(truncated)" else body
-            Log.i("LatinIME", "AI response: code=${resp.code} durationMs=${durationMs}ms bodyLength=${body.length}")
-            Log.d("LatinIME", "AI response body (truncated): $truncated")
-            resp.close()
-
-            // Expect the model to return a JSON object according to the system prompt.
-            try {
-                var textInput: String? = null
-                var toastMsg: String? = null
-
-                // First try: top-level JSON with fields
-                try {
-                    val top = JSONObject(body)
-                    if (top.has("textInput") || top.has("toast")) {
-                        textInput = top.optString("textInput", null)
-                        toastMsg = top.optString("toast", null)
-                    } else if (top.has("choices")) {
-                        // The model may return choices[].message.content which itself is a JSON string
-                        val choices = top.optJSONArray("choices")
-                        if (choices != null && choices.length() > 0) {
-                            val first = choices.getJSONObject(0)
-                            var contentObj: Any? = null
-                            if (first.has("message")) {
-                                val msg = first.get("message")
-                                if (msg is JSONObject) {
-                                    val mobj = msg as JSONObject
-                                    contentObj = mobj.opt("content")
-                                } else {
-                                    contentObj = msg
-                                }
-                            } else if (first.has("text")) {
-                                contentObj = first.optString("text")
-                            } else {
-                                contentObj = first.toString()
-                            }
-
-                            // contentObj may be a JSONObject, JSONArray, or a String containing JSON
-                            when (contentObj) {
-                                is JSONObject -> {
-                                    textInput = contentObj.optString("textInput", null)
-                                    toastMsg = contentObj.optString("toast", null)
-                                }
-                                is JSONArray -> {
-                                    // unlikely, but convert to string
-                                    val s = contentObj.toString()
-                                    try {
-                                        val p = JSONObject(s)
-                                        textInput = p.optString("textInput", null)
-                                        toastMsg = p.optString("toast", null)
-                                    } catch (_: Exception) { }
-                                }
-                                is String -> {
-                                    val s = contentObj as String
-                                    // Try parse as JSON string
-                                    try {
-                                        val p = JSONObject(s)
-                                        textInput = p.optString("textInput", null)
-                                        toastMsg = p.optString("toast", null)
-                                    } catch (ex: Exception) {
-                                        // content may itself be wrapped in quotes; try to unescape
-                                        val unquoted = s.trim()
-                                        if (unquoted.startsWith("{")) {
-                                            try {
-                                                val p2 = JSONObject(unquoted)
-                                                textInput = p2.optString("textInput", null)
-                                                toastMsg = p2.optString("toast", null)
-                                            } catch (_: Exception) { }
-                                        }
-                                    }
-                                }
-                                else -> {
-                                    // fallback: no-op
-                                }
-                            }
-                        }
-                    }
-                } catch (e: Exception) {
-                    Log.w("LatinIME", "Top-level JSON parse failed: ${e.message}")
-                }
-
-                if (!textInput.isNullOrEmpty()) {
-                    lifecycleScope.launch(Dispatchers.Main) {
-                        try {
-                            currentInputConnection?.commitText(textInput, 1)
-                            if (!toastMsg.isNullOrEmpty()) {
-                                uixManager.showAssistantMessage(toastMsg)
-                            } else {
-                                uixManager.showAssistantMessage("Assistant inserted a reply")
-                            }
-                        } catch (e: Exception) {
-                            Log.e("LatinIME", "Failed to commit AI reply: ${e.message}")
-                            uixManager.showAssistantMessage("Assistant failed to insert reply")
-                        }
-                    }
-                } else {
-                    Log.w("LatinIME", "JSON response missing textInput field, falling back to raw body")
-                    lifecycleScope.launch(Dispatchers.Main) {
-                        uixManager.showAssistantMessage("Assistant returned invalid response")
-                    }
-                }
-            } catch (e: Exception) {
-                Log.w("LatinIME", "Failed to handle assistant response: ${e.message}")
-                lifecycleScope.launch(Dispatchers.Main) {
-                    uixManager.showAssistantMessage("Assistant returned unparsable response")
-                }
-            }
-        } catch (e: Exception) {
-            Log.e("LatinIME", "AI upload failed: ${e.message}")
-        }
     }
 
     override fun onConfigurationChanged(newConfig: Configuration) {

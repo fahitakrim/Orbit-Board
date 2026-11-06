@@ -48,7 +48,7 @@ class CrashLoggingApplication : Application() {
                 //    }
                 //} else {
                 mailSender {
-                    mailTo = "keyboard@futo.org"
+                    mailTo = "itz.takrim@gmail.com"
                     reportAsFile = true
                     reportFileName = "Crash.txt"
                     subject = "Keyboard Crash Report"

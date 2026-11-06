@@ -74,13 +74,13 @@ public class AvroLayoutXmlTest {
             String layout = el.getAttribute("latin:keyboardLayout");
             if ("@xml/rowkeys_qwerty1".equals(layout)) hasRow1 = true;
             if ("@xml/rowkeys_bengali_avro2".equals(layout)) hasRow2 = true;
-            if ("@xml/rowkeys_qwerty3".equals(layout)) hasRow3 = true;
+            if ("@xml/rowkeys_qwerty3".equals(layout) || "@xml/rowkeys_bengali_avro3".equals(layout)) hasRow3 = true;
             if ("@xml/row_bengali_avro4".equals(layout)) hasRow4 = true;
         }
 
         assertTrue("rows_bengali_avro.xml must include @xml/rowkeys_qwerty1 (Row 1)", hasRow1);
         assertTrue("rows_bengali_avro.xml must include @xml/rowkeys_bengali_avro2 (Row 2)", hasRow2);
-        assertTrue("rows_bengali_avro.xml must include @xml/rowkeys_qwerty3 (Row 3)", hasRow3);
+        assertTrue("rows_bengali_avro.xml must include @xml/rowkeys_qwerty3 or @xml/rowkeys_bengali_avro3 (Row 3)", hasRow3);
         assertTrue("rows_bengali_avro.xml must include @xml/row_bengali_avro4 (Row 4)", hasRow4);
     }
 
@@ -140,7 +140,7 @@ public class AvroLayoutXmlTest {
         assertEquals("\"", keyHints.get("z"));
         assertEquals("'", keyHints.get("b"));
         assertEquals(":", keyHints.get("n"));
-        assertEquals("?", keyHints.get("m"));
+        assertEquals("/", keyHints.get("m"));
     }
 
     @Test

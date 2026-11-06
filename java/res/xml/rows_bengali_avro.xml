@@ -26,7 +26,7 @@
             latin:keyWidth="15%p"
             latin:visualInsetsRight="1%p" />
         <include
-            latin:keyboardLayout="@xml/rowkeys_qwerty3" />
+            latin:keyboardLayout="@xml/rowkeys_bengali_avro3" />
         <Key
             latin:keyStyle="deleteKeyStyle"
             latin:keyWidth="fillRight"

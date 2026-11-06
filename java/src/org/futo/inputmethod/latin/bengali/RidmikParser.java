@@ -18,7 +18,7 @@ public class RidmikParser {
 			return "";
 		}
 		try {
-			return parseInternal(engWord);
+			return AvroRuleEngine.INSTANCE.sanitize(parseInternal(engWord));
 		} catch (final Throwable t) {
 			return engWord;
 		}
@@ -179,6 +179,14 @@ public class RidmikParser {
 						}
 						
 						st.append(dual);
+						if (dual.equals("\u0982")) {
+							carry = 0;
+							secondCarry = 0;
+							thirdCarry = 0;
+							jukta = false;
+							prevJukta = false;
+							continue;
+						}
 						prevJukta = jukta;
 						jukta = false;
 					}

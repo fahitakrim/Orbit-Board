@@ -24,7 +24,10 @@
 
     <string name="amoled_dark_theme_name">AMOLED Dark Purple</string>
     <string name="theme_orbit">Orbit Theme</string>
-    <string name="theme_bakery">Taiyaki Bakery</string>
+    <string name="theme_radar_wave">Radar Wave</string>
+    <string name="theme_particle_burst">Particle Burst</string>
+    <string name="theme_constellation_web">Constellation Web</string>
+    <string name="theme_chaos">Orbit Chaos</string>
     <string name="amoled_nothing_theme_name">Nothing</string>
     <string name="nothing_light_theme_name">Nothing Light</string>
     <string name="nothing_dark_theme_name">Nothing Dark</string>

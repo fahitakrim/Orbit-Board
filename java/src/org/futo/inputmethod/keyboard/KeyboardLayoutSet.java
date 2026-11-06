@@ -75,6 +75,18 @@ public final class KeyboardLayoutSet {
     private final Context mContext;
     @Nonnull
     private final Params mParams;
+    private int mAlphabetOccupiedHeight = 0;
+
+    private static boolean shouldEqualizeKeyboardHeight(final int elementId) {
+        return elementId == KeyboardId.ELEMENT_ALPHABET
+                || elementId == KeyboardId.ELEMENT_ALPHABET_AUTOMATIC_SHIFTED
+                || elementId == KeyboardId.ELEMENT_ALPHABET_MANUAL_SHIFTED
+                || elementId == KeyboardId.ELEMENT_ALPHABET_SHIFT_LOCKED
+                || elementId == KeyboardId.ELEMENT_ALPHABET_SHIFT_LOCK_SHIFTED
+                || elementId == KeyboardId.ELEMENT_SYMBOLS
+                || elementId == KeyboardId.ELEMENT_SYMBOLS_SHIFTED
+                || elementId == KeyboardId.ELEMENT_SYMBOLS_3;
+    }
 
     // How many layouts we forcibly keep in cache. This only includes ALPHABET (default) and
     // ALPHABET_AUTOMATIC_SHIFTED layouts - other layouts may stay in memory in the map of
@@ -184,7 +196,11 @@ public final class KeyboardLayoutSet {
         case KeyboardId.MODE_DATE:
         case KeyboardId.MODE_TIME:
         case KeyboardId.MODE_DATETIME:
-            keyboardLayoutSetElementId = KeyboardId.ELEMENT_NUMBER;
+            if (baseKeyboardLayoutSetElementId == KeyboardId.ELEMENT_NUMBER_BENGALI) {
+                keyboardLayoutSetElementId = KeyboardId.ELEMENT_NUMBER_BENGALI;
+            } else {
+                keyboardLayoutSetElementId = KeyboardId.ELEMENT_NUMBER;
+            }
             break;
         default:
             keyboardLayoutSetElementId = baseKeyboardLayoutSetElementId;
@@ -200,6 +216,10 @@ public final class KeyboardLayoutSet {
                 elementParams = mParams.mKeyboardLayoutSetElementIdToParamsMap.get(
                         KeyboardId.ELEMENT_SYMBOLS);
             }
+        }
+        if (elementParams == null && keyboardLayoutSetElementId == KeyboardId.ELEMENT_NUMBER_BENGALI) {
+            elementParams = mParams.mKeyboardLayoutSetElementIdToParamsMap.get(
+                    KeyboardId.ELEMENT_NUMBER);
         }
         if (elementParams == null) {
             elementParams = mParams.mKeyboardLayoutSetElementIdToParamsMap.get(
@@ -218,7 +238,23 @@ public final class KeyboardLayoutSet {
             return null;
         }
         try {
-            return getKeyboard(elementParams, id);
+            final Keyboard keyboard = getKeyboard(elementParams, id);
+            if (keyboard != null) {
+                if (id.mElementId == KeyboardId.ELEMENT_ALPHABET) {
+                    mAlphabetOccupiedHeight = keyboard.mOccupiedHeight;
+                } else if (shouldEqualizeKeyboardHeight(id.mElementId)) {
+                    if (mAlphabetOccupiedHeight == 0) {
+                        final Keyboard alpha = getKeyboard(KeyboardId.ELEMENT_ALPHABET);
+                        if (alpha != null) {
+                            mAlphabetOccupiedHeight = alpha.mOccupiedHeight;
+                        }
+                    }
+                    if (mAlphabetOccupiedHeight > 0) {
+                        keyboard.setOccupiedHeight(mAlphabetOccupiedHeight);
+                    }
+                }
+            }
+            return keyboard;
         } catch (final RuntimeException e) {
             Log.e(TAG, "Can't create keyboard: " + id, e);
             throw new KeyboardLayoutSetException(e, id);

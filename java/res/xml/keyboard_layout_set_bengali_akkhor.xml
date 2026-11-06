@@ -58,4 +58,7 @@
     <Element
         latin:elementKeyboard="@xml/kbd_number"
         latin:elementName="number" />
+    <Element
+        latin:elementKeyboard="@xml/kbd_number_bengali"
+        latin:elementName="numberBengali" />
 </KeyboardLayoutSet>

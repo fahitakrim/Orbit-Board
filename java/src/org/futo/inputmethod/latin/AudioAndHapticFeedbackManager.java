@@ -20,6 +20,8 @@ import android.content.Context;
 import android.media.AudioAttributes;
 import android.media.AudioManager;
 import android.media.SoundPool;
+import android.os.Build;
+import android.os.VibrationEffect;
 import android.os.Vibrator;
 import android.util.Log;
 import android.view.HapticFeedbackConstants;
@@ -113,7 +115,13 @@ public final class AudioAndHapticFeedbackManager {
             return;
         }
         try {
-            mVibrator.vibrate(milliseconds);
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                mVibrator.vibrate(VibrationEffect.createPredefined(VibrationEffect.EFFECT_CLICK));
+            } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                mVibrator.vibrate(VibrationEffect.createOneShot(Math.min(milliseconds, 25), VibrationEffect.DEFAULT_AMPLITUDE));
+            } else {
+                mVibrator.vibrate(milliseconds);
+            }
         } catch (final Throwable t) {
             Log.e(TAG, "Vibration failed", t);
         }
@@ -180,15 +188,19 @@ public final class AudioAndHapticFeedbackManager {
         if (mSettingsValues == null || !mSettingsValues.mVibrateOn) {
             return;
         }
+        if (viewToPerformHapticFeedbackOn != null) {
+            final boolean handled = viewToPerformHapticFeedbackOn.performHapticFeedback(
+                    HapticFeedbackConstants.KEYBOARD_TAP,
+                    HapticFeedbackConstants.FLAG_IGNORE_GLOBAL_SETTING);
+            if (handled) {
+                return;
+            }
+        }
         if (mSettingsValues.mKeypressVibrationDuration >= 0) {
             vibrate(mSettingsValues.mKeypressVibrationDuration / (repeatKey ? 2 : 1));
             return;
         }
-        // Go ahead with the system default
-        if (viewToPerformHapticFeedbackOn != null) {
-            viewToPerformHapticFeedbackOn.performHapticFeedback(
-                    HapticFeedbackConstants.KEYBOARD_TAP);
-        }
+        vibrate(10);
     }
 
     public void onSettingsChanged(final SettingsValues settingsValues) {

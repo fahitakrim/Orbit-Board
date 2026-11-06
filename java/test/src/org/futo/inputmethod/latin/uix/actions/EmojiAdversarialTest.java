@@ -8,6 +8,7 @@ import static org.junit.Assert.assertTrue;
 import android.os.Build;
 
 import org.junit.After;
+import org.junit.AfterClass;
 import org.junit.Before;
 import org.junit.BeforeClass;
 import org.junit.Test;
@@ -117,6 +118,11 @@ public class EmojiAdversarialTest {
     @After
     public void tearDown() {
         setSdkInt(sOriginalSdkInt);
+    }
+
+    @AfterClass
+    public static void tearDownClass() {
+        setSdkInt(0);
     }
 
     // --- Helper to dynamically mutate Build.VERSION.SDK_INT ---

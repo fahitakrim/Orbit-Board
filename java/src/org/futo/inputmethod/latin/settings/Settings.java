@@ -85,6 +85,7 @@ public final class Settings implements SharedPreferences.OnSharedPreferenceChang
     // TODO: consolidate key preview dismiss delay with the key preview animation parameters.
     public static final String PREF_KEY_PREVIEW_POPUP_DISMISS_DELAY =
             "pref_key_preview_popup_dismiss_delay";
+    public static final String PREF_KEY_POPUP_STYLE = "pref_key_popup_style";
     public static final String PREF_BIGRAM_PREDICTIONS = "next_word_prediction";
     public static final String PREF_GESTURE_INPUT = "gesture_input";
     public static final String PREF_VIBRATION_DURATION_SETTINGS =
@@ -104,9 +105,11 @@ public final class Settings implements SharedPreferences.OnSharedPreferenceChang
 
     public static final String PREF_SHOW_ACTION_KEY =
             "pref_show_emoji_key";
+    public static final String PREF_SHOW_EMOJI_KEY = "pref_show_emoji_key";
     public static final String PREF_ACTION_KEY_ID = "pref_action_key_strid";
 
     public static final String PREF_ENABLE_NUMBER_ROW = "pref_enable_number_row";
+    public static final String PREF_VOICE_INPUT_SOUND = "pref_voice_input_sound";
 
     private static final String PREF_LAST_USED_PERSONALIZATION_TOKEN =
             "pref_last_used_personalization_token";
@@ -121,6 +124,7 @@ public final class Settings implements SharedPreferences.OnSharedPreferenceChang
     public static final int SPACEBAR_MODE_SWIPE_CURSOR_ONLY = 2; // Swipe and long-press+drag moves cursor
 
     public static final String PREF_PIN_KEYBOARD_NAME_ON_SPACEBAR = "pref_pin_keyboard_name_on_spacebar";
+    public static final String PREF_LONG_PRESS_A_SELECT_ALL = "pref_long_press_a_select_all";
 
     public static final String PREF_BACKSPACE_MODE = "pref_backspace_mode";
     public static final int BACKSPACE_MODE_CHARACTERS = 0; // Long-press backspace and swipe backspace removes just characters
@@ -255,7 +259,7 @@ public final class Settings implements SharedPreferences.OnSharedPreferenceChang
 
     public static boolean readAutoCorrectEnabled(final SharedPreferences prefs,
             final Resources res) {
-        return prefs.getBoolean(PREF_AUTO_CORRECTION, true);
+        return prefs.getBoolean(PREF_AUTO_CORRECTION, false);
     }
 
     public static float readPlausibilityThreshold(final Resources res) {

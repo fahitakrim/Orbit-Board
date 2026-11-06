@@ -62,6 +62,7 @@ public final class KeyboardCodesSet {
         "key_language_switch",
         "key_emoji",
         "key_ai_assist",
+        "key_switch_bengali_num",
         "key_alpha_from_emoji",
         "key_unspecified",
     };
@@ -83,6 +84,7 @@ public final class KeyboardCodesSet {
         Constants.CODE_LANGUAGE_SWITCH,
         Constants.CODE_EMOJI,
         Constants.CODE_AI_ASSIST,
+        Constants.CODE_SWITCH_BENGALI_NUM,
         Constants.CODE_ALPHA_FROM_EMOJI,
         Constants.CODE_UNSPECIFIED,
     };

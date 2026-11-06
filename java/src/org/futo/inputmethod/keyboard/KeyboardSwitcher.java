@@ -149,6 +149,9 @@ public final class KeyboardSwitcher implements KeyboardState.SwitchActions {
         builder.setNumberRow(settingsValues.mIsNumberRowEnabled);
 
         mKeyboardLayoutSet = builder.build();
+        if (mKeyboardView != null) {
+            mKeyboardView.resetKeyboardHeightLock();
+        }
         try {
             mState.onLoadKeyboard(filterAutoCaps(currentAutoCapsState), currentRecapitalizeState);
             mKeyboardTextsSet.setLocale(mRichImm.getCurrentSubtypeLocale(), mThemeContext);
@@ -195,6 +198,16 @@ public final class KeyboardSwitcher implements KeyboardState.SwitchActions {
         }
         if (newKeyboard == null) {
             return;
+        }
+        if (mKeyboardLayoutSet != null && newKeyboard.mId != null
+                && isKeyboardEligibleForHeightLock(newKeyboard.mId.mElementId)) {
+            try {
+                final Keyboard alphaKeyboard = mKeyboardLayoutSet.getKeyboard(KeyboardId.ELEMENT_ALPHABET);
+                if (alphaKeyboard != null && alphaKeyboard.mOccupiedHeight > 0) {
+                    newKeyboard.setOccupiedHeight(alphaKeyboard.mOccupiedHeight);
+                }
+            } catch (final Exception ignored) {
+            }
         }
         keyboardView.setKeyboard(newKeyboard);
         mCurrentInputView.setKeyboardTopPadding(newKeyboard.mTopPadding);
@@ -319,6 +332,60 @@ public final class KeyboardSwitcher implements KeyboardState.SwitchActions {
             Log.d(TAG, "setSymbols3Keyboard");
         }
         setKeyboard(KeyboardId.ELEMENT_SYMBOLS_3, KeyboardSwitchState.SYMBOLS_3);
+    }
+
+    private boolean mIsNumberPadBengali = false;
+
+    public boolean isBengaliSubtype() {
+        if (mRichImm != null && mRichImm.getCurrentSubtype() != null) {
+            final String layout = mRichImm.getCurrentSubtype().getKeyboardLayoutSetName();
+            if (layout != null && layout.toLowerCase(java.util.Locale.ROOT).contains("bengali")) {
+                return true;
+            }
+            if (mRichImm.getCurrentSubtypeLocale() != null) {
+                final String locale = mRichImm.getCurrentSubtypeLocale().getLanguage();
+                return "bn".equalsIgnoreCase(locale);
+            }
+        }
+        return false;
+    }
+
+    public void setNumberBengaliKeyboard() {
+        if (DEBUG_ACTION) {
+            Log.d(TAG, "setNumberBengaliKeyboard");
+        }
+        mIsNumberPadBengali = true;
+        setKeyboard(KeyboardId.ELEMENT_NUMBER_BENGALI, KeyboardSwitchState.OTHER);
+    }
+
+    public void toggleBengaliNumberPad() {
+        final Keyboard keyboard = getKeyboard();
+        if (keyboard != null && keyboard.mId != null && keyboard.mId.mElementId == KeyboardId.ELEMENT_NUMBER_BENGALI) {
+            setNumberKeyboard();
+        } else {
+            setNumberBengaliKeyboard();
+        }
+    }
+
+    public void setNumberKeyboard() {
+        if (DEBUG_ACTION) {
+            Log.d(TAG, "setNumberKeyboard");
+        }
+        mIsNumberPadBengali = false;
+        setKeyboard(KeyboardId.ELEMENT_NUMBER, KeyboardSwitchState.OTHER);
+    }
+
+    public void toggleNumberKeyboard() {
+        final Keyboard keyboard = getKeyboard();
+        if (keyboard != null && keyboard.mId != null && (keyboard.mId.mElementId == KeyboardId.ELEMENT_NUMBER || keyboard.mId.mElementId == KeyboardId.ELEMENT_NUMBER_BENGALI)) {
+            setAlphabetKeyboard();
+        } else {
+            if (mIsNumberPadBengali || isBengaliSubtype()) {
+                setNumberBengaliKeyboard();
+            } else {
+                setNumberKeyboard();
+            }
+        }
     }
 
     @Override
@@ -554,5 +621,16 @@ public final class KeyboardSwitcher implements KeyboardState.SwitchActions {
             return ScriptUtils.SCRIPT_UNKNOWN;
         }
         return mKeyboardLayoutSet.getScriptId();
+    }
+
+    private static boolean isKeyboardEligibleForHeightLock(final int elementId) {
+        return elementId == KeyboardId.ELEMENT_ALPHABET
+                || elementId == KeyboardId.ELEMENT_ALPHABET_AUTOMATIC_SHIFTED
+                || elementId == KeyboardId.ELEMENT_ALPHABET_MANUAL_SHIFTED
+                || elementId == KeyboardId.ELEMENT_ALPHABET_SHIFT_LOCKED
+                || elementId == KeyboardId.ELEMENT_ALPHABET_SHIFT_LOCK_SHIFTED
+                || elementId == KeyboardId.ELEMENT_SYMBOLS
+                || elementId == KeyboardId.ELEMENT_SYMBOLS_SHIFTED
+                || elementId == KeyboardId.ELEMENT_SYMBOLS_3;
     }
 }

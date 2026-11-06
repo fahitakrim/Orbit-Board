@@ -8,5 +8,5 @@
         latin:moreKeys=":,!noPanelAutoMoreKey!,!text/morekeys_n" />
     <Key
         latin:keySpec="m"
-        latin:moreKeys="?,/,!noPanelAutoMoreKey!,!text/morekeys_m" />
+        latin:moreKeys="/,?,!noPanelAutoMoreKey!,!text/morekeys_m" />
 </merge>

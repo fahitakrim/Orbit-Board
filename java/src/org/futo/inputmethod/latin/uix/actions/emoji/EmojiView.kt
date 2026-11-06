@@ -18,39 +18,20 @@
 package org.futo.inputmethod.latin.uix.actions.emoji
 
 import android.content.Context
-import android.graphics.Bitmap
 import android.graphics.Canvas
-import android.graphics.Color
 import android.graphics.Paint
 import android.graphics.Rect
-import android.os.Build
-import android.text.Layout
-import android.text.Spanned
-import android.text.StaticLayout
 import android.text.TextPaint
 import android.util.AttributeSet
 import android.util.TypedValue
 import android.view.View
-import androidx.annotation.RequiresApi
 import androidx.appcompat.content.res.AppCompatResources
-import androidx.core.graphics.applyCanvas
-import androidx.lifecycle.lifecycleScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
-import org.futo.inputmethod.latin.LatinIME
 import org.futo.inputmethod.latin.R
-
 
 class EmojiView @JvmOverloads constructor(
     context: Context,
     attrs: AttributeSet? = null,
-) :
-    View(context, attrs) {
-
-    companion object {
-        private const val EMOJI_DRAW_TEXT_SIZE_DP = 42
-    }
+) : View(context, attrs) {
 
     init {
         background = AppCompatResources.getDrawable(context, R.drawable.ripple_emoji_view)
@@ -59,10 +40,10 @@ class EmojiView @JvmOverloads constructor(
 
     internal var willDrawVariantIndicator: Boolean = true
 
-    private val textPaint = TextPaint(Paint.ANTI_ALIAS_FLAG or Paint.FILTER_BITMAP_FLAG).apply {
+    private val textPaint = TextPaint(Paint.ANTI_ALIAS_FLAG or Paint.SUBPIXEL_TEXT_FLAG).apply {
         textSize = TypedValue.applyDimension(
             TypedValue.COMPLEX_UNIT_DIP,
-            EMOJI_DRAW_TEXT_SIZE_DP.toFloat(),
+            32f,
             context.resources.displayMetrics
         )
     }
@@ -71,127 +52,57 @@ class EmojiView @JvmOverloads constructor(
         textPaint.color = color
     }
 
-    private val offscreenCanvasBitmap: Bitmap = with(textPaint.fontMetricsInt) {
-        val size = bottom - top
-        Bitmap.createBitmap(size, size, Bitmap.Config.ARGB_8888)
-    }
-
     override fun onMeasure(widthMeasureSpec: Int, heightMeasureSpec: Int) {
-        val size =
-            minOf(
-                MeasureSpec.getSize(widthMeasureSpec),
-                MeasureSpec.getSize(heightMeasureSpec)
-            ) - context.resources.getDimensionPixelSize(R.dimen.emoji_picker_emoji_view_padding)
+        val size = minOf(
+            MeasureSpec.getSize(widthMeasureSpec),
+            MeasureSpec.getSize(heightMeasureSpec)
+        ) - context.resources.getDimensionPixelSize(R.dimen.emoji_picker_emoji_view_padding)
         setMeasuredDimension(size, size)
-    }
-
-    override fun draw(canvas: Canvas) {
-        super.draw(canvas)
-        canvas.run {
-            save()
-            scale(
-                width.toFloat() / offscreenCanvasBitmap.width,
-                height.toFloat() / offscreenCanvasBitmap.height
-            )
-            drawBitmap(offscreenCanvasBitmap, 0f, 0f, null)
-            restore()
-        }
     }
 
     var emoji: EmojiItem? = null
         set(value) {
             field = value
-
-            offscreenCanvasBitmap.eraseColor(Color.TRANSPARENT)
-            post {
-                if (value != null) {
-                    if (value == this.emoji) {
-                        drawEmoji(
-                            value.emoji,
-                            drawVariantIndicator = willDrawVariantIndicator && value.skinTones
-                        )
-                        contentDescription = value.description
-                    }
-                    invalidate()
-                } else {
-                    //offscreenCanvasBitmap.eraseColor(Color.TRANSPARENT)
-                }
-            }
+            contentDescription = value?.description
+            invalidate()
         }
 
-    private fun drawEmoji(emoji: CharSequence, drawVariantIndicator: Boolean) {
-        //offscreenCanvasBitmap.eraseColor(Color.TRANSPARENT)
-        offscreenCanvasBitmap.applyCanvas {
-            if (emoji is Spanned) {
-                createStaticLayout(emoji, width).draw(this)
-            } else {
-                var textWidth = textPaint.measureText(emoji, 0, emoji.length)
-                if(textWidth > width) {
-                    scale(width / textWidth, 1.0f)
-                    textWidth = width.toFloat()
-                } else {
-                    scale(1.0f, 1.0f)
-                }
-                drawText(
-                    emoji,
-                    /* start = */ 0,
-                    /* end = */ emoji.length,
-                    /* x = */ (width - textWidth) / 2,
-                    /* y = */ -textPaint.fontMetrics.top,
-                    textPaint,
+    override fun onDraw(canvas: Canvas) {
+        super.onDraw(canvas)
+        val currentEmoji = emoji ?: return
+        if (width <= 0 || height <= 0) return
+
+        val emojiText = currentEmoji.emoji
+        textPaint.textSize = height * 0.62f
+
+        val textWidth = textPaint.measureText(emojiText, 0, emojiText.length)
+        canvas.save()
+        if (textWidth > width) {
+            val scale = width.toFloat() / textWidth
+            canvas.scale(scale, 1.0f, width / 2f, height / 2f)
+        }
+        val fontMetrics = textPaint.fontMetrics
+        val x = (width - textWidth) / 2f
+        val y = (height - (fontMetrics.descent + fontMetrics.ascent)) / 2f
+        canvas.drawText(emojiText, 0, emojiText.length, x, y, textPaint)
+        canvas.restore()
+
+        if (willDrawVariantIndicator && currentEmoji.skinTones) {
+            AppCompatResources.getDrawable(context, R.drawable.variant_availability_indicator)?.apply {
+                val indicatorWidth = context.resources.getDimensionPixelSize(
+                    R.dimen.variant_availability_indicator_width
                 )
+                val indicatorHeight = context.resources.getDimensionPixelSize(
+                    R.dimen.variant_availability_indicator_height
+                )
+                bounds = Rect(
+                    width - indicatorWidth,
+                    height - indicatorHeight,
+                    width,
+                    height
+                )
+                draw(canvas)
             }
-
-            if (drawVariantIndicator) {
-                AppCompatResources.getDrawable(context, R.drawable.variant_availability_indicator)?.apply {
-                    val canvasWidth = this@applyCanvas.width
-                    val canvasHeight = this@applyCanvas.height
-                    val indicatorWidth =
-                        context.resources.getDimensionPixelSize(
-                            R.dimen.variant_availability_indicator_width
-                        )
-                    val indicatorHeight =
-                        context.resources.getDimensionPixelSize(
-                            R.dimen.variant_availability_indicator_height
-                        )
-                    bounds = Rect(
-                        canvasWidth - indicatorWidth,
-                        canvasHeight - indicatorHeight,
-                        canvasWidth,
-                        canvasHeight
-                    )
-                }!!.draw(this)
-            }
-
-        }
-    }
-
-    @RequiresApi(23)
-    internal object Api23Impl {
-        fun createStaticLayout(emoji: Spanned, textPaint: TextPaint, width: Int): StaticLayout =
-            StaticLayout.Builder.obtain(
-                emoji, 0, emoji.length, textPaint, width
-            ).apply {
-                setAlignment(Layout.Alignment.ALIGN_CENTER)
-                setLineSpacing(/* spacingAdd = */ 0f, /* spacingMult = */ 1f)
-                setIncludePad(false)
-            }.build()
-    }
-
-    private fun createStaticLayout(emoji: Spanned, width: Int): StaticLayout {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-            return Api23Impl.createStaticLayout(emoji, textPaint, width)
-        } else {
-            @Suppress("DEPRECATION")
-            return StaticLayout(
-                emoji,
-                textPaint,
-                width,
-                Layout.Alignment.ALIGN_CENTER,
-                /* spacingmult = */ 1f,
-                /* spacingadd = */ 0f,
-                /* includepad = */ false,
-            )
         }
     }
 }

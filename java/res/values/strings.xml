@@ -618,6 +618,6 @@ Tip: You can download and remove dictionaries by going to &lt;b>Languages&#160;&
     <string name="layout_default">Default</string>
     <string name="layout_bengali_avro">Avro (&#x0985;&#x09AD;&#x09CD;&#x09B0;)</string>
     <string name="layout_bengali_jatiyo">Jatiyo (&#x099C;&#x09BE;&#x09A4;&#x09C0;&#x09DF;)</string>
-    <string name="layout_bengali_jatiyo_classic">Jatiyo Classic (&#x099C;&#x09BE;&#x09A4;&#x09C0;&#x09DF; &#x09AA;&#x09C1;&#x09B0;&#x09CB;&#x09A8;&#x09CB;)</string>
+    <string name="layout_bengali_jatiyo_classic">Jatiyo Classic (&#x099C;&#x09BE;&#x09A4;&#x09C0;&#x09DF; &#x0995;&#x09CD;&#x09B2;&#x09BE;&#x09B8;&#x09BF;&#x0995;)</string>
     <string name="layout_bengali_probhat">Probhat (&#x09AA;&#x09CD;&#x09B0;&#x09AD;&#x09BE;&#x09A4;)</string>
 </resources>

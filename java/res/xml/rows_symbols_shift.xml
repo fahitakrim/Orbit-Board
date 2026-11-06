@@ -26,6 +26,19 @@
     <include
         latin:keyboardLayout="@xml/key_styles_currency" />
 
+    <switch>
+        <case latin:numberRow="true">
+            <Row
+                latin:keyWidth="10%p"
+                latin:rowHeight="16%p"
+            >
+                <include
+                    latin:keyboardLayout="@xml/rowkeys_symbols1" />
+            </Row>
+        </case>
+        <default> </default>
+    </switch>
+
     <!-- Row 1: ~ ` | • √ π ÷ × § Δ -->
     <Row
         latin:keyWidth="10%p"

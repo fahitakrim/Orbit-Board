@@ -2,7 +2,7 @@
 <!--
 /*
 **
-** Copyright 2012, The Android Open Source Project
+** Copyright 2010, The Android Open Source Project
 **
 ** Licensed under the Apache License, Version 2.0 (the "License");
 ** you may not use this file except in compliance with the License.
@@ -23,28 +23,23 @@
     <Element
         latin:elementName="alphabet"
         latin:elementKeyboard="@xml/kbd_qwerty"
-        latin:enableProximityCharsCorrection="true"
-        latin:supportsSplitLayout="true" />
+        latin:enableProximityCharsCorrection="true" />
     <Element
         latin:elementName="alphabetAutomaticShifted"
         latin:elementKeyboard="@xml/kbd_qwerty"
-        latin:enableProximityCharsCorrection="true"
-        latin:supportsSplitLayout="true" />
+        latin:enableProximityCharsCorrection="true" />
     <Element
         latin:elementName="alphabetManualShifted"
         latin:elementKeyboard="@xml/kbd_qwerty"
-        latin:enableProximityCharsCorrection="true"
-        latin:supportsSplitLayout="true" />
+        latin:enableProximityCharsCorrection="true" />
     <Element
         latin:elementName="alphabetShiftLocked"
         latin:elementKeyboard="@xml/kbd_qwerty"
-        latin:enableProximityCharsCorrection="true"
-        latin:supportsSplitLayout="true" />
+        latin:enableProximityCharsCorrection="true" />
     <Element
         latin:elementName="alphabetShiftLockShifted"
         latin:elementKeyboard="@xml/kbd_qwerty"
-        latin:enableProximityCharsCorrection="true"
-        latin:supportsSplitLayout="true" />
+        latin:enableProximityCharsCorrection="true" />
     <Element
         latin:elementName="symbols"
         latin:elementKeyboard="@xml/kbd_symbols" />
@@ -63,4 +58,7 @@
     <Element
         latin:elementName="number"
         latin:elementKeyboard="@xml/kbd_number" />
+    <Element
+        latin:elementName="numberBengali"
+        latin:elementKeyboard="@xml/kbd_number_bengali" />
 </KeyboardLayoutSet>

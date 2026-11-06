@@ -54,9 +54,10 @@ data class DialogComposeView(
 
 fun createDialogComposeView(
     latinIME: LatinIME,
-    maxWidthProportion: Float = 0.9f,
+    maxWidthProportion: Float = 0.88f,
     maxHeightProportion: Float = 0.75f,
     dimAmount: Float = 0.5f,
+    wrapHeight: Boolean = true,
     onDismiss: () -> Unit = { },
     content: @Composable (Dialog) -> Unit,
 ): DialogComposeView {
@@ -88,7 +89,11 @@ fun createDialogComposeView(
         val maxWidth = (width * maxWidthProportion).toInt()
         val maxHeight = (height * maxHeightProportion).toInt()
 
-        setLayout(maxWidth, maxHeight)
+        if (wrapHeight) {
+            setLayout(maxWidth, ViewGroup.LayoutParams.WRAP_CONTENT)
+        } else {
+            setLayout(maxWidth, maxHeight)
+        }
         setGravity(Gravity.CENTER)
 
         setBackgroundDrawable(AppCompatResources.getDrawable(context, R.drawable.empty))

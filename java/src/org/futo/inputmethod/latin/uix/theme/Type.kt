@@ -48,6 +48,16 @@ val Inter = FontFamily(
     ),
 )
 
+val Qurova = FontFamily(
+    Font(resId = R.font.qurova, weight = FontWeight.Normal),
+    Font(resId = R.font.qurova, weight = FontWeight.Medium)
+)
+
+val Agency = FontFamily(
+    Font(resId = R.font.agency, weight = FontWeight.Normal),
+    Font(resId = R.font.agency, weight = FontWeight.Medium)
+)
+
 val Typography = Typography(
     titleLarge = TextStyle(
         fontFamily = Doto,

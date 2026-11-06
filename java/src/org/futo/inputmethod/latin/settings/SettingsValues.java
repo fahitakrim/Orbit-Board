@@ -97,6 +97,8 @@ public class SettingsValues {
     public final int mSpacebarMode;
     public final int mBackspaceMode;
     public final boolean mPinKeyboardNameOnSpacebar;
+    public final boolean mLongPressASelectAll;
+    public final boolean mVoiceInputSoundEnabled;
 
     // From the input box
     @Nonnull
@@ -106,7 +108,7 @@ public class SettingsValues {
     public final int mKeypressVibrationDuration;
     public final float mKeypressSoundVolume;
     public final int mKeyPreviewPopupDismissDelay;
-    private final boolean mAutoCorrectEnabled;
+    public final boolean mAutoCorrectEnabled;
     public final float mAutoCorrectionThreshold;
     public final float mPlausibilityThreshold;
     public final boolean mAutoCorrectionEnabledPerUserSettings;
@@ -137,7 +139,7 @@ public class SettingsValues {
         mInputAttributes = inputAttributes;
 
         // Get the settings preferences
-        mAutoCap = prefs.getBoolean(Settings.PREF_AUTO_CAP, true);
+        mAutoCap = prefs.getBoolean(Settings.PREF_AUTO_CAP, false);
         mVibrateOn = Settings.readVibrationEnabled(prefs, res);
         mSoundOn = Settings.readKeypressSoundEnabled(prefs, res);
         mKeyPreviewPopupOn = Settings.readKeyPreviewPopupEnabled(prefs, res);
@@ -152,7 +154,7 @@ public class SettingsValues {
                         Settings.PREF_ACTION_KEY_ID,
                         RegistryKt.getDefaultActionKey()
                 ));
-        mShowsActionKey = mActionKeyId != -1;
+        mShowsActionKey = mActionKeyId != -1 && prefs.getBoolean(Settings.PREF_SHOW_EMOJI_KEY, true);
         mIsNumberRowEnabled = prefs.getBoolean(Settings.PREF_ENABLE_NUMBER_ROW, false);
         mUseContactsDict = prefs.getBoolean(Settings.PREF_KEY_USE_CONTACTS_DICT, true);
         mUsePersonalizedDicts = prefs.getBoolean(Settings.PREF_KEY_USE_PERSONALIZED_DICTS, true);
@@ -174,6 +176,8 @@ public class SettingsValues {
         mSpacebarMode = prefs.getInt(Settings.PREF_SPACEBAR_MODE, Settings.SPACEBAR_MODE_SWIPE_LANGUAGE);
         mBackspaceMode = prefs.getInt(Settings.PREF_BACKSPACE_MODE, Settings.BACKSPACE_MODE_CHARACTERS);
         mPinKeyboardNameOnSpacebar = prefs.getBoolean(Settings.PREF_PIN_KEYBOARD_NAME_ON_SPACEBAR, true);
+        mLongPressASelectAll = prefs.getBoolean(Settings.PREF_LONG_PRESS_A_SELECT_ALL, true);
+        mVoiceInputSoundEnabled = prefs.getBoolean(Settings.PREF_VOICE_INPUT_SOUND, true);
 
         mShouldShowLxxSuggestionUi = Settings.SHOULD_SHOW_LXX_SUGGESTION_UI
                 && prefs.getBoolean(DebugSettings.PREF_SHOULD_SHOW_LXX_SUGGESTION_UI, true);
@@ -249,6 +253,12 @@ public class SettingsValues {
     public boolean needsToLookupSuggestions() {
         return mInputAttributes.mShouldShowSuggestions
                 && (mAutoCorrectionEnabledPerUserSettings || isSuggestionsEnabledPerUserSettings());
+    }
+
+    public boolean isAutoCorrectionOn() {
+        return mAutoCorrectEnabled
+                && mAutoCorrectionEnabledPerUserSettings
+                && mAutoCorrectionThreshold <= 1.0f;
     }
 
     public boolean isSuggestionsEnabledPerUserSettings() {

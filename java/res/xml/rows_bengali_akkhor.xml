@@ -145,7 +145,7 @@
         <Key latin:keySpec="&#x09CE;" latin:moreKeys="&#x09A4;,&#x09A5;,&#x099F;" />
         <!-- Ja-phala: "◌্য" -->
         <Key
-            latin:keySpec="&#x25CC;&#x09CD;&#x09AF;|&#x09CD;&#x09AF;"
+            latin:keySpec="&#x00A0;&#x09CD;&#x09AF;|&#x09CD;&#x09AF;"
             latin:moreKeys="&#x09CD;&#x09B0;,&#x09B0;&#x09CD;&#x200D;,&#x09CD;&#x09AC;,&#x09CD;&#x09AE;,&#x09CD;&#x09A8;,&#x09CD;&#x09B2;" />
         <!-- Khiyo: "ক্ষ" -->
         <Key
@@ -167,15 +167,27 @@
             latin:keySpec="?&#x09E7;&#x09E8;&#x09E9;|!code/key_switch_alpha_symbol"
             latin:keyStyle="toSymbolKeyStyle"
             latin:keyWidth="14%p" />
-        <Key
-            latin:keyStyle="emojiKeyStyle"
-            latin:keyWidth="10%p" />
-        <include
-            latin:keyboardLayout="@xml/key_comma"
-            latin:keyWidth="9%p" />
-        <Key
-            latin:keyStyle="spaceKeyStyle"
-            latin:keyWidth="43%p" />
+        <switch>
+            <case latin:bottomEmojiKeyEnabled="true">
+                <Key
+                    latin:keyStyle="emojiKeyStyle"
+                    latin:keyWidth="10%p" />
+                <include
+                    latin:keyboardLayout="@xml/key_comma"
+                    latin:keyWidth="9%p" />
+                <Key
+                    latin:keyStyle="spaceKeyStyle"
+                    latin:keyWidth="43%p" />
+            </case>
+            <default>
+                <include
+                    latin:keyboardLayout="@xml/key_comma"
+                    latin:keyWidth="12%p" />
+                <Key
+                    latin:keyStyle="spaceKeyStyle"
+                    latin:keyWidth="50%p" />
+            </default>
+        </switch>
         <Key
             latin:keySpec="&#x0964;"
             latin:moreKeys=".,?,!,&#x0964;"

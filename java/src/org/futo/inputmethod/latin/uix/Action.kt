@@ -39,8 +39,10 @@ interface KeyboardManagerForAction {
 
     fun typeText(v: String)
     fun replaceAllText(v: String)
+    fun replaceTranslationSessionText(newText: String, prevLen: Int)
     fun typeUri(uri: Uri, mimeTypes: List<String>): Boolean
     fun backspace(amount: Int)
+    fun deleteCharacterBeforeCursor()
 
     fun closeActionWindow()
 

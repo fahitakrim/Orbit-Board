@@ -7,6 +7,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -28,9 +29,13 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalInspectionMode
@@ -41,8 +46,11 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.compose.ui.text.font.FontWeight
 import org.futo.inputmethod.latin.uix.KeyBordersSetting
+import org.futo.inputmethod.latin.uix.KeyboardTypingEffectSetting
+import org.futo.inputmethod.latin.uix.CustomAccentColorSetting
 import org.futo.inputmethod.latin.uix.SpacebarColorSetting
 import org.futo.inputmethod.latin.uix.SpacebarBorderSetting
 import org.futo.inputmethod.latin.uix.settings.SettingRadio
@@ -61,7 +69,7 @@ import org.futo.inputmethod.latin.uix.theme.UixThemeWrapper
 import org.futo.inputmethod.latin.uix.theme.presets.AMOLEDDarkPurple
 import org.futo.inputmethod.latin.uix.theme.presets.AMOLEDNothing
 import org.futo.inputmethod.latin.uix.theme.presets.OrbitPreviewKeyboard
-import org.futo.inputmethod.latin.uix.theme.presets.BakeryPreviewKeyboard
+import org.futo.inputmethod.latin.uix.theme.presets.ChaosPreviewKeyboard
 import org.futo.inputmethod.latin.uix.theme.presets.NothingLight
 import org.futo.inputmethod.latin.uix.theme.presets.NothingDark
 import org.futo.inputmethod.latin.uix.theme.presets.ClassicMaterialDark
@@ -136,10 +144,11 @@ fun ThemePreview(theme: ThemeOption, isSelected: Boolean = false, overrideName: 
                     .fillMaxSize()
                     .padding(8.dp)
             ) {
+                val (keyBordersPref, _) = useDataStore(KeyBordersSetting.key, KeyBordersSetting.default)
                 if (theme.key == "OrbitTheme") {
                     OrbitPreviewKeyboard()
-                } else if (theme.key == "BakeryTheme") {
-                    BakeryPreviewKeyboard()
+                } else if (theme.key == "OrbitChaos") {
+                    ChaosPreviewKeyboard()
                 } else {
                     // Spacebar
                     Surface(
@@ -256,9 +265,65 @@ fun ThemePicker(onSelected: (ThemeOption) -> Unit) {
     }
 
 
+    val specialThemeKeys = remember { setOf("OrbitTheme", "OrbitChaos") }
+    var selectedCategory by remember { mutableStateOf(if (currentTheme in specialThemeKeys) "Special" else "Regular") }
+
+    val displayedThemes = remember(availableThemeOptions, selectedCategory) {
+        if (selectedCategory == "Special") {
+            availableThemeOptions.filter { it.first in specialThemeKeys }
+        } else {
+            availableThemeOptions.filter { it.first !in specialThemeKeys }
+        }
+    }
+
     val originalDirection = LocalLayoutDirection.current
 
     Column {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 8.dp)
+                .clip(RoundedCornerShape(10.dp))
+                .background(MaterialTheme.colorScheme.surfaceVariant)
+                .border(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.2f), RoundedCornerShape(10.dp))
+                .padding(4.dp),
+            horizontalArrangement = Arrangement.spacedBy(4.dp)
+        ) {
+            val isRegular = selectedCategory == "Regular"
+            Box(
+                modifier = Modifier
+                    .weight(1f)
+                    .clip(RoundedCornerShape(8.dp))
+                    .background(if (isRegular) MaterialTheme.colorScheme.primary else Color.Transparent)
+                    .clickable { selectedCategory = "Regular" }
+                    .padding(vertical = 8.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(
+                    text = "Regular",
+                    fontWeight = if (isRegular) FontWeight.Bold else FontWeight.Medium,
+                    fontSize = 13.sp,
+                    color = if (isRegular) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+            Box(
+                modifier = Modifier
+                    .weight(1f)
+                    .clip(RoundedCornerShape(8.dp))
+                    .background(if (!isRegular) MaterialTheme.colorScheme.primary else Color.Transparent)
+                    .clickable { selectedCategory = "Special" }
+                    .padding(vertical = 8.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(
+                    text = "Special",
+                    fontWeight = if (!isRegular) FontWeight.Bold else FontWeight.Medium,
+                    fontSize = 13.sp,
+                    color = if (!isRegular) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+        }
+
         CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Ltr) {
             LazyVerticalGrid(
                 modifier = Modifier.fillMaxWidth(),
@@ -269,8 +334,8 @@ fun ThemePicker(onSelected: (ThemeOption) -> Unit) {
                     Arrangement.Start
                 }
             ) {
-                items(availableThemeOptions.count()) {
-                    val themeOption = availableThemeOptions[it].second
+                items(displayedThemes.count()) {
+                    val themeOption = displayedThemes[it].second
 
                     ThemePreview(themeOption, isSelected = themeOption.key == currentTheme) {
                         onSelected(themeOption)
@@ -297,6 +362,26 @@ fun ThemePicker(onSelected: (ThemeOption) -> Unit) {
                             SettingToggleDataStore(
                                 title = "Key borders",
                                 setting = KeyBordersSetting
+                            )
+                            Spacer(modifier = Modifier.height(16.dp))
+                            SettingRadio(
+                                title = "Accent Color",
+                                options = listOf("default", "red", "yellow", "blue", "white", "green", "purple", "orange"),
+                                optionNames = listOf("Theme Default", "Nothing Red", "Bauhaus Ochre", "Cobalt Blue", "Chalk White", "Emerald Green", "Violet Purple", "Warm Orange"),
+                                setting = useDataStore(
+                                    key = CustomAccentColorSetting.key,
+                                    default = CustomAccentColorSetting.default
+                                )
+                            )
+                            Spacer(modifier = Modifier.height(16.dp))
+                            SettingRadio(
+                                title = "Typing Effect",
+                                options = listOf("none", "radar_wave", "particle_burst", "constellation_web"),
+                                optionNames = listOf("None", "Radar Wave", "Particle Burst", "Constellation Web"),
+                                setting = useDataStore(
+                                    key = KeyboardTypingEffectSetting.key,
+                                    default = KeyboardTypingEffectSetting.default
+                                )
                             )
                             Spacer(modifier = Modifier.height(16.dp))
                         }

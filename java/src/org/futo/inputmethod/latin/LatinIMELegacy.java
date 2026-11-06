@@ -684,10 +684,10 @@ public class LatinIMELegacy implements KeyboardActionListener,
                 false /* forceReloadMainDictionary */,
                 settingsValues.mAccount, "" /* dictNamePrefix */,
                 this /* DictionaryInitializationListener */);
-        if (settingsValues.mAutoCorrectionEnabledPerUserSettings) {
-            mInputLogic.mSuggest.setAutoCorrectionThreshold(
-                    settingsValues.mAutoCorrectionThreshold);
-        }
+        mInputLogic.mSuggest.setAutoCorrectionThreshold(
+                settingsValues.isAutoCorrectionOn()
+                        ? settingsValues.mAutoCorrectionThreshold
+                        : Float.MAX_VALUE);
         mInputLogic.mSuggest.setPlausibilityThreshold(settingsValues.mPlausibilityThreshold);
     }
 
@@ -995,10 +995,10 @@ public class LatinIMELegacy implements KeyboardActionListener,
             mainKeyboardView.closing();
             currentSettingsValues = mSettings.getCurrent();
 
-            if (currentSettingsValues.mAutoCorrectionEnabledPerUserSettings) {
-                suggest.setAutoCorrectionThreshold(
-                        currentSettingsValues.mAutoCorrectionThreshold);
-            }
+            suggest.setAutoCorrectionThreshold(
+                    currentSettingsValues.isAutoCorrectionOn()
+                            ? currentSettingsValues.mAutoCorrectionThreshold
+                            : Float.MAX_VALUE);
             suggest.setPlausibilityThreshold(currentSettingsValues.mPlausibilityThreshold);
 
             switcher.loadKeyboard(editorInfo, currentSettingsValues, getCurrentAutoCapsState(),
@@ -1300,6 +1300,9 @@ public class LatinIMELegacy implements KeyboardActionListener,
           case Constants.CUSTOM_CODE_PASTE:
               performPaste();
               return true;
+          case Constants.CUSTOM_CODE_SELECT_ALL:
+              performSelectAll();
+              return true;
           case Constants.CUSTOM_CODE_SHOW_INPUT_METHOD_PICKER:
             ((LatinIME)mInputMethodService).getUixManager().showLanguageSwitcher();
             return true;
@@ -1441,6 +1444,20 @@ public class LatinIMELegacy implements KeyboardActionListener,
         }
     }
 
+    private void performSelectAll() {
+        try {
+            final android.view.inputmethod.InputConnection ic = mInputMethodService.getCurrentInputConnection();
+            if (ic != null) {
+                ic.performContextMenuAction(android.R.id.selectAll);
+                AudioAndHapticFeedbackManager.getInstance().performHapticFeedback(
+                        mKeyboardSwitcher.getMainKeyboardView(), false);
+                AudioAndHapticFeedbackManager.getInstance().performAudioFeedback(Constants.CODE_UNSPECIFIED);
+            }
+        } catch (final Throwable t) {
+            Log.e(TAG, "Error in performSelectAll", t);
+        }
+    }
+
     @Override
     public void onMovePointer(int steps) {
         int shiftMode = mKeyboardSwitcher.getKeyboardShiftMode();
@@ -1513,6 +1530,12 @@ public class LatinIMELegacy implements KeyboardActionListener,
 
     @Override
     public void onSwipeLanguage(int direction) {
+        if (mKeyboardSwitcher != null && mKeyboardSwitcher.getKeyboard() != null
+                && mKeyboardSwitcher.getKeyboard().mId != null
+                && (mKeyboardSwitcher.getKeyboard().mId.mElementId == KeyboardId.ELEMENT_NUMBER
+                    || mKeyboardSwitcher.getKeyboard().mId.mElementId == KeyboardId.ELEMENT_NUMBER_BENGALI)) {
+            return;
+        }
         Subtypes.INSTANCE.switchToNextLanguage(mInputMethodService, direction);
     }
 
@@ -1567,6 +1590,11 @@ public class LatinIMELegacy implements KeyboardActionListener,
     public void onEvent(@Nonnull final Event event) {
         if (Constants.CODE_SHORTCUT == event.mKeyCode) {
             mRichImm.switchToShortcutIme(mInputMethodService);
+            return;
+        }
+        if (Constants.CODE_SWITCH_BENGALI_NUM == event.mKeyCode) {
+            mKeyboardSwitcher.toggleBengaliNumberPad();
+            return;
         }
         final InputTransaction completeInputTransaction =
                 mInputLogic.onCodeInput(mSettings.getCurrent(), event,
@@ -1597,12 +1625,6 @@ public class LatinIMELegacy implements KeyboardActionListener,
     // Called from PointerTracker through the KeyboardActionListener interface
     @Override
     public void onTextInput(final String rawText) {
-        // Intercept special debug/action tokens produced by some key styles.
-        if ("!code/key_ai_assist".equals(rawText) || "!CODE/KEY_AI_ASSIST".equals(rawText)) {
-            // Trigger AI assist flow in the IME instead of inserting literal text.
-            ((LatinIME)mInputMethodService).startAiAssist();
-            return;
-        }
 
         // TODO: have the keyboard pass the correct key code when we need it.
         final Event event = Event.createSoftwareTextEvent(rawText, Constants.CODE_OUTPUT_TEXT);

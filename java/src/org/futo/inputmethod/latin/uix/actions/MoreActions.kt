@@ -134,9 +134,14 @@ fun MoreActionsView() {
         horizontalArrangement = Arrangement.spacedBy(16.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
-        items(actions, key = { it.name }) {
-            ActionItem(it, Modifier.clickable {
-                manager!!.activateAction(it)
+        items(actions.distinctBy { ActionToId[it] ?: it.name.toString() }, key = { ActionToId[it] ?: it.name.toString() }) { action ->
+            ActionItem(action, Modifier.clickable {
+                manager?.let { mgr ->
+                    mgr.activateAction(action)
+                    if (action.windowImpl == null) {
+                        mgr.closeActionWindow()
+                    }
+                }
             })
         }
     }
@@ -153,12 +158,14 @@ fun ActionsEditor(header: @Composable () -> Unit) {
 
     val initialList: List<ActionEditorItem> = if(!LocalInspectionMode.current) {
         remember {
-            context.getSettingBlocking(ActionsSettings).toActionEditorItems().ensureWellFormed().filter {
+            val raw = context.getSettingBlocking(ActionsSettings).toActionEditorItems().ensureWellFormed().filter {
                 it !is ActionEditorItem.Item || it.action.shownInEditor
             }
+            val seen = mutableSetOf<String>()
+            raw.filter { seen.add(it.toKey()) }
         }
     } else {
-        DefaultActionSettings.flattenToActionEditorItems()
+        DefaultActionSettings.flattenToActionEditorItems().distinctBy { it.toKey() }
     }
 
     val list = remember { initialList.toMutableStateList() }

@@ -33,6 +33,29 @@ public class EmojiIntegrationTest {
     private static List<Map<String, Object>> sEmojiList;
     private static Map<String, Map<String, Object>> sEmojiMap;
 
+    @org.junit.Before
+    public void setUp() {
+        try {
+            java.lang.reflect.Field field = android.os.Build.VERSION.class.getField("SDK_INT");
+            field.setAccessible(true);
+            try {
+                field.setInt(null, 0);
+            } catch (Throwable t) {
+                Class<?> unsafeClass = Class.forName("sun.misc.Unsafe");
+                java.lang.reflect.Field unsafeField = unsafeClass.getDeclaredField("theUnsafe");
+                unsafeField.setAccessible(true);
+                Object unsafe = unsafeField.get(null);
+                java.lang.reflect.Method staticFieldBase = unsafeClass.getMethod("staticFieldBase", java.lang.reflect.Field.class);
+                java.lang.reflect.Method staticFieldOffset = unsafeClass.getMethod("staticFieldOffset", java.lang.reflect.Field.class);
+                java.lang.reflect.Method putInt = unsafeClass.getMethod("putInt", Object.class, long.class, int.class);
+                Object base = staticFieldBase.invoke(unsafe, field);
+                long offset = ((Number) staticFieldOffset.invoke(unsafe, field)).longValue();
+                putInt.invoke(unsafe, base, offset, 0);
+            }
+        } catch (Throwable ignored) {
+        }
+    }
+
     @BeforeClass
     public static void setUpClass() throws Exception {
         sGemojiFile = new File(GEMOJI_PATH);

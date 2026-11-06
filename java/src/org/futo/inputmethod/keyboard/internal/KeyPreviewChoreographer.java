@@ -116,13 +116,27 @@ public final class KeyPreviewChoreographer {
             final KeyboardIconsSet iconsSet, final KeyDrawParams drawParams,
             final int keyboardViewWidth, final int[] originCoords) {
         if (mParams.mProvider != null) {
-            final Drawable customFeedback = mParams.mProvider.getKeyPreviewBackground(key);
+            final Drawable currentBg = keyPreviewView.getBackground();
+            final Drawable customFeedback;
+            if (currentBg instanceof KeyPopupDrawable) {
+                customFeedback = mParams.mProvider.getKeyPreviewBackground(key, (KeyPopupDrawable) currentBg);
+            } else {
+                customFeedback = mParams.mProvider.getKeyPreviewBackground(key);
+            }
             if (customFeedback != null) {
-                keyPreviewView.setBackground(customFeedback);
+                if (customFeedback != currentBg) {
+                    keyPreviewView.setBackground(customFeedback);
+                } else {
+                    keyPreviewView.syncPaddingWithBackground();
+                    keyPreviewView.invalidate();
+                }
             } else {
                 keyPreviewView.setBackground(mParams.mPreviewBackground);
             }
-            final Integer customTextColor = mParams.mProvider.getKeyTextColor(key);
+            Integer customTextColor = mParams.mProvider.getKeyPreviewTextColor(key);
+            if (customTextColor == null) {
+                customTextColor = mParams.mProvider.getKeyTextColor(key);
+            }
             keyPreviewView.setPreviewVisual(key, iconsSet, drawParams, customTextColor);
         } else {
             keyPreviewView.setBackground(mParams.mPreviewBackground);
@@ -158,6 +172,7 @@ public final class KeyPreviewChoreographer {
 
         ViewLayoutUtils.placeViewAt(
                 keyPreviewView, previewX, previewY, previewWidth, previewHeight);
+        keyPreviewView.syncPaddingWithBackground();
         keyPreviewView.setPivotX(previewWidth / 2.0f);
         keyPreviewView.setPivotY(previewHeight);
     }

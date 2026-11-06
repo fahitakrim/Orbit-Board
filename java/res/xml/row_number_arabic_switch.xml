@@ -5,6 +5,8 @@
         <case latin:numberRow="true">
             <Row
                 latin:keyWidth="10%p"
+                latin:rowHeight="16%p"
+                latin:keyLabelFlags="keepBackgroundAspectRatio"
                 >
                 <include
                     latin:keyboardLayout="@xml/rowkeys_numbers_arabic" />

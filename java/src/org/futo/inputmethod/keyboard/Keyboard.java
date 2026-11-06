@@ -55,7 +55,7 @@ public class Keyboard {
     public final int mThemeId;
 
     /** Total height of the keyboard, including the padding and keys */
-    public final int mOccupiedHeight;
+    public int mOccupiedHeight;
     /** Total width of the keyboard, including the padding and keys */
     public final int mOccupiedWidth;
 
@@ -257,5 +257,9 @@ public class Keyboard {
             }
         }
         return coordinates;
+    }
+
+    public void setOccupiedHeight(final int occupiedHeight) {
+        mOccupiedHeight = occupiedHeight;
     }
 }

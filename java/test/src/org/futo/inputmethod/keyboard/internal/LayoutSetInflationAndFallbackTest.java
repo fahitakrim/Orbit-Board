@@ -190,6 +190,28 @@ public class LayoutSetInflationAndFallbackTest {
         assertTrue(hasKeyWithStyle(p2Bn, "toAlphaBengaliKeyStyle"));
     }
 
+    @Test
+    public void testSymbolsRow3ExclamationAndStarSwapped() throws Exception {
+        Document doc = parseXml("rowkeys_symbols3.xml");
+        NodeList keys = doc.getElementsByTagName("Key");
+        assertTrue("Must have at least 6 keys", keys.getLength() >= 6);
+
+        // First key must be '!' with exclamation moreKeys
+        Element firstKey = (Element) keys.item(0);
+        assertEquals("First key in symbols row 3 must be '!'", "!", firstKey.getAttribute("latin:keySpec"));
+        assertEquals("!text/morekeys_exclamation", firstKey.getAttribute("latin:moreKeys"));
+
+        // Penultimate key must be '*' with star moreKeys
+        Element starKey = (Element) keys.item(keys.getLength() - 2);
+        assertEquals("Penultimate key in symbols row 3 must be '*'", "*", starKey.getAttribute("latin:keySpec"));
+        assertEquals("!text/morekeys_star", starKey.getAttribute("latin:moreKeys"));
+
+        // Last key must be question mark
+        Element questionKey = (Element) keys.item(keys.getLength() - 1);
+        assertEquals("!text/keyspec_symbols_question", questionKey.getAttribute("latin:keySpec"));
+        assertEquals("!text/morekeys_question", questionKey.getAttribute("latin:moreKeys"));
+    }
+
     private boolean hasKeyWithStyle(Document doc, String targetStyle) {
         NodeList keys = doc.getElementsByTagName("Key");
         for (int i = 0; i < keys.getLength(); i++) {
@@ -237,6 +259,11 @@ public class LayoutSetInflationAndFallbackTest {
             }
             if (availableElements.contains(KeyboardId.ELEMENT_SYMBOLS)) {
                 return KeyboardId.ELEMENT_SYMBOLS;
+            }
+        }
+        if (requestedElementId == KeyboardId.ELEMENT_NUMBER_BENGALI) {
+            if (availableElements.contains(KeyboardId.ELEMENT_NUMBER)) {
+                return KeyboardId.ELEMENT_NUMBER;
             }
         }
         if (availableElements.contains(KeyboardId.ELEMENT_ALPHABET)) {

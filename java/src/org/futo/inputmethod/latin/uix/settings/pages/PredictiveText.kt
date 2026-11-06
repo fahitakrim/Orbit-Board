@@ -48,7 +48,7 @@ fun PredictiveTextScreen(navController: NavHostController = rememberNavControlle
             title = stringResource(R.string.auto_correction),
             subtitle = stringResource(R.string.auto_correction_summary),
             key = Settings.PREF_AUTO_CORRECTION,
-            default = true
+            default = false
         )
 
         SettingToggleSharedPrefs(

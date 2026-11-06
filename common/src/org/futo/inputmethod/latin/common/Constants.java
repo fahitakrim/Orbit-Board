@@ -198,6 +198,7 @@ public final class Constants {
     public static final int CUSTOM_CODE_COPY = 2;
     public static final int CUSTOM_CODE_CUT = 3;
     public static final int CUSTOM_CODE_PASTE = 4;
+    public static final int CUSTOM_CODE_SELECT_ALL = 5;
 
     /**
      * Some common keys code. Must be positive.
@@ -250,6 +251,8 @@ public final class Constants {
     public static final int CODE_ALPHA_FROM_EMOJI = -14;
     /** Key code for AI assistant capture/action. */
     public static final int CODE_AI_ASSIST = -16;
+    /** Key code to toggle between English and Bengali number pads. */
+    public static final int CODE_SWITCH_BENGALI_NUM = -17;
     // Code value representing the code is not specified.
     public static final int CODE_UNSPECIFIED = -15;
 
@@ -279,6 +282,7 @@ public final class Constants {
         case CODE_EMOJI: return "emoji";
         case CODE_SHIFT_ENTER: return "shiftEnter";
         case CODE_ALPHA_FROM_EMOJI: return "alpha";
+        case CODE_SWITCH_BENGALI_NUM: return "switchBengaliNum";
         case CODE_UNSPECIFIED: return "unspec";
         case CODE_TAB: return "tab";
         case CODE_ENTER: return "enter";

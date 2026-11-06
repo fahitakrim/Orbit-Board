@@ -3,7 +3,13 @@ package org.futo.inputmethod.latin.uix.actions
 import android.util.Log
 import android.view.ViewGroup
 import android.view.inputmethod.EditorInfo
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.widthIn
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -12,6 +18,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.draw.clip
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
@@ -55,6 +62,9 @@ import org.futo.inputmethod.latin.uix.settings.useSharedPrefsString
 import org.futo.inputmethod.latin.uix.settings.useUpdateSharedPrefString
 
 
+import androidx.compose.foundation.layout.size
+import androidx.compose.ui.window.PopupProperties
+
 @Composable
 fun LanguageDropdown(
     languageList: Map<String, String>,
@@ -62,13 +72,16 @@ fun LanguageDropdown(
     mSelectedText: MutableState<String>,
     sourceLang: Boolean,
     prefKey: String,
+    onLanguageSelected: () -> Unit = {}
 ) {
     val updateSharedPref = useUpdateSharedPrefString()
-    Row (modifier = Modifier.fillMaxWidth()) {
+    Row(modifier = Modifier.fillMaxWidth()) {
         Surface(
             color = MaterialTheme.colorScheme.surfaceBright,
             shape = RoundedCornerShape(24.dp),
-            onClick = { mExpanded.value = true },
+            onClick = {
+                mExpanded.value = true
+            },
             modifier = Modifier
                 .minimumInteractiveComponentSize()
                 .padding(2.dp)
@@ -84,44 +97,87 @@ fun LanguageDropdown(
         }
         DropdownMenu(
             modifier = Modifier
-                .fillMaxWidth()
-                .fillMaxHeight(),
+                .widthIn(min = 200.dp, max = 260.dp)
+                .clip(RoundedCornerShape(16.dp))
+                .border(
+                    1.dp,
+                    MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f),
+                    RoundedCornerShape(16.dp)
+                ),
             expanded = mExpanded.value,
-            onDismissRequest = { mExpanded.value = false },
+            onDismissRequest = {
+                mExpanded.value = false
+            },
+            properties = PopupProperties(focusable = false),
         ) {
-            languageList.toSortedMap().forEach { (langCode, label) ->
-                val isTargetAuto = !(!sourceLang && langCode === "auto")
-                DropdownMenuItem(text = {
-                    Text(label)
-                }, onClick = {
-                    mExpanded.value = false
-                    mSelectedText.value = langCode
-                    updateSharedPref(prefKey, langCode)
-                }, enabled = isTargetAuto,
-                trailingIcon = {
-                    if(langCode === "auto") IconWithColor(iconId = R.drawable.auto_detect, iconColor = MaterialTheme.colorScheme.onBackground)
-                })
+            // Pinned Top Languages for BD users:
+            // 1. Auto Select (only for source)
+            // 2. Bangla
+            // 3. English
+            val pinnedCodes = if (sourceLang) {
+                listOf("auto", "bn", "en")
+            } else {
+                listOf("bn", "en")
+            }
+
+            pinnedCodes.forEach { code ->
+                val label = when (code) {
+                    "auto" -> "Auto Select (স্বয়ংক্রিয়)"
+                    "bn" -> "বাংলা (Bengali)"
+                    "en" -> "English"
+                    else -> languageList[code] ?: code
+                }
+                val isSelected = mSelectedText.value == code
+                DropdownMenuItem(
+                    text = {
+                        Text(
+                            text = label,
+                            fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
+                            color = if (isSelected) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
+                        )
+                    },
+                    onClick = {
+                        mExpanded.value = false
+                        mSelectedText.value = code
+                        updateSharedPref(prefKey, code)
+                        onLanguageSelected()
+                    },
+                    trailingIcon = if (code == "auto") {
+                        {
+                            IconWithColor(
+                                iconId = R.drawable.auto_detect,
+                                iconColor = MaterialTheme.colorScheme.onBackground,
+                                modifier = Modifier.size(20.dp)
+                            )
+                        }
+                    } else null
+                )
             }
         }
     }
 }
 
 @Composable
-fun LanguageSelector(modifier: Modifier, isLoading: Boolean, mSelectedLanguage1: MutableState<String>, mSelectedLanguage2: MutableState<String>) {
+fun LanguageSelector(
+    modifier: Modifier,
+    isLoading: Boolean,
+    mSelectedLanguage1: MutableState<String>,
+    mSelectedLanguage2: MutableState<String>,
+    onLanguageSelected: () -> Unit = {}
+) {
     val mExpanded1 = remember { mutableStateOf(false) }
     val mExpanded2 = remember { mutableStateOf(false) }
-    val mLanguages = TranslationHelper.getLanguages();
+    val mLanguages = TranslationHelper.getLanguages()
 
     Row(modifier = modifier) {
         Column (modifier = Modifier.weight(5f)) {
-            LanguageDropdown(mLanguages, mExpanded1, mSelectedLanguage1, true, Settings.PREF_KEY_LAST_SOURCE_LANG)
+            LanguageDropdown(mLanguages, mExpanded1, mSelectedLanguage1, true, Settings.PREF_KEY_LAST_SOURCE_LANG, onLanguageSelected)
         }
         Column (modifier = Modifier
             .weight(1f)
             .align(Alignment.CenterVertically)) {
             if (isLoading) {
                 CircularProgressIndicator()
-
             } else {
                 Row(
                     modifier = Modifier
@@ -137,8 +193,9 @@ fun LanguageSelector(modifier: Modifier, isLoading: Boolean, mSelectedLanguage1:
                         val temp = mSelectedLanguage2.value
                         mSelectedLanguage2.value = mSelectedLanguage1.value + ""
                         mSelectedLanguage1.value = temp + ""
+                        onLanguageSelected()
                     }) {
-                        Canvas(modifier = modifier) {
+                        Canvas(modifier = Modifier.size(24.dp)) {
                             translate(
                                 left = this.size.width / 2.0f - icon.intrinsicSize.width / 2.0f,
                                 top = this.size.height / 2.0f - icon.intrinsicSize.height / 2.0f
@@ -158,14 +215,20 @@ fun LanguageSelector(modifier: Modifier, isLoading: Boolean, mSelectedLanguage1:
             }
         }
         Column (modifier = Modifier.weight(5f)) {
-            LanguageDropdown(mLanguages, mExpanded2, mSelectedLanguage2, false, Settings.PREF_KEY_LAST_TARGET_LANG)
+            LanguageDropdown(mLanguages, mExpanded2, mSelectedLanguage2, false, Settings.PREF_KEY_LAST_TARGET_LANG, onLanguageSelected)
         }
     }
 }
 
 
 @Composable
-fun TranslationInputBox(text: MutableState<String>, placeHolder: String = "", fontSize: Float = 15f, callbackTextChange: (String) -> Int) {
+fun TranslationInputBox(
+    text: MutableState<String>,
+    placeHolder: String = "",
+    fontSize: Float = 15f,
+    editTextRef: MutableState<ActionEditText?>,
+    callbackTextChange: (String) -> Int
+) {
     val context = LocalContext.current
     val manager = LocalManager.current
 
@@ -173,7 +236,7 @@ fun TranslationInputBox(text: MutableState<String>, placeHolder: String = "", fo
         48.dp.toPx()
     }
 
-    val inputType = EditorInfo.TYPE_CLASS_TEXT
+    val inputType = EditorInfo.TYPE_CLASS_TEXT or android.text.InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS
 
     val color = LocalContentColor.current
     val hintColor = MaterialTheme.colorScheme.onBackground
@@ -181,7 +244,12 @@ fun TranslationInputBox(text: MutableState<String>, placeHolder: String = "", fo
     AndroidView(
         factory = {
             ActionEditText(context).apply {
+                editTextRef.value = this
                 this.inputType = inputType
+                isCursorVisible = true
+                isFocusable = true
+                isFocusableInTouchMode = true
+                privateImeOptions = "org.futo.inputmethod.latin.NoSuggestions=1"
 
                 setTextChangeCallback {
                     text.value = it
@@ -204,26 +272,37 @@ fun TranslationInputBox(text: MutableState<String>, placeHolder: String = "", fo
 
                 val editorInfo = EditorInfo().apply {
                     this.inputType = inputType
+                    this.privateImeOptions = "org.futo.inputmethod.latin.NoSuggestions=1"
                 }
                 onCreateInputConnection(editorInfo)
 
-                manager.overrideInputConnection(inputConnection!!, editorInfo)
+                inputConnection?.let { conn ->
+                    manager.overrideInputConnection(conn, editorInfo)
+                }
 
                 requestFocus()
             }
+        },
+        update = { edit ->
+            editTextRef.value = edit
         },
         modifier = Modifier
             .fillMaxWidth()
             .fillMaxHeight(),
         onRelease = {
-            manager.unsetInputConnection()
+            editTextRef.value = null
         }
     )
 }
 
 
 @Composable
-fun SourceTextInput(modifier: Modifier, searchText: MutableState<String>, onTextChange: (String) -> Int) {
+fun SourceTextInput(
+    modifier: Modifier,
+    searchText: MutableState<String>,
+    editTextRef: MutableState<ActionEditText?>,
+    onTextChange: (String) -> Int
+) {
     Row(modifier = modifier) {
         Surface(
             color = MaterialTheme.colorScheme.surfaceBright,
@@ -239,7 +318,13 @@ fun SourceTextInput(modifier: Modifier, searchText: MutableState<String>, onText
                     .align(Alignment.CenterVertically),
                 contentAlignment = Alignment.CenterStart,
             ) {
-                TranslationInputBox(text = searchText, placeHolder = "Type text here to translate.", fontSize = 20f, callbackTextChange = onTextChange)
+                TranslationInputBox(
+                    text = searchText,
+                    placeHolder = "Type text here to translate.",
+                    fontSize = 20f,
+                    editTextRef = editTextRef,
+                    callbackTextChange = onTextChange
+                )
             }
         }
     }
@@ -249,9 +334,19 @@ fun SourceTextInput(modifier: Modifier, searchText: MutableState<String>, onText
 fun TranslateScreen(
     isLoading: Boolean,
     onTextChange: (String) -> Int,
-    languageFrom: MutableState<String>, languageTo: MutableState<String>
+    languageFrom: MutableState<String>,
+    languageTo: MutableState<String>
 ) {
-    val searchText =  remember { mutableStateOf("") }
+    val searchText = remember { mutableStateOf("") }
+    val editTextRef = remember { mutableStateOf<ActionEditText?>(null) }
+
+    val onLanguageSelected: () -> Unit = {
+        editTextRef.value?.let { edit ->
+            edit.post {
+                edit.requestFocus()
+            }
+        }
+    }
 
     Row(modifier = Modifier.fillMaxSize()) {
         Column(modifier = Modifier
@@ -265,12 +360,14 @@ fun TranslateScreen(
                 isLoading,
                 mSelectedLanguage1 = languageFrom,
                 mSelectedLanguage2 = languageTo,
+                onLanguageSelected = onLanguageSelected
             )
             SourceTextInput(
                 modifier = Modifier
                     .weight(2.0f)
                     .fillMaxWidth(),
                 searchText,
+                editTextRef,
                 onTextChange,
             )
         }
@@ -301,20 +398,22 @@ val TranslateAction = Action(
                 val error = remember { mutableStateOf<String?>(null) }
 
                 val debounceJob = remember { mutableStateOf<Job?>(null) }
+                val lastTranslatedLen = remember { mutableStateOf(0) }
 
                 val coroutineScope = rememberCoroutineScope()
 
                 TranslateScreen(
                     isLoading = isLoading.value,
                     onTextChange = {updatedString ->
+                        debounceJob.value?.cancel()
                         if (updatedString.isNotEmpty()) {
-                            debounceJob.value?.cancel()
                             debounceJob.value = coroutineScope.launch {
                                 isLoading.value = true
                                 error.value = null
                                 delay(500)
                                 if (languageFrom.value == languageTo.value) {
-                                    manager.replaceAllText(updatedString)
+                                    manager.replaceTranslationSessionText(updatedString, lastTranslatedLen.value)
+                                    lastTranslatedLen.value = updatedString.length
                                     isLoading.value = false
                                 } else {
                                     val result = CloudTranslationHandler.translate(
@@ -328,7 +427,8 @@ val TranslateAction = Action(
                                                 TAG,
                                                 "Translation Success"
                                             )
-                                            manager.replaceAllText(it)
+                                            manager.replaceTranslationSessionText(it, lastTranslatedLen.value)
+                                            lastTranslatedLen.value = it.length
                                             isLoading.value = false
                                         },
                                         onFailure = {
@@ -342,6 +442,12 @@ val TranslateAction = Action(
                                     )
                                 }
                             }
+                        } else {
+                            if (lastTranslatedLen.value > 0) {
+                                manager.replaceTranslationSessionText("", lastTranslatedLen.value)
+                                lastTranslatedLen.value = 0
+                            }
+                            isLoading.value = false
                         }
                         Log.d(TAG, "Initiated Translation")
                     },
@@ -351,6 +457,7 @@ val TranslateAction = Action(
             }
 
             override fun close() {
+                manager.unsetInputConnection()
             }
         }
     }

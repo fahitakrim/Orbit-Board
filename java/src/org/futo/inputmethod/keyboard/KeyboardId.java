@@ -29,6 +29,7 @@ import org.futo.inputmethod.latin.utils.InputTypeUtils;
 
 import java.util.Arrays;
 import java.util.Locale;
+import java.util.Objects;
 
 /**
  * Unique identifier for each keyboard type.
@@ -72,6 +73,7 @@ public final class KeyboardId {
     public static final int ELEMENT_EMOJI_CATEGORY15 = 25;
     public static final int ELEMENT_EMOJI_CATEGORY16 = 26;
     public static final int ELEMENT_SYMBOLS_3 = 27;
+    public static final int ELEMENT_NUMBER_BENGALI = 28;
 
     public final RichInputMethodSubtype mSubtype;
     public final int mWidth;
@@ -129,7 +131,7 @@ public final class KeyboardId {
                 id.mSubtype,
                 id.mIsSplitLayout,
                 id.mNumberRow,
-                id.mLongPressKeySettings.hashCode()
+                Objects.hashCode(id.mLongPressKeySettings)
         });
     }
 
@@ -150,10 +152,10 @@ public final class KeyboardId {
                 && TextUtils.equals(other.mCustomActionLabel, mCustomActionLabel)
                 && other.navigateNext() == navigateNext()
                 && other.navigatePrevious() == navigatePrevious()
-                && other.mSubtype.equals(mSubtype)
+                && Objects.equals(other.mSubtype, mSubtype)
                 && other.mIsSplitLayout == mIsSplitLayout
                 && other.mNumberRow == mNumberRow
-                && other.mLongPressKeySettings.equals(mLongPressKeySettings);
+                && Objects.equals(other.mLongPressKeySettings, mLongPressKeySettings);
     }
 
     private static boolean isAlphabetKeyboard(final int elementId) {
@@ -260,6 +262,7 @@ public final class KeyboardId {
         case ELEMENT_EMOJI_CATEGORY15: return "emojiCategory15";
         case ELEMENT_EMOJI_CATEGORY16: return "emojiCategory16";
         case ELEMENT_SYMBOLS_3: return "symbols3";
+        case ELEMENT_NUMBER_BENGALI: return "numberBengali";
         default: return null;
         }
     }

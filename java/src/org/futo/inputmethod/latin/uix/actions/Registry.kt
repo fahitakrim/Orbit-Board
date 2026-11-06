@@ -11,6 +11,7 @@ import org.futo.inputmethod.latin.uix.PreferenceUtils
 import org.futo.inputmethod.latin.uix.SettingsKey
 import org.futo.inputmethod.latin.uix.USE_SYSTEM_VOICE_INPUT
 import org.futo.inputmethod.latin.uix.getSetting
+import org.futo.inputmethod.latin.uix.getSettingBlocking
 import org.futo.inputmethod.latin.uix.setSettingBlocking
 
 // Note: indices must stay stable
@@ -31,6 +32,7 @@ val AllActionsMap = mapOf(
     "cut" to CutAction,
     "copy" to CopyAction,
     "select_all" to SelectAllAction,
+    "number_pad" to NumberPadAction,
     "more" to MoreActionsAction
 )
 
@@ -114,8 +116,8 @@ sealed class ActionEditorItem {
 
 fun ActionEditorItem.toKey(): String {
     return when(this) {
-        is ActionEditorItem.Item -> this.action.name.toString()
-        is ActionEditorItem.Separator -> "sep " + this.category.name
+        is ActionEditorItem.Item -> ActionToId[this.action] ?: this.action.name.toString()
+        is ActionEditorItem.Separator -> "sep_" + this.category.name
     }
 }
 
@@ -138,12 +140,15 @@ fun String.toActionEditorItems() : List<ActionEditorItem> = split(",").mapNotNul
 fun List<ActionEditorItem>.toActionMap(): Map<ActionCategory, List<Action>> {
     val actionMap = mutableMapOf<ActionCategory, MutableList<Action>>()
     var currentCategory: ActionCategory? = null
+    val seenActions = mutableSetOf<Action>()
 
     for (item in this) {
         when (item) {
             is ActionEditorItem.Item -> {
-                currentCategory?.let { category ->
-                    actionMap.getOrPut(category) { mutableListOf() }.add(item.action)
+                if (seenActions.add(item.action)) {
+                    currentCategory?.let { category ->
+                        actionMap.getOrPut(category) { mutableListOf() }.add(item.action)
+                    }
                 }
             }
             is ActionEditorItem.Separator -> {
@@ -219,7 +224,7 @@ fun List<ActionEditorItem>.ensureWellFormed(): List<ActionEditorItem> {
     map = map.ensureAllActionsPresent()
 
     // Return the flattened list
-    return map.flattenToActionEditorItems()
+    return map.flattenToActionEditorItems().distinctBy { it.toKey() }
 }
 
 fun List<Action>.serializeActionListToString(): String = joinToString(separator = ",") { action ->
@@ -231,7 +236,7 @@ fun String.toActionList(): List<Action> = split(",").mapNotNull { AllActionsMap[
 val DefaultActionSettings = mapOf(
     ActionCategory.ActionKey to listOf(EmojiAction),
     ActionCategory.PinnedKey to listOf(SwitchLanguageAction, VoiceInputAction),
-    ActionCategory.Favorites to listOf(UndoAction, RedoAction, TextEditAction, ClipboardHistoryAction, ThemeAction, TranslateAction),
+    ActionCategory.Favorites to listOf(UndoAction, RedoAction, TextEditAction, NumberPadAction, ClipboardHistoryAction, ThemeAction, TranslateAction),
     ActionCategory.More to listOf(), // Remaining actions get populated automatically by ensureWellFormed
     ActionCategory.Disabled to listOf(MemoryDebugAction)
 )
@@ -272,4 +277,34 @@ fun Context.updateSettingsWithNewActions(newActions: Map<ActionCategory, List<Ac
 
     setSettingBlocking(PinnedActions.key, (map[ActionCategory.PinnedKey] ?: listOf()).serializeActionListToString())
     setSettingBlocking(FavoriteActions.key, (map[ActionCategory.Favorites] ?: listOf()).serializeActionListToString())
+}
+
+fun Context.migrateActionsSettingsIfNeeded() {
+    try {
+        val currentFavs: String = getSettingBlocking(FavoriteActions)
+        val favList = currentFavs.toActionList().toMutableList()
+        if (!favList.contains(NumberPadAction)) {
+            favList.add(NumberPadAction)
+            setSettingBlocking(FavoriteActions.key, favList.serializeActionListToString())
+        }
+
+        val currentMapStr: String = getSettingBlocking(ActionsSettings)
+        val items = currentMapStr.toActionEditorItems()
+        val map = items.toActionMap().ensureAllCategoriesPresent().toMutableMap()
+        val favs = (map[ActionCategory.Favorites] ?: listOf<Action>()).toMutableList()
+        var mapChanged = false
+        if (!favs.contains(NumberPadAction)) {
+            map[ActionCategory.More] = (map[ActionCategory.More] ?: listOf<Action>()).filter { it != NumberPadAction }
+            map[ActionCategory.Disabled] = (map[ActionCategory.Disabled] ?: listOf<Action>()).filter { it != NumberPadAction }
+            favs.add(NumberPadAction)
+            mapChanged = true
+        }
+        if (mapChanged) {
+            map[ActionCategory.Favorites] = favs
+            val wellFormed = map.flattenToActionEditorItems().ensureWellFormed()
+            setSettingBlocking(ActionsSettings.key, wellFormed.serializeActionEditorItemListToString())
+        }
+    } catch (e: Exception) {
+        android.util.Log.e("Registry", "Failed migrateActionsSettingsIfNeeded", e)
+    }
 }

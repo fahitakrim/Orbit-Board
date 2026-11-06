@@ -51,7 +51,13 @@ val OrbitTheme = ThemeOption(
 }
 
 @Composable
-fun OrbitPreviewKeyboard() {
+fun OrbitPreviewKeyboard(
+    modifier: Modifier = Modifier,
+    spacebarColor: Color = OrbitMatteDark,
+    spacebarBorderColor: Color? = null,
+    hasKeyBorders: Boolean = true,
+    keyHeight: androidx.compose.ui.unit.Dp = 16.dp
+) {
     val yellow = OrbitMatteYellow
     val blue = OrbitMatteBlue
     val dark = OrbitMatteDark
@@ -61,64 +67,73 @@ fun OrbitPreviewKeyboard() {
     val row1 = listOf(yellow, blue, dark, white, red, blue, white, red, yellow, dark)
     val row2 = listOf(white, red, blue, dark, yellow, white, red, blue, dark)
     val row3 = listOf(yellow, dark, yellow, white, red, blue, dark, yellow, white)
+    val keyBorderStroke = if (hasKeyBorders) androidx.compose.foundation.BorderStroke(0.5.dp, Color(0x33FFFFFF)) else null
 
     Column(
-        modifier = Modifier
+        modifier = modifier
             .fillMaxSize()
-            .padding(horizontal = 4.dp, vertical = 2.dp),
-        verticalArrangement = Arrangement.spacedBy(2.dp, Alignment.CenterVertically),
+            .padding(horizontal = 4.dp, vertical = 4.dp),
+        verticalArrangement = Arrangement.spacedBy(3.dp, Alignment.CenterVertically),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
         // Row 1
         Row(
             modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(1.5.dp, Alignment.CenterHorizontally)
+            horizontalArrangement = Arrangement.spacedBy(2.dp, Alignment.CenterHorizontally)
         ) {
             row1.forEach { color ->
                 Surface(
-                    modifier = Modifier.weight(1f).height(10.dp),
+                    modifier = Modifier.weight(1f).height(keyHeight),
                     color = color,
-                    shape = RoundedCornerShape(2.dp)
+                    border = keyBorderStroke,
+                    shape = RoundedCornerShape(3.dp)
                 ) {}
             }
         }
         // Row 2
         Row(
             modifier = Modifier.fillMaxWidth(0.92f),
-            horizontalArrangement = Arrangement.spacedBy(1.5.dp, Alignment.CenterHorizontally)
+            horizontalArrangement = Arrangement.spacedBy(2.dp, Alignment.CenterHorizontally)
         ) {
             row2.forEach { color ->
                 Surface(
-                    modifier = Modifier.weight(1f).height(10.dp),
+                    modifier = Modifier.weight(1f).height(keyHeight),
                     color = color,
-                    shape = RoundedCornerShape(2.dp)
+                    border = keyBorderStroke,
+                    shape = RoundedCornerShape(3.dp)
                 ) {}
             }
         }
         // Row 3
         Row(
             modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(1.5.dp, Alignment.CenterHorizontally)
+            horizontalArrangement = Arrangement.spacedBy(2.dp, Alignment.CenterHorizontally)
         ) {
             row3.forEach { color ->
                 Surface(
-                    modifier = Modifier.weight(1f).height(10.dp),
+                    modifier = Modifier.weight(1f).height(keyHeight),
                     color = color,
-                    shape = RoundedCornerShape(2.dp)
+                    border = keyBorderStroke,
+                    shape = RoundedCornerShape(3.dp)
                 ) {}
             }
         }
         // Row 4
         Row(
             modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(1.5.dp, Alignment.CenterHorizontally)
+            horizontalArrangement = Arrangement.spacedBy(2.dp, Alignment.CenterHorizontally)
         ) {
-            Surface(modifier = Modifier.weight(1.2f).height(10.dp), color = red, shape = RoundedCornerShape(2.dp)) {}
-            Surface(modifier = Modifier.weight(0.9f).height(10.dp), color = blue, shape = RoundedCornerShape(2.dp)) {}
-            Surface(modifier = Modifier.weight(0.9f).height(10.dp), color = dark, shape = RoundedCornerShape(2.dp)) {}
-            Surface(modifier = Modifier.weight(3.5f).height(10.dp), color = dark, shape = RoundedCornerShape(2.dp)) {}
-            Surface(modifier = Modifier.weight(0.9f).height(10.dp), color = white, shape = RoundedCornerShape(2.dp)) {}
-            Surface(modifier = Modifier.weight(1.2f).height(10.dp), color = red, shape = RoundedCornerShape(2.dp)) {}
+            Surface(modifier = Modifier.weight(1.2f).height(keyHeight), color = red, border = keyBorderStroke, shape = RoundedCornerShape(3.dp)) {}
+            Surface(modifier = Modifier.weight(0.9f).height(keyHeight), color = blue, border = keyBorderStroke, shape = RoundedCornerShape(3.dp)) {}
+            Surface(modifier = Modifier.weight(0.9f).height(keyHeight), color = dark, border = keyBorderStroke, shape = RoundedCornerShape(3.dp)) {}
+            Surface(
+                modifier = Modifier.weight(3.5f).height(keyHeight),
+                color = spacebarColor,
+                border = if (spacebarBorderColor != null) androidx.compose.foundation.BorderStroke(1.2.dp, spacebarBorderColor) else keyBorderStroke,
+                shape = RoundedCornerShape(3.dp)
+            ) {}
+            Surface(modifier = Modifier.weight(0.9f).height(keyHeight), color = white, border = keyBorderStroke, shape = RoundedCornerShape(3.dp)) {}
+            Surface(modifier = Modifier.weight(1.2f).height(keyHeight), color = red, border = keyBorderStroke, shape = RoundedCornerShape(3.dp)) {}
         }
     }
 }

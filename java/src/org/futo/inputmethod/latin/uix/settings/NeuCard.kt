@@ -50,8 +50,8 @@ fun NeuCard(
         label = "neu_card_scale"
     )
 
-    val effectiveBorderColor = borderColor ?: MaterialTheme.colorScheme.outline
-    val backgroundColor = MaterialTheme.colorScheme.surface
+    val effectiveBorderColor = borderColor ?: Color(0xFF232326)
+    val backgroundColor = Color(0xFF141416)
 
     Box(
         modifier = modifier

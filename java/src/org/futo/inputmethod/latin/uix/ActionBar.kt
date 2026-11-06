@@ -5,12 +5,19 @@ import android.os.Build
 import android.view.View
 import androidx.annotation.RequiresApi
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -27,6 +34,7 @@ import androidx.compose.foundation.lazy.LazyItemScope
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.ColorScheme
 import androidx.compose.material3.Icon
@@ -36,6 +44,7 @@ import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.LocalTextStyle
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
+import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.contentColorFor
 import androidx.compose.material3.dynamicDarkColorScheme
@@ -44,6 +53,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.MutableState
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Alignment.Companion.Center
@@ -98,6 +108,8 @@ import org.futo.inputmethod.latin.uix.actions.toActionList
 import org.futo.inputmethod.latin.uix.settings.useDataStore
 import org.futo.inputmethod.latin.uix.settings.useDataStoreValue
 import org.futo.inputmethod.latin.uix.theme.DarkColorScheme
+import org.futo.inputmethod.latin.uix.theme.Qurova
+import org.futo.inputmethod.latin.uix.theme.Agency
 import org.futo.inputmethod.latin.uix.theme.Typography
 import org.futo.inputmethod.latin.uix.theme.UixThemeWrapper
 import java.lang.Integer.min
@@ -249,7 +261,16 @@ fun RowScope.SuggestionItem(words: SuggestedWords, idx: Int, isPrimary: Boolean,
 
     val (keyboardFont, _) = useDataStore(key = KeyboardFontSetting.key, default = KeyboardFontSetting.default)
     val containsIndic = word?.any { it.code in 0x0980..0x09FF } == true
-    val font = if (keyboardFont == "normal" || containsIndic) FontFamily.Default else FontFamily(Font(R.font.ndot_family))
+    val font = if (containsIndic) {
+        FontFamily.Default
+    } else {
+        when (keyboardFont) {
+            "normal" -> FontFamily.Default
+            "qurova" -> Qurova
+            "agency" -> Agency
+            else -> FontFamily(Font(R.font.ndot_family))
+        }
+    }
     val textStyle = when (actualIsPrimary) {
         true -> suggestionStylePrimary
         false -> suggestionStyleAlternative
@@ -358,12 +379,15 @@ fun RowScope.SuggestionItems(words: SuggestedWords, onClick: (i: Int) -> Unit, o
 
 
     for (i in 0 until maxSuggestions) {
+        val targetIdx = suggestionOrder.getOrNull(i) ?: continue
+        if (targetIdx !in 0 until words.size()) continue
+
         SuggestionItem(
             words,
-            suggestionOrder[i],
+            targetIdx,
             isPrimary = i == (maxSuggestions / 2),
-            onClick = { onClick(suggestionOrder[i]) },
-            onLongClick = { onLongClick(suggestionOrder[i]) }
+            onClick = { onClick(targetIdx) },
+            onLongClick = { onLongClick(targetIdx) }
         )
 
         if (i < maxSuggestions - 1) SuggestionSeparator()
@@ -379,7 +403,10 @@ fun LazyItemScope.ActionItem(idx: Int, action: Action, onSelect: (Action) -> Uni
         .width(width)
         .fillMaxHeight()
 
-    val contentCol = MaterialTheme.colorScheme.onSurfaceVariant
+    val latinIME = LocalContext.current as? org.futo.inputmethod.latin.LatinIME
+    val isVoiceListening = (action.icon == org.futo.inputmethod.latin.R.drawable.mic_fill) &&
+            (latinIME?.uixManager?.systemVoiceInputManager?.isListeningState?.value == true)
+    val contentCol = if (isVoiceListening) Color(0xFFE53935) else MaterialTheme.colorScheme.onSurfaceVariant
 
     Box(modifier = modifier
         .clip(CircleShape)
@@ -424,10 +451,14 @@ fun ActionItemSmall(action: Action, onSelect: (Action) -> Unit, onLongSelect: (A
             )
         },
         contentAlignment = Alignment.Center) {
+    val latinIME2 = LocalContext.current as? org.futo.inputmethod.latin.LatinIME
+    val isVoiceListening2 = (action.icon == org.futo.inputmethod.latin.R.drawable.mic_fill) &&
+            (latinIME2?.uixManager?.systemVoiceInputManager?.isListeningState?.value == true)
+    val itemTint = if (isVoiceListening2) Color(0xFFE53935) else contentColorFor(backgroundColor = bgCol)
         Icon(
             painter = painterResource(id = action.icon),
             contentDescription = stringResource(action.name),
-            tint = contentColorFor(backgroundColor = bgCol),
+            tint = itemTint,
             modifier = Modifier.size(16.dp)
         )
     }
@@ -492,7 +523,7 @@ fun ActionItems(onSelect: (Action) -> Unit, onLongSelect: (Action) -> Unit) {
                 }, onLongSelect = { })
 
             }
-            items(actionItems.size, key = { actionItems[it].name }) {
+            items(actionItems.size, key = { "${actionItems[it].name}_$it" }) {
                 ActionItem(it, actionItems[it], onSelect, onLongSelect)
             }
         }
@@ -648,6 +679,90 @@ fun ActionSep() {
 }
 
 @Composable
+fun VoiceListeningWaveform(
+    livePartialText: String?,
+    modifier: Modifier = Modifier
+) {
+    val accentColor = MaterialTheme.colorScheme.primary
+    val infiniteTransition = rememberInfiniteTransition(label = "voiceWaveform")
+
+    val bar1Height by infiniteTransition.animateFloat(
+        initialValue = 6f,
+        targetValue = 20f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(400, easing = FastOutSlowInEasing),
+            repeatMode = RepeatMode.Reverse
+        ),
+        label = "bar1"
+    )
+    val bar2Height by infiniteTransition.animateFloat(
+        initialValue = 18f,
+        targetValue = 6f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(350, delayMillis = 100, easing = FastOutSlowInEasing),
+            repeatMode = RepeatMode.Reverse
+        ),
+        label = "bar2"
+    )
+    val bar3Height by infiniteTransition.animateFloat(
+        initialValue = 8f,
+        targetValue = 22f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(450, delayMillis = 200, easing = FastOutSlowInEasing),
+            repeatMode = RepeatMode.Reverse
+        ),
+        label = "bar3"
+    )
+    val bar4Height by infiniteTransition.animateFloat(
+        initialValue = 16f,
+        targetValue = 7f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(380, delayMillis = 150, easing = FastOutSlowInEasing),
+            repeatMode = RepeatMode.Reverse
+        ),
+        label = "bar4"
+    )
+
+    Row(
+        modifier = modifier
+            .fillMaxHeight()
+            .padding(horizontal = 12.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.Start
+    ) {
+        Row(
+            modifier = Modifier.height(24.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(3.dp)
+        ) {
+            listOf(bar1Height, bar2Height, bar3Height, bar4Height).forEach { h ->
+                Box(
+                    modifier = Modifier
+                        .width(3.dp)
+                        .height(h.dp)
+                        .clip(RoundedCornerShape(1.5.dp))
+                        .background(accentColor)
+                )
+            }
+        }
+
+        if (!livePartialText.isNullOrBlank()) {
+            Spacer(modifier = Modifier.width(10.dp))
+            Text(
+                text = livePartialText,
+                style = MaterialTheme.typography.bodyMedium.copy(
+                    fontWeight = FontWeight.Medium,
+                    color = MaterialTheme.colorScheme.onSurface
+                ),
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.weight(1f, fill = false)
+            )
+        }
+    }
+}
+
+@Composable
 fun ActionBar(
     words: SuggestedWords?,
     suggestionStripListener: SuggestionStripView.Listener,
@@ -661,6 +776,10 @@ fun ActionBar(
 ) {
     val view = LocalView.current
     val context = LocalContext.current
+    val latinIME = LocalContext.current as? org.futo.inputmethod.latin.LatinIME
+    val voiceInputManager = latinIME?.uixManager?.systemVoiceInputManager
+    val isVoiceListening = voiceInputManager?.isListeningState?.value == true
+    val livePartialText = voiceInputManager?.livePartialText?.value
 
     val actionBarHeight = 40.dp
 
@@ -684,6 +803,12 @@ fun ActionBar(
 
                 if (importantNotice != null) {
                     ImportantNoticeView(importantNotice)
+                } else if (isVoiceListening) {
+                    VoiceListeningWaveform(
+                        livePartialText = livePartialText,
+                        modifier = Modifier.weight(1.0f)
+                    )
+                    PinnedActionItems(onActionActivated, onActionAltActivated)
                 } else {
                     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
                         AnimatedVisibility(
@@ -699,18 +824,20 @@ fun ActionBar(
                         SuggestionItems(
                             words,
                             onClick = {
-                                suggestionStripListener.pickSuggestionManually(
-                                    words.getInfo(it)
-                                )
-                                keyboardManagerForAction?.performHapticAndAudioFeedback(
-                                    Constants.CODE_TAB,
-                                    view
-                                )
+                                val info = try { words.getInfo(it) } catch (_: Throwable) { null }
+                                if (info != null) {
+                                    suggestionStripListener.pickSuggestionManually(info)
+                                    keyboardManagerForAction?.performHapticAndAudioFeedback(
+                                        Constants.CODE_TAB,
+                                        view
+                                    )
+                                }
                             },
                             onLongClick = {
-                                suggestionStripListener.requestForgetWord(
-                                    words.getInfo(it)
-                                )
+                                val info = try { words.getInfo(it) } catch (_: Throwable) { null }
+                                if (info != null) {
+                                    suggestionStripListener.requestForgetWord(info)
+                                }
                             })
                     } else {
                         Spacer(modifier = Modifier.weight(1.0f))
@@ -816,15 +943,31 @@ fun CollapsibleSuggestionsBar(
                     )
                 }
 
-                if (words != null) {
+                val latinIME = LocalContext.current as? org.futo.inputmethod.latin.LatinIME
+                val voiceInputManager = latinIME?.uixManager?.systemVoiceInputManager
+                val isVoiceListening = voiceInputManager?.isListeningState?.value == true
+                val livePartialText = voiceInputManager?.livePartialText?.value
+
+                if (isVoiceListening) {
+                    VoiceListeningWaveform(
+                        livePartialText = livePartialText,
+                        modifier = Modifier.weight(1.0f)
+                    )
+                } else if (words != null) {
                     SuggestionItems(
                         words,
                         onClick = {
-                            suggestionStripListener.pickSuggestionManually(
-                                words.getInfo(it)
-                            )
+                            val info = try { words.getInfo(it) } catch (_: Throwable) { null }
+                            if (info != null) {
+                                suggestionStripListener.pickSuggestionManually(info)
+                            }
                         },
-                        onLongClick = { suggestionStripListener.requestForgetWord(words.getInfo(it)) })
+                        onLongClick = {
+                            val info = try { words.getInfo(it) } catch (_: Throwable) { null }
+                            if (info != null) {
+                                suggestionStripListener.requestForgetWord(info)
+                            }
+                        })
                 } else {
                     Spacer(modifier = Modifier.weight(1.0f))
                 }

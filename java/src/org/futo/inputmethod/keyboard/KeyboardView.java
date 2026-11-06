@@ -38,6 +38,7 @@ import androidx.core.content.res.ResourcesCompat;
 
 import org.futo.inputmethod.keyboard.internal.KeyDrawParams;
 import org.futo.inputmethod.keyboard.internal.KeyVisualAttributes;
+import org.futo.inputmethod.keyboard.internal.OrbitDotBangla;
 import org.futo.inputmethod.latin.uix.DynamicThemeProvider;
 import org.futo.inputmethod.latin.uix.DynamicThemeProviderOwner;
 import org.futo.inputmethod.latin.R;
@@ -111,6 +112,22 @@ public class KeyboardView extends View {
     // TODO: Consider having a base keyboard object to make this @Nonnull
     @Nullable
     private Keyboard mKeyboard;
+    private int mLockedOccupiedHeight = 0;
+    private int mLastOccupiedWidth = 0;
+
+    public void resetKeyboardHeightLock() {
+        mLockedOccupiedHeight = 0;
+        mLastOccupiedWidth = 0;
+    }
+
+    private static boolean isEligibleForHeightLock(@Nullable final KeyboardId id) {
+        if (id == null) return false;
+        final int elementId = id.mElementId;
+        return id.isAlphabetKeyboard()
+                || elementId == KeyboardId.ELEMENT_SYMBOLS
+                || elementId == KeyboardId.ELEMENT_SYMBOLS_SHIFTED
+                || elementId == KeyboardId.ELEMENT_SYMBOLS_3;
+    }
     @Nonnull
     private final KeyDrawParams mKeyDrawParams = new KeyDrawParams();
 
@@ -229,6 +246,14 @@ public class KeyboardView extends View {
      */
     public void setKeyboard(@Nonnull final Keyboard keyboard) {
         mKeyboard = keyboard;
+        if (keyboard.mOccupiedWidth != mLastOccupiedWidth) {
+            mLastOccupiedWidth = keyboard.mOccupiedWidth;
+            mLockedOccupiedHeight = keyboard.mOccupiedHeight;
+        } else if (keyboard.mId != null && keyboard.mId.isAlphabetKeyboard()) {
+            mLockedOccupiedHeight = keyboard.mOccupiedHeight;
+        } else if (mLockedOccupiedHeight > 0 && isEligibleForHeightLock(keyboard.mId)) {
+            keyboard.setOccupiedHeight(mLockedOccupiedHeight);
+        }
         final int keyHeight = keyboard.mMostCommonKeyHeight - keyboard.mVerticalGap;
         final int keyWidth = keyboard.mMostCommonKeyWidth;
 
@@ -269,16 +294,22 @@ public class KeyboardView extends View {
             super.onMeasure(widthMeasureSpec, heightMeasureSpec);
             return;
         }
+        final int occupiedHeight = (mLockedOccupiedHeight > 0 && isEligibleForHeightLock(keyboard.mId))
+                ? mLockedOccupiedHeight : keyboard.mOccupiedHeight;
         // The main keyboard expands to the entire this {@link KeyboardView}.
         final int width = keyboard.mOccupiedWidth + getPaddingLeft() + getPaddingRight();
-        final int height = keyboard.mOccupiedHeight + getPaddingTop() + getPaddingBottom();
+        final int height = occupiedHeight + getPaddingTop() + getPaddingBottom();
         setMeasuredDimension(width, height);
+    }
+
+    protected void onDrawUnderKeys(final Canvas canvas) {
     }
 
     @Override
     protected void onDraw(final Canvas canvas) {
         super.onDraw(canvas);
         if (canvas.isHardwareAccelerated()) {
+            onDrawUnderKeys(canvas);
             onDrawKeyboard(canvas);
             return;
         }
@@ -290,6 +321,12 @@ public class KeyboardView extends View {
                 // TODO: Stop using the offscreen canvas even when in software rendering
                 mOffscreenCanvas.setBitmap(mOffscreenBuffer);
             }
+            final Drawable background = getBackground();
+            if (background != null) {
+                mOffscreenCanvas.drawColor(Color.BLACK, PorterDuff.Mode.CLEAR);
+                background.draw(mOffscreenCanvas);
+            }
+            onDrawUnderKeys(mOffscreenCanvas);
             onDrawKeyboard(mOffscreenCanvas);
         }
         canvas.drawBitmap(mOffscreenBuffer, 0.0f, 0.0f, null);
@@ -334,11 +371,6 @@ public class KeyboardView extends View {
         final boolean isHardwareAccelerated = canvas.isHardwareAccelerated();
         // TODO: Confirm if it's really required to draw all keys when hardware acceleration is on.
         if (drawAllKeys || isHardwareAccelerated) {
-            if (!isHardwareAccelerated && background != null) {
-                // Need to draw keyboard background on {@link #mOffscreenBuffer}.
-                canvas.drawColor(Color.BLACK, PorterDuff.Mode.CLEAR);
-                background.draw(canvas);
-            }
             // Draw all keys.
             for (final Key key : keyboard.getSortedKeys()) {
                 onDrawKey(key, canvas, paint);
@@ -391,6 +423,28 @@ public class KeyboardView extends View {
     }
 
     // Draw key background.
+    public static boolean isNumberRowKey(@Nullable final KeyboardId keyboardId, @Nullable final Key key) {
+        if (keyboardId == null || key == null) return false;
+        if (!keyboardId.isAlphabetKeyboard() || !keyboardId.mNumberRow) {
+            return false;
+        }
+        final String label = key.getLabel();
+        if (label == null || label.isEmpty()) return false;
+        final char c = label.charAt(0);
+        final boolean isDigit = (c >= '0' && c <= '9') || (c >= '\u09E6' && c <= '\u09EF');
+        if (isDigit) {
+            return key.getY() <= (key.getHeight() / 2);
+        }
+        if (key.getY() <= (key.getHeight() / 2) && "!@#$%^&*()".indexOf(c) >= 0) {
+            return true;
+        }
+        return false;
+    }
+
+    /* package */ boolean isNumberRowKey(@Nonnull final Key key) {
+        return isNumberRowKey(mKeyboard != null ? mKeyboard.mId : null, key);
+    }
+
     protected void onDrawKeyBackground(@Nonnull final Key key, @Nonnull final Canvas canvas,
             @Nonnull final Drawable background) {
         final Drawable customBg = (mDrawableProvider != null) ? mDrawableProvider.getKeyBackground(key, key.isPressed()) : null;
@@ -398,13 +452,15 @@ public class KeyboardView extends View {
         final int keyWidth = key.getDrawWidth();
         final int keyHeight = key.getHeight();
         final int bgWidth, bgHeight, bgX, bgY;
-        if (key.needsToKeepBackgroundAspectRatio(mDefaultKeyLabelFlags)
+        final boolean isNumberRow = isNumberRowKey(key);
+        if (isNumberRow || (key.needsToKeepBackgroundAspectRatio(mDefaultKeyLabelFlags)
                 // HACK: To disable expanding normal/functional key background.
-                && !key.hasCustomActionLabel()) {
-            bgWidth = Math.min(keyWidth, keyHeight);
-            bgHeight = Math.min(keyWidth, keyHeight);
-            bgX = (keyWidth - bgWidth) / 2;
-            bgY = (keyHeight - bgHeight) / 2;
+                && !key.hasCustomActionLabel())) {
+            final int size = Math.min(keyWidth, keyHeight);
+            bgWidth = size;
+            bgHeight = size;
+            bgX = (keyWidth - size) / 2;
+            bgY = (keyHeight - size) / 2;
         } else {
             final Rect padding = mKeyBackgroundPadding;
             bgWidth = keyWidth + padding.left + padding.right;
@@ -437,9 +493,19 @@ public class KeyboardView extends View {
                 : key.getHintIcon(keyboard.mIconsSet, params.mAnimAlpha);
         float labelX = centerX;
         float labelBaseline = centerY;
-        final String label = key.getLabel();
+        final String rawLabel = cleanCombiningMarkForDisplay(key.getLabel());
+        final String label = (mDrawableProvider != null && rawLabel != null)
+                ? mDrawableProvider.getKeyLabelOverride(key, rawLabel)
+                : rawLabel;
         if (label != null) {
-            paint.setTypeface(key.selectTypeface(params));
+            final boolean isBengaliNumberPad = (keyboard != null && keyboard.mId != null &&
+                    keyboard.mId.mElementId == KeyboardId.ELEMENT_NUMBER_BENGALI);
+            final boolean isQurova = (mDrawableProvider != null && mDrawableProvider.isQurovaFont());
+            if (shouldFallbackToDefaultTypeface(isQurova, isBengaliNumberPad, label)) {
+                paint.setTypeface(Typeface.DEFAULT);
+            } else {
+                paint.setTypeface(key.selectTypeface(params));
+            }
             paint.setTextSize(key.selectTextSize(params));
             final float labelCharHeight = TypefaceUtils.getReferenceCharHeight(paint);
             final float labelCharWidth = TypefaceUtils.getReferenceCharWidth(paint);
@@ -486,56 +552,75 @@ public class KeyboardView extends View {
                 paint.clearShadowLayer();
             }
             blendAlpha(paint, params.mAnimAlpha);
-            canvas.drawText(label, 0, label.length(), labelX, labelBaseline, paint);
+            final float rotation = (mDrawableProvider != null) ? mDrawableProvider.getKeyRotation(key) : 0.0f;
+            if (rotation != 0.0f) {
+                canvas.save();
+                canvas.rotate(rotation, centerX, centerY);
+                canvas.drawText(label, 0, label.length(), labelX, labelBaseline, paint);
+                canvas.restore();
+            } else {
+                canvas.drawText(label, 0, label.length(), labelX, labelBaseline, paint);
+            }
             // Turn off drop shadow and reset x-scale.
             paint.clearShadowLayer();
             paint.setTextScaleX(1.0f);
         }
 
         // Draw hint label.
-        final String hintLabel = key.getHintLabel();
+        final String hintLabel = cleanCombiningMarkForDisplay(key.getHintLabel());
         if (hintLabel != null) {
-            paint.setTextSize(key.selectHintTextSize(params));
             final Integer customHintColor = (mDrawableProvider != null) ? mDrawableProvider.getKeyHintColor(key) : null;
-            if (customHintColor != null) {
-                paint.setColor(customHintColor);
-            } else {
-                paint.setColor(key.selectHintTextColor(params));
-            }
-            // Typeface for hint letters (clean, sleek normal weight)
-            paint.setTypeface(Typeface.DEFAULT);
-            blendAlpha(paint, params.mAnimAlpha);
-            final float labelCharHeight = TypefaceUtils.getReferenceCharHeight(paint);
-            final float labelCharWidth = TypefaceUtils.getReferenceCharWidth(paint);
-            final float hintX, hintBaseline;
-            if (key.hasHintLabel()) {
-                // The hint label is placed just right of the key label. Used mainly on
-                // "phone number" layout.
-                hintX = labelX + params.mHintLabelOffCenterRatio * labelCharWidth;
-                if (key.isAlignHintLabelToBottom(mDefaultKeyLabelFlags)) {
-                    hintBaseline = labelBaseline;
+            final int hintColor = (customHintColor != null) ? customHintColor : key.selectHintTextColor(params);
+            if (Color.alpha(hintColor) > 0) {
+                paint.setTextSize(key.selectHintTextSize(params));
+                paint.setColor(hintColor);
+                final boolean isQurova = (mDrawableProvider != null && mDrawableProvider.isQurovaFont());
+                if (shouldFallbackToDefaultTypeface(isQurova, false, hintLabel)) {
+                    paint.setTypeface(Typeface.DEFAULT);
                 } else {
-                    hintBaseline = centerY + labelCharHeight / 2.0f;
+                    paint.setTypeface(key.selectTypeface(params));
                 }
-                paint.setTextAlign(Align.LEFT);
-            } else if (key.hasShiftedLetterHint()) {
-                // The hint label is placed at top-right corner of the key. Used mainly on tablet.
-                hintX = keyWidth - mKeyShiftedLetterHintPadding - labelCharWidth / 2.0f;
-                paint.getFontMetrics(mFontMetrics);
-                hintBaseline = -mFontMetrics.top;
-                paint.setTextAlign(Align.CENTER);
-            } else { // key.hasHintLetter()
-                // The hint letter is placed at top-right corner of the key. Used mainly on phone.
-                final float hintDigitWidth = TypefaceUtils.getReferenceDigitWidth(paint);
-                final float hintLabelWidth = TypefaceUtils.getStringWidth(hintLabel, paint);
-                hintX = keyWidth - mKeyHintLetterPadding
-                        - Math.max(hintDigitWidth, hintLabelWidth) / 2.0f;
-                hintBaseline = -paint.ascent();
-                paint.setTextAlign(Align.CENTER);
+                blendAlpha(paint, params.mAnimAlpha);
+                final float labelCharHeight = TypefaceUtils.getReferenceCharHeight(paint);
+                final float labelCharWidth = TypefaceUtils.getReferenceCharWidth(paint);
+                final float hintX, hintBaseline;
+                final float[] customCoords = (mDrawableProvider != null)
+                        ? mDrawableProvider.getKeyHintCoordinates(key, keyWidth, keyHeight, mKeyHintLetterPadding)
+                        : null;
+                if (customCoords != null && customCoords.length >= 2) {
+                    hintX = customCoords[0];
+                    hintBaseline = customCoords[1];
+                    paint.setTextAlign(Align.CENTER);
+                } else if (key.hasHintLabel()) {
+                    // The hint label is placed just right of the key label. Used mainly on
+                    // "phone number" layout.
+                    hintX = labelX + params.mHintLabelOffCenterRatio * labelCharWidth;
+                    if (key.isAlignHintLabelToBottom(mDefaultKeyLabelFlags)) {
+                        hintBaseline = labelBaseline;
+                    } else {
+                        hintBaseline = centerY + labelCharHeight / 2.0f;
+                    }
+                    paint.setTextAlign(Align.LEFT);
+                } else if (key.hasShiftedLetterHint()) {
+                    // The hint label is placed at top-right corner of the key. Used mainly on tablet.
+                    hintX = keyWidth - mKeyShiftedLetterHintPadding - labelCharWidth / 2.0f;
+                    paint.getFontMetrics(mFontMetrics);
+                    hintBaseline = -mFontMetrics.top;
+                    paint.setTextAlign(Align.CENTER);
+                } else { // key.hasHintLetter()
+                    // The hint letter is placed at top-right corner of the key. Used mainly on phone.
+                    final float hintDigitWidth = TypefaceUtils.getReferenceDigitWidth(paint);
+                    final float hintLabelWidth = TypefaceUtils.getStringWidth(hintLabel, paint);
+                    hintX = keyWidth - mKeyHintLetterPadding
+                            - Math.max(hintDigitWidth, hintLabelWidth) / 2.0f;
+                    final float hintTopPad = Math.max(mKeyHintLetterPadding * 0.75f, 6.0f);
+                    hintBaseline = -paint.ascent() + hintTopPad;
+                    paint.setTextAlign(Align.CENTER);
+                }
+                final float adjustmentY = (customCoords != null) ? 0.0f : (params.mHintLabelVerticalAdjustment * labelCharHeight);
+                canvas.drawText(
+                        hintLabel, 0, hintLabel.length(), hintX, hintBaseline + adjustmentY, paint);
             }
-            final float adjustmentY = params.mHintLabelVerticalAdjustment * labelCharHeight;
-            canvas.drawText(
-                    hintLabel, 0, hintLabel.length(), hintX, hintBaseline + adjustmentY, paint);
         } else if(hintIcon != null) {
             final float size = key.selectHintTextSize(params);
 
@@ -544,6 +629,14 @@ public class KeyboardView extends View {
 
             int hintX = keyWidth - iconWidth - (int)mKeyHintLetterPadding;
             int hintY = (int)mKeyHintLetterPadding;
+
+            final float[] customCoords = (mDrawableProvider != null)
+                    ? mDrawableProvider.getKeyHintCoordinates(key, keyWidth, keyHeight, mKeyHintLetterPadding)
+                    : null;
+            if (customCoords != null && customCoords.length >= 2) {
+                hintX = (int)Math.max(0, Math.min(keyWidth - iconWidth, customCoords[0] - iconWidth / 2.0f));
+                hintY = (int)Math.max(0, Math.min(keyHeight - iconHeight, customCoords[1] - iconHeight));
+            }
 
             hintIcon.setTint(key.selectHintTextColor(params));
             drawIcon(canvas, hintIcon, hintX, hintY, iconWidth, iconHeight);
@@ -597,7 +690,7 @@ public class KeyboardView extends View {
         final int keyWidth = key.getDrawWidth();
         final int keyHeight = key.getHeight();
 
-        paint.setTypeface(params.mTypeface);
+        paint.setTypeface(Typeface.DEFAULT);
         paint.setTextSize(params.mHintLetterSize);
         paint.setColor(params.mHintLabelColor);
         paint.setTextAlign(Align.CENTER);
@@ -623,7 +716,15 @@ public class KeyboardView extends View {
             paint.setTextSize(mKeyDrawParams.mLabelSize);
         } else {
             paint.setColor(key.selectTextColor(mKeyDrawParams));
-            paint.setTypeface(key.selectTypeface(mKeyDrawParams));
+            final String kLabel = key.getLabel();
+            final boolean isBengaliNumberPad = (mKeyboard != null && mKeyboard.mId != null &&
+                    mKeyboard.mId.mElementId == KeyboardId.ELEMENT_NUMBER_BENGALI);
+            final boolean isQurova = (mDrawableProvider != null && mDrawableProvider.isQurovaFont());
+            if (shouldFallbackToDefaultTypeface(isQurova, isBengaliNumberPad, kLabel)) {
+                paint.setTypeface(Typeface.DEFAULT);
+            } else {
+                paint.setTypeface(key.selectTypeface(mKeyDrawParams));
+            }
             paint.setTextSize(key.selectTextSize(mKeyDrawParams));
         }
         return paint;
@@ -666,5 +767,57 @@ public class KeyboardView extends View {
 
     public void deallocateMemory() {
         freeOffscreenBuffer();
+    }
+
+    public static boolean isCombiningMark(final int codePoint) {
+        if ((codePoint >= 0x0981 && codePoint <= 0x0983)
+                || codePoint == 0x09BC
+                || (codePoint >= 0x09BE && codePoint <= 0x09C4)
+                || (codePoint >= 0x09C7 && codePoint <= 0x09C8)
+                || (codePoint >= 0x09CB && codePoint <= 0x09CD)
+                || codePoint == 0x09D7) {
+            return true;
+        }
+        final int type = Character.getType(codePoint);
+        return type == Character.NON_SPACING_MARK || type == Character.COMBINING_SPACING_MARK;
+    }
+
+    @Nullable
+    public static String cleanCombiningMarkForDisplay(@Nullable final String text) {
+        if (text == null || text.isEmpty()) {
+            return text;
+        }
+        String cleaned = text;
+        if (cleaned.indexOf('\u25CC') >= 0) {
+            cleaned = cleaned.replace("\u25CC", "\u00A0");
+        }
+        if (cleaned.length() > 0 && isCombiningMark(cleaned.codePointAt(0))) {
+            cleaned = "\u00A0" + cleaned;
+        }
+        return cleaned;
+    }
+
+    public static boolean shouldFallbackToDefaultTypeface(
+            final boolean isQurova,
+            final boolean isBengaliNumberPad,
+            @Nullable final String text
+    ) {
+        if (isBengaliNumberPad) {
+            return true;
+        }
+        if (text == null) {
+            return false;
+        }
+        boolean hasBengali = false;
+        boolean hasDigit = false;
+        for (int i = 0; i < text.length(); i++) {
+            final char c = text.charAt(i);
+            if (c >= 0x0980 && c <= 0x09FF) {
+                hasBengali = true;
+            } else if (Character.isDigit(c)) {
+                hasDigit = true;
+            }
+        }
+        return hasBengali || (isQurova && hasDigit);
     }
 }

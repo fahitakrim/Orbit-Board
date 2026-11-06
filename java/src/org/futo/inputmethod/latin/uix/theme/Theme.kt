@@ -21,10 +21,10 @@ import androidx.compose.ui.graphics.Color
 import kotlin.math.sqrt
 
 val NothingRed = Color(0xFFE5252A)
-val NothingBlack = Color(0xFF000000)
-val NothingCardSurface = Color(0xFF0E0E11)
+val NothingBlack = Color(0xFF0B0B0C)
+val NothingCardSurface = Color(0xFF141416)
 val NothingSurfaceVariant = Color(0xFF1B1B1F)
-val NothingBorder = Color(0xFF26262B)
+val NothingBorder = Color(0xFF232326)
 val NothingWhite = Color(0xFFFFFFFF)
 val NothingTextSecondary = Color(0xFF8E8E93)
 

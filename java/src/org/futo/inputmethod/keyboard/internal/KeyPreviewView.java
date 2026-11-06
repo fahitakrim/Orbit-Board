@@ -27,6 +27,7 @@ import android.view.Gravity;
 import android.widget.TextView;
 
 import org.futo.inputmethod.keyboard.Key;
+import org.futo.inputmethod.keyboard.KeyboardView;
 import org.futo.inputmethod.latin.R;
 
 import java.util.HashSet;
@@ -50,6 +51,90 @@ public class KeyPreviewView extends androidx.appcompat.widget.AppCompatTextView 
     public KeyPreviewView(final Context context, final AttributeSet attrs, final int defStyleAttr) {
         super(context, attrs, defStyleAttr);
         setGravity(Gravity.CENTER);
+        setIncludeFontPadding(false);
+    }
+
+    @Override
+    protected void onLayout(final boolean changed, final int left, final int top, final int right, final int bottom) {
+        super.onLayout(changed, left, top, right, bottom);
+        syncPaddingWithBackground();
+    }
+
+    @Override
+    protected void onSizeChanged(final int w, final int h, final int oldw, final int oldh) {
+        super.onSizeChanged(w, h, oldw, oldh);
+        syncPaddingWithBackground();
+    }
+
+    @Override
+    public void setBackground(final Drawable background) {
+        super.setBackground(background);
+        syncPaddingWithBackground();
+    }
+
+    public void syncPaddingWithBackground() {
+        final Drawable bg = getBackground();
+        if (bg != null) {
+            final Rect pad = new Rect();
+            if (bg.getPadding(pad)) {
+                if (getPaddingLeft() != pad.left || getPaddingTop() != pad.top
+                        || getPaddingRight() != pad.right || getPaddingBottom() != pad.bottom) {
+                    setPadding(pad.left, pad.top, pad.right, pad.bottom);
+                }
+            }
+        }
+    }
+
+    @Override
+    protected void onDraw(final android.graphics.Canvas canvas) {
+        final Drawable bg = getBackground();
+        final CharSequence text = getText();
+        if (bg instanceof KeyPopupDrawable && !android.text.TextUtils.isEmpty(text)) {
+            final KeyPopupDrawable popupDrawable = (KeyPopupDrawable) bg;
+            final android.graphics.RectF bubbleBounds = popupDrawable.getContentRect();
+            if (bubbleBounds != null && !bubbleBounds.isEmpty()) {
+                final TextPaint paint = getPaint();
+                paint.setColor(getCurrentTextColor());
+                paint.setTextAlign(android.graphics.Paint.Align.CENTER);
+                final android.graphics.Paint.FontMetrics fm = paint.getFontMetrics();
+                final float textY = bubbleBounds.centerY() - (fm.ascent + fm.descent) / 2.0f;
+                final float textX = bubbleBounds.centerX();
+
+                final float textWidth = paint.measureText(text, 0, text.length());
+                final float maxW = bubbleBounds.width() - 8.0f;
+                final float origScaleX = paint.getTextScaleX();
+                if (textWidth > maxW && maxW > 0.0f) {
+                    paint.setTextScaleX(origScaleX * (maxW / textWidth));
+                }
+                canvas.drawText(text, 0, text.length(), textX, textY, paint);
+                paint.setTextScaleX(origScaleX);
+                return;
+            }
+        }
+
+        final Drawable[] drawables = getCompoundDrawables();
+        Drawable icon = null;
+        for (Drawable d : drawables) {
+            if (d != null) {
+                icon = d;
+                break;
+            }
+        }
+        if (bg instanceof KeyPopupDrawable && icon != null) {
+            final KeyPopupDrawable popupDrawable = (KeyPopupDrawable) bg;
+            final android.graphics.RectF bubbleBounds = popupDrawable.getContentRect();
+            if (bubbleBounds != null && !bubbleBounds.isEmpty()) {
+                final int iconW = icon.getIntrinsicWidth();
+                final int iconH = icon.getIntrinsicHeight();
+                final int l = (int) (bubbleBounds.centerX() - iconW / 2.0f);
+                final int t = (int) (bubbleBounds.centerY() - iconH / 2.0f);
+                icon.setBounds(l, t, l + iconW, t + iconH);
+                icon.draw(canvas);
+                return;
+            }
+        }
+
+        super.onDraw(canvas);
     }
 
     public void setPreviewVisual(final Key key, final KeyboardIconsSet iconsSet,
@@ -63,8 +148,11 @@ public class KeyPreviewView extends androidx.appcompat.widget.AppCompatTextView 
         final String iconId = key.getIconId();
         if (!Objects.equals(iconId, KeyboardIconsSet.ICON_UNDEFINED)) {
             final Drawable icon = key.getPreviewIcon(iconsSet);
-            if (icon != null && customTextColor != null) {
-                icon.setTint(customTextColor);
+            if (icon != null) {
+                final int tint = customTextColor != null ? customTextColor : drawParams.mPreviewTextColor;
+                if (tint != 0) {
+                    icon.setTint(tint);
+                }
             }
             setCompoundDrawables(null, null, null, icon);
             setText(null);
@@ -77,15 +165,37 @@ public class KeyPreviewView extends androidx.appcompat.widget.AppCompatTextView 
         } else {
             setTextColor(drawParams.mPreviewTextColor);
         }
-        setTextSize(TypedValue.COMPLEX_UNIT_PX, key.selectPreviewTextSize(drawParams));
-        setTypeface(key.selectPreviewTypeface(drawParams));
+
+        final Drawable bg = getBackground();
+        final boolean isGboardBubble = (bg instanceof KeyPopupDrawable)
+                && (((KeyPopupDrawable) bg).getStyle() == KeyPopupDrawable.STYLE_GBOARD_BUBBLE);
+        final float fontScale = isGboardBubble ? 0.65f : 0.70f;
+        setTextSize(TypedValue.COMPLEX_UNIT_PX, key.selectPreviewTextSize(drawParams) * fontScale);
+
+        final String previewLabel = key.getPreviewLabel();
+        boolean hasBengali = false;
+        if (previewLabel != null) {
+            for (int i = 0; i < previewLabel.length(); i++) {
+                final char c = previewLabel.charAt(i);
+                if (c >= 0x0980 && c <= 0x09FF) {
+                    hasBengali = true;
+                    break;
+                }
+            }
+        }
+        if (hasBengali) {
+            setTypeface(android.graphics.Typeface.DEFAULT);
+        } else {
+            setTypeface(key.selectPreviewTypeface(drawParams));
+        }
         // TODO Should take care of temporaryShiftLabel here.
-        setTextAndScaleX(key.getPreviewLabel());
+        setTextAndScaleX(previewLabel);
     }
 
     private void setTextAndScaleX(final String text) {
+        final String cleanText = KeyboardView.cleanCombiningMarkForDisplay(text);
         setTextScaleX(1.0f);
-        setText(text);
+        setText(cleanText);
         if (sNoScaleXTextSet.contains(text)) {
             return;
         }

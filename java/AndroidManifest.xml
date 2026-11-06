@@ -26,8 +26,7 @@
     <uses-permission android:name="android.permission.WAKE_LOCK"/>
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE"/>
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE"/>
-    <!-- Required on Android 14+ when starting a foreground service for MediaProjection -->
-    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PROJECTION" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MICROPHONE" />
 
     <uses-permission android:name="com.nothing.ketchum.permission.ENABLE"/>
     <uses-permission android:name="android.permission.INTERNET" />
@@ -75,6 +74,7 @@
              android:launchMode="singleTask"
              android:noHistory="false"
              android:configChanges="orientation|screenLayout|screenSize|keyboardHidden|keyboard|uiMode|density"
+             android:windowSoftInputMode="adjustResize"
              android:exported="true">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN"/>
@@ -123,11 +123,12 @@
              android:taskAffinity="">
         </activity>
 
-        <activity android:name=".capture.CapturePermissionActivity"
+        <activity android:name=".uix.voiceinput.VoiceInputFallbackActivity"
              android:theme="@android:style/Theme.Translucent.NoTitleBar"
-             android:exported="true"
+             android:exported="false"
              android:taskAffinity="">
         </activity>
+
 
         <activity android:name=".spellcheck.SpellCheckerSettingsActivity"
              android:theme="@style/platformSettingsTheme"
@@ -159,9 +160,6 @@
 
         </service>
 
-        <service android:name=".capture.CaptureService"
-             android:exported="false"
-             android:foregroundServiceType="mediaProjection" />
 
         <activity
             android:name=".payment.PaymentCompleteActivity"
@@ -188,21 +186,8 @@
 
         <activity
             android:name=".uix.TextEditPopupActivity"
-            android:exported="true"
-            android:label="Testing Popup"
-            android:clearTaskOnLaunch="true"
-            android:launchMode="singleInstance"
-            android:visibleToInstantApps="true"
-            android:configChanges="orientation|screenLayout|screenSize|keyboardHidden|keyboard|uiMode|density"
-            android:process=":texteditpopup"
-            android:theme="@style/Theme.TextEditPopup">
-
-            <intent-filter>
-                <action android:name="android.speech.action.RECOGNIZE_SPEECH" />
-
-                <category android:name="android.intent.category.DEFAULT" />
-            </intent-filter>
-        </activity>
+            android:exported="false"
+            android:label="Testing Popup" />
 
     </application>
 
@@ -211,5 +196,13 @@
         <intent>
             <action android:name="android.view.InputMethod" />
         </intent>
+        <intent>
+            <action android:name="android.speech.RecognitionService" />
+        </intent>
+        <intent>
+            <action android:name="android.speech.action.RECOGNIZE_SPEECH" />
+        </intent>
+        <package android:name="com.google.android.googlequicksearchbox" />
+        <package android:name="com.google.android.tts" />
     </queries>
 </manifest>

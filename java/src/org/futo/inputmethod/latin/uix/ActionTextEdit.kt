@@ -22,7 +22,31 @@ class ActionEditText(context: Context) :
     var inputConnection: InputConnection? = null
         private set
 
+    init {
+        isCursorVisible = true
+        isFocusable = true
+        isFocusableInTouchMode = true
+        privateImeOptions = "org.futo.inputmethod.latin.NoSuggestions=1"
+        inputType = inputType or android.text.InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.Q) {
+            val cursorDrawable = android.graphics.drawable.GradientDrawable().apply {
+                shape = android.graphics.drawable.GradientDrawable.RECTANGLE
+                setColor(0xFFD71921.toInt()) // Accent red
+                setSize((2.5f * context.resources.displayMetrics.density).toInt().coerceAtLeast(3), 0)
+            }
+            textCursorDrawable = cursorDrawable
+        } else {
+            try {
+                val fCursorDrawableRes = android.widget.TextView::class.java.getDeclaredField("mCursorDrawableRes")
+                fCursorDrawableRes.isAccessible = true
+                fCursorDrawableRes.set(this, 0)
+            } catch (_: Exception) {}
+        }
+    }
+
     override fun onCreateInputConnection(outAttrs: EditorInfo): InputConnection? {
+        outAttrs.inputType = outAttrs.inputType or android.text.InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS
+        outAttrs.privateImeOptions = "org.futo.inputmethod.latin.NoSuggestions=1"
         inputConnection = super.onCreateInputConnection(outAttrs)
         return inputConnection
     }
@@ -60,7 +84,7 @@ fun ActionTextEditor(text: MutableState<String>) {
         48.dp.toPx()
     }
 
-    val inputType = EditorInfo.TYPE_CLASS_TEXT
+    val inputType = EditorInfo.TYPE_CLASS_TEXT or android.text.InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS
 
     val color = LocalContentColor.current
 
@@ -68,6 +92,9 @@ fun ActionTextEditor(text: MutableState<String>) {
         factory = {
             ActionEditText(context).apply {
                 this.inputType = inputType
+                isCursorVisible = true
+                isFocusable = true
+                isFocusableInTouchMode = true
 
                 setTextChangeCallback { text.value = it }
 
@@ -85,6 +112,7 @@ fun ActionTextEditor(text: MutableState<String>) {
 
                 val editorInfo = EditorInfo().apply {
                     this.inputType = inputType
+                    this.privateImeOptions = "org.futo.inputmethod.latin.NoSuggestions=1"
                 }
                 onCreateInputConnection(editorInfo)
 

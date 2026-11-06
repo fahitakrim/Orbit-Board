@@ -277,22 +277,11 @@ private class VoiceInputNoModelWindow(val locale: Locale) : ActionWindow {
 
 val VoiceInputAction = Action(icon = R.drawable.mic_fill,
     name = R.string.voice_input_action_title,
-    simplePressImpl = null,
+    simplePressImpl = { manager, _ ->
+        manager.triggerSystemVoiceInput()
+    },
     keepScreenAwake = true,
     persistentState = { VoiceInputPersistentState(it) },
     shownInEditor = true,
-    windowImpl = { manager, persistentState ->
-        val locale = manager.getActiveLocale()
-
-        val model = ResourceHelper.tryFindingVoiceInputModelForLocale(manager.getContext(), locale)
-
-        if(model == null) {
-            VoiceInputNoModelWindow(locale)
-        } else {
-            VoiceInputActionWindow(
-                manager = manager, state = persistentState as VoiceInputPersistentState,
-                locale = locale, model = model
-            )
-        }
-    }
+    windowImpl = null
 )

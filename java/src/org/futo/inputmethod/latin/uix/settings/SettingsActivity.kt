@@ -15,8 +15,12 @@ import androidx.activity.SystemBarStyle
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.exclude
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.safeDrawingPadding
+import androidx.compose.foundation.layout.ime
+import androidx.compose.foundation.layout.safeDrawing
+import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.MutableState
@@ -45,7 +49,8 @@ import org.futo.inputmethod.latin.uix.getSetting
 import org.futo.inputmethod.latin.uix.getSettingFlow
 import org.futo.inputmethod.latin.uix.theme.ThemeOption
 import org.futo.inputmethod.latin.uix.theme.ThemeOptions
-import org.futo.inputmethod.latin.uix.theme.UixThemeAuto
+import org.futo.inputmethod.latin.uix.theme.DarkColorScheme
+import org.futo.inputmethod.latin.uix.theme.UixThemeWrapper
 import org.futo.inputmethod.latin.uix.theme.presets.VoiceInputTheme
 import org.futo.inputmethod.latin.xlm.ModelPaths
 import org.futo.inputmethod.updates.checkForUpdateAndSaveToPreferences
@@ -103,6 +108,14 @@ class SettingsActivity : ComponentActivity(), DynamicThemeProviderOwner {
         private var pollJob: Job? = null
     }
 
+    private val requestNotificationPermissionLauncher = registerForActivityResult(
+        androidx.activity.result.contract.ActivityResultContracts.RequestPermission()
+    ) { isGranted ->
+        if (isGranted) {
+            org.futo.inputmethod.updates.OrbitUpdateScheduler.schedulePeriodicCheck(applicationContext)
+        }
+    }
+
     @OptIn(DelicateCoroutinesApi::class)
     fun updateSystemState() {
         val inputMethodEnabled = isInputMethodEnabled()
@@ -158,13 +171,13 @@ class SettingsActivity : ComponentActivity(), DynamicThemeProviderOwner {
     private fun updateContent() {
         setContent {
             DataStoreCacheProvider {
-                UixThemeAuto {
+                UixThemeWrapper(colorScheme = DarkColorScheme) {
                     Surface(
                         modifier = Modifier
                             .fillMaxSize(),
                         color = MaterialTheme.colorScheme.background
                     ) {
-                        Box(Modifier.safeDrawingPadding()) {
+                        Box(Modifier.windowInsetsPadding(WindowInsets.safeDrawing.exclude(WindowInsets.ime))) {
                             SetupOrMain(
                                 inputMethodEnabled.value,
                                 inputMethodSelected.value,
@@ -186,6 +199,17 @@ class SettingsActivity : ComponentActivity(), DynamicThemeProviderOwner {
         org.futo.inputmethod.latin.Subtypes.addDefaultSubtypesIfNecessary(this)
 
         enableEdgeToEdge()
+
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU) {
+            if (androidx.core.content.ContextCompat.checkSelfPermission(
+                    this,
+                    android.Manifest.permission.POST_NOTIFICATIONS
+                ) != android.content.pm.PackageManager.PERMISSION_GRANTED
+            ) {
+                requestNotificationPermissionLauncher.launch(android.Manifest.permission.POST_NOTIFICATIONS)
+            }
+        }
+        org.futo.inputmethod.updates.OrbitUpdateScheduler.schedulePeriodicCheck(applicationContext)
 
         lifecycleScope.launch {
             repeatOnLifecycle(Lifecycle.State.STARTED) {

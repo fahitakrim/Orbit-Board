@@ -31,6 +31,7 @@ public class AvroTransliterationTest {
         assertEquals("আমি", mParser.toBangla("ami"));
         assertEquals("বাংলা", mParser.toBangla("bangla"));
         assertEquals("কেমন", mParser.toBangla("kemon"));
+        assertEquals("ইংরেজি", mParser.toBangla("ingreji"));
     }
 
     @Test

@@ -143,6 +143,7 @@ public final class PointerTracker implements PointerTrackerQueue.Element,
     private long mStartTime;
     private boolean mCursorMoved = false;
     private boolean mSpacebarLongPressed = false;
+    private boolean mSpacebarLanguageSwiped = false;
 
     // true if keyboard layout has been changed.
     private boolean mKeyboardLayoutHasBeenChanged;
@@ -726,6 +727,7 @@ public final class PointerTracker implements PointerTrackerQueue.Element,
             mStartY = y;
             mStartTime = System.currentTimeMillis();
             mSpacebarLongPressed = false;
+            mSpacebarLanguageSwiped = false;
 
             mIsSlidingCursor = key.getCode() == Constants.CODE_DELETE || key.getCode() == Constants.CODE_SPACE;
             mCurrentKey = key;
@@ -934,23 +936,33 @@ public final class PointerTracker implements PointerTrackerQueue.Element,
         final SettingsValues settingsValues = Settings.getInstance().getCurrent();
 
         if (mIsSlidingCursor && oldKey != null && oldKey.getCode() == Constants.CODE_SPACE) {
-            final boolean isSwipeLanguage = (settingsValues.mSpacebarMode == Settings.SPACEBAR_MODE_SWIPE_LANGUAGE && !mSpacebarLongPressed);
-            final int pointerStep = isSwipeLanguage
-                    ? (int)(64.0 * Resources.getSystem().getDisplayMetrics().density)
-                    : sPointerStep;
-
+            final boolean isSwipeLanguage = (settingsValues.mSpacebarMode == Settings.SPACEBAR_MODE_SWIPE_LANGUAGE
+                    && !mSpacebarLongPressed
+                    && (mKeyboard == null || mKeyboard.mId == null || (mKeyboard.mId.mElementId != KeyboardId.ELEMENT_NUMBER && mKeyboard.mId.mElementId != KeyboardId.ELEMENT_NUMBER_BENGALI)));
+            if (isSwipeLanguage) {
+                if (!mSpacebarLanguageSwiped) {
+                    final int swipeThreshold = (int)(44.0 * Resources.getSystem().getDisplayMetrics().density);
+                    final int deltaX = x - mStartX;
+                    if (Math.abs(deltaX) >= swipeThreshold) {
+                        mSpacebarLanguageSwiped = true;
+                        sTimerProxy.cancelKeyTimersOf(this);
+                        mCursorMoved = true;
+                        final int direction = deltaX > 0 ? 1 : -1;
+                        sListener.onSwipeLanguage(direction);
+                    }
+                }
+                mLastX = x;
+                mLastY = y;
+                return;
+            }
+            final int pointerStep = sPointerStep;
             int steps = (x - mStartX) / pointerStep;
             if (steps != 0) {
                 sTimerProxy.cancelKeyTimersOf(this);
                 mCursorMoved = true;
                 mStartX += steps * pointerStep;
-                if (isSwipeLanguage) {
-                    sListener.onSwipeLanguage(steps);
-                } else {
-                    sListener.onMovePointer(steps);
-                }
+                sListener.onMovePointer(steps);
             }
-
             mLastX = x;
             mLastY = y;
             return;
@@ -1038,6 +1050,7 @@ public final class PointerTracker implements PointerTrackerQueue.Element,
 
     private void onUpEventInternal(final int x, final int y, final long eventTime) {
         sTimerProxy.cancelKeyTimersOf(this);
+        mSpacebarLanguageSwiped = false;
         final boolean isInDraggingFinger = mIsInDraggingFinger;
         final boolean isInSlidingKeyInput = mIsInSlidingKeyInput;
         resetKeySelectionByDraggingFinger();
@@ -1180,6 +1193,13 @@ public final class PointerTracker implements PointerTrackerQueue.Element,
                     sListener.onReleaseKey(code, false /* withSliding */);
                     return;
                 }
+            } else if (isEnglishOrAvro && Key.isSelectAllKey(code)) {
+                if (Settings.getInstance().getCurrent().mLongPressASelectAll
+                        && sListener.onCustomRequest(Constants.CUSTOM_CODE_SELECT_ALL)) {
+                    cancelKeyTracking();
+                    sListener.onReleaseKey(code, false /* withSliding */);
+                    return;
+                }
             }
             if (key.hasNoPanelAutoMoreKey()) {
                 final MoreKeySpec[] moreKeys = key.getMoreKeys();
@@ -1230,6 +1250,14 @@ public final class PointerTracker implements PointerTrackerQueue.Element,
                         Constants.NOT_A_COORDINATE,
                         Constants.NOT_A_COORDINATE,
                         false /* isKeyRepeat */);
+                return;
+            }
+
+            if (code == Constants.CODE_SWITCH_ALPHA_SYMBOL) {
+                cancelKeyTracking();
+                sListener.onReleaseKey(code, false /* withSliding */);
+                sListener.onMovingCursorLockEvent(true);
+                KeyboardSwitcher.getInstance().toggleNumberKeyboard();
                 return;
             }
 

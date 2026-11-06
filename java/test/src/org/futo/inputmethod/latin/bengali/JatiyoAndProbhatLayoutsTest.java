@@ -1,6 +1,7 @@
 package org.futo.inputmethod.latin.bengali;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertTrue;
 
@@ -88,9 +89,9 @@ public class JatiyoAndProbhatLayoutsTest {
         assertEquals("Row 2 must have 9 keys", 9, baseKeys.size());
         assertEquals("Row 2 shift must have 9 keys", 9, shiftKeys.size());
 
-        // f = া / আ
+        // f = া / অ
         assertEquals("f key base must be া", "\u09BE", baseKeys.get(3).getAttribute("latin:keySpec"));
-        assertEquals("f key shift must be আ", "\u0986", shiftKeys.get(3).getAttribute("latin:keySpec"));
+        assertEquals("f key shift must be অ", "\u0985", shiftKeys.get(3).getAttribute("latin:keySpec"));
 
         // g = ্ (hasanta)
         assertEquals("g key base must be ্", "\u09CD", baseKeys.get(4).getAttribute("latin:keySpec"));
@@ -100,13 +101,13 @@ public class JatiyoAndProbhatLayoutsTest {
         assertEquals("h key base must be ব", "\u09AC", baseKeys.get(5).getAttribute("latin:keySpec"));
         assertEquals("h key shift must be ভ", "\u09AD", shiftKeys.get(5).getAttribute("latin:keySpec"));
 
-        // s = ু / উ
+        // s = ু / ূ
         assertEquals("s key base must be ু", "\u09C1", baseKeys.get(1).getAttribute("latin:keySpec"));
-        assertEquals("s key shift must be উ", "\u0989", shiftKeys.get(1).getAttribute("latin:keySpec"));
+        assertEquals("s key shift must be ূ", "\u09C2", shiftKeys.get(1).getAttribute("latin:keySpec"));
 
-        // d = ি / ই
+        // d = ি / ী
         assertEquals("d key base must be ি", "\u09BF", baseKeys.get(2).getAttribute("latin:keySpec"));
-        assertEquals("d key shift must be ই", "\u0987", shiftKeys.get(2).getAttribute("latin:keySpec"));
+        assertEquals("d key shift must be ী", "\u09C0", shiftKeys.get(2).getAttribute("latin:keySpec"));
 
         // k = ত / থ (long-press ৎ)
         assertEquals("k key base must be ত", "\u09A4", baseKeys.get(7).getAttribute("latin:keySpec"));
@@ -153,17 +154,24 @@ public class JatiyoAndProbhatLayoutsTest {
         List<Element> baseKeysR2 = getKeysByLayoutElement(row2, false);
         List<Element> shiftKeysR2 = getKeysByLayoutElement(row2, true);
 
-        // a = ৃ / ঐ in classic
-        assertEquals("a key shift must be ঐ in classic", "\u0990", shiftKeysR2.get(0).getAttribute("latin:keySpec"));
+        // a = ৃ / ঋ in classic (hold gives ঐ)
+        assertEquals("a key base must be ৃ in classic", "\u09C3", baseKeysR2.get(0).getAttribute("latin:keySpec"));
+        assertEquals("a key shift must be ঋ in classic", "\u098B", shiftKeysR2.get(0).getAttribute("latin:keySpec"));
+        assertTrue("a key moreKeys must have ঐ", baseKeysR2.get(0).getAttribute("latin:moreKeys").contains("\u0990"));
 
         // f = ব / ভ in classic
         assertEquals("f key base must be ব in classic", "\u09AC", baseKeysR2.get(3).getAttribute("latin:keySpec"));
+        assertEquals("f key shift must be ভ in classic", "\u09AD", shiftKeysR2.get(3).getAttribute("latin:keySpec"));
 
-        // h = া / আ in classic
+        // h = া / অ in classic (hold gives আ)
         assertEquals("h key base must be া in classic", "\u09BE", baseKeysR2.get(5).getAttribute("latin:keySpec"));
+        assertEquals("h key shift must be অ in classic", "\u0985", shiftKeysR2.get(5).getAttribute("latin:keySpec"));
+        assertTrue("h key moreKeys must have আ", baseKeysR2.get(5).getAttribute("latin:moreKeys").contains("\u0986"));
 
-        // k = ত / ৎ in classic
-        assertEquals("k key shift must be ৎ in classic", "\u09CE", shiftKeysR2.get(7).getAttribute("latin:keySpec"));
+        // k = ত / থ in classic (hold gives ৎ)
+        assertEquals("k key base must be ত in classic", "\u09A4", baseKeysR2.get(7).getAttribute("latin:keySpec"));
+        assertEquals("k key shift must be থ in classic", "\u09A5", shiftKeysR2.get(7).getAttribute("latin:keySpec"));
+        assertTrue("k key moreKeys must have ৎ", baseKeysR2.get(7).getAttribute("latin:moreKeys").contains("\u09CE"));
 
         // Row 3 z = ঁ / ঃ in classic
         Element row3 = (Element) rows.item(2);
@@ -183,19 +191,28 @@ public class JatiyoAndProbhatLayoutsTest {
         List<Element> baseKeysR1 = getKeysByLayoutElement(row1, false);
         assertEquals("Probhat Row 1 must have 12 keys", 12, baseKeysR1.size());
 
-        // r = র (long-press ্র র্ ৰ ৱ র্য)
+        // r = র (long-press ড় center, ্র right, র্ left, র্য, ৰ, ৱ)
         Element rKey = baseKeysR1.get(3);
         String moreKeysR = rKey.getAttribute("latin:moreKeys");
         assertTrue("Probhat r key must have ্র", moreKeysR.contains("\u09CD\u09B0"));
         assertTrue("Probhat r key must have র্", moreKeysR.contains("\u09B0\u09CD"));
+        assertEquals("Probhat r key moreKeys must be ordered center ড়, right ্র, left র্, etc.",
+                "\u09DC,\u09CD\u09B0,\u09B0\u09CD,\u09B0\u200D\u09CD\u09AF,\u09F0,\u09F1", moreKeysR);
+
+        List<Element> shiftKeysR1 = getKeysByLayoutElement(row1, true);
+        Element shiftRKey = shiftKeysR1.get(3);
+        assertEquals("Probhat shifted r key must be ড়", "\u09DC", shiftRKey.getAttribute("latin:keySpec"));
+        assertEquals("Probhat shifted r key hint must be র্", "\u09B0\u09CD", shiftRKey.getAttribute("latin:keyHintLabel"));
+        assertTrue("Probhat shifted r key moreKeys must contain র্", shiftRKey.getAttribute("latin:moreKeys").contains("\u09B0\u09CD"));
 
         Element row3 = (Element) rows.item(2);
         List<Element> baseKeysR3 = getKeysByLayoutElement(row3, false);
         List<Element> shiftKeysR3 = getKeysByLayoutElement(row3, true);
 
-        // z = য় / ্য in probhat
+        // z = য় / য (hint ্য) in probhat
         assertEquals("Probhat z key base must be য়", "\u09DF", baseKeysR3.get(0).getAttribute("latin:keySpec"));
-        assertEquals("Probhat z key shift must be ্য", "\u09CD\u09AF", shiftKeysR3.get(0).getAttribute("latin:keySpec"));
+        assertEquals("Probhat z key shift must be য", "\u09AF", shiftKeysR3.get(0).getAttribute("latin:keySpec"));
+        assertEquals("Probhat z key shift hint must be ্য", "\u09CD\u09AF", shiftKeysR3.get(0).getAttribute("latin:keyHintLabel"));
 
         // Key 8 = ৃ in probhat
         assertEquals("Probhat key 8 must be ৃ", "\u09C3", baseKeysR3.get(7).getAttribute("latin:keySpec"));
@@ -227,5 +244,140 @@ public class JatiyoAndProbhatLayoutsTest {
 
         assertTrue("Symbols layout + key must have = in moreKeys", hasEqualsInMoreKeys);
         assertTrue("Symbols layout bottom functional key must have Dari (।)", hasDariOnRow4);
+    }
+
+    @Test
+    public void testJatiyoClassicHintsAndMoreKeysWithoutNoPanelAutoMoreKey() throws Exception {
+        Document doc = parseXml("rows_bengali_jatiyo_classic.xml");
+        NodeList keys = doc.getElementsByTagName("Key");
+        for (int i = 0; i < keys.getLength(); i++) {
+            Element key = (Element) keys.item(i);
+            String moreKeys = key.getAttribute("latin:moreKeys");
+            assertFalse("rows_bengali_jatiyo_classic.xml must NOT contain !noPanelAutoMoreKey!",
+                    moreKeys != null && moreKeys.contains("!noPanelAutoMoreKey!"));
+        }
+
+        NodeList rows = doc.getElementsByTagName("Row");
+        Element row1 = (Element) rows.item(0);
+        List<Element> baseRow1 = getKeysByLayoutElement(row1, false);
+        // w = য (hint য়, moreKeys য়)
+        assertEquals("w key base must be য", "\u09AF", baseRow1.get(1).getAttribute("latin:keySpec"));
+        assertEquals("w key hint must be য়", "\u09DF", baseRow1.get(1).getAttribute("latin:keyHintLabel"));
+        assertTrue("w key moreKeys must contain য়", baseRow1.get(1).getAttribute("latin:moreKeys").contains("\u09DF"));
+
+        Element row2 = (Element) rows.item(1);
+        List<Element> baseRow2 = getKeysByLayoutElement(row2, false);
+        List<Element> shiftRow2 = getKeysByLayoutElement(row2, true);
+
+        // a: ৃ -> hint ঐ, moreKeys ঐ
+        assertEquals("\u0990", baseRow2.get(0).getAttribute("latin:keyHintLabel"));
+        assertTrue(baseRow2.get(0).getAttribute("latin:moreKeys").contains("\u0990"));
+        // s: ু -> hint উ, moreKeys উ
+        assertEquals("\u0989", baseRow2.get(1).getAttribute("latin:keyHintLabel"));
+        assertTrue(baseRow2.get(1).getAttribute("latin:moreKeys").contains("\u0989"));
+        // d: ি -> hint ই, moreKeys ই
+        assertEquals("\u0987", baseRow2.get(2).getAttribute("latin:keyHintLabel"));
+        assertTrue(baseRow2.get(2).getAttribute("latin:moreKeys").contains("\u0987"));
+        // h: া -> hint আ, moreKeys আ
+        assertEquals("\u0986", baseRow2.get(5).getAttribute("latin:keyHintLabel"));
+        assertTrue(baseRow2.get(5).getAttribute("latin:moreKeys").contains("\u0986"));
+        // k: ত -> hint ৎ, moreKeys ৎ
+        assertEquals("\u09CE", baseRow2.get(7).getAttribute("latin:keyHintLabel"));
+        assertTrue(baseRow2.get(7).getAttribute("latin:moreKeys").contains("\u09CE"));
+
+        // Shifted row 2: s: ূ -> hint ঊ, moreKeys ঊ
+        assertEquals("\u098A", shiftRow2.get(1).getAttribute("latin:keyHintLabel"));
+        assertTrue(shiftRow2.get(1).getAttribute("latin:moreKeys").contains("\u098A"));
+        // Shifted row 2: d: ী -> hint ঈ, moreKeys ঈ
+        assertEquals("\u0988", shiftRow2.get(2).getAttribute("latin:keyHintLabel"));
+        assertTrue(shiftRow2.get(2).getAttribute("latin:moreKeys").contains("\u0988"));
+
+        Element row3 = (Element) rows.item(2);
+        List<Element> baseRow3 = getKeysByLayoutElement(row3, false);
+        List<Element> shiftRow3 = getKeysByLayoutElement(row3, true);
+
+        // x: ো -> hint ও, moreKeys ও
+        assertEquals("\u0993", baseRow3.get(1).getAttribute("latin:keyHintLabel"));
+        assertTrue(baseRow3.get(1).getAttribute("latin:moreKeys").contains("\u0993"));
+        // c: ে -> hint এ, moreKeys এ
+        assertEquals("\u098F", baseRow3.get(2).getAttribute("latin:keyHintLabel"));
+        assertTrue(baseRow3.get(2).getAttribute("latin:moreKeys").contains("\u098F"));
+
+        // Shifted row 3: x: ৌ -> hint ঔ, moreKeys ঔ
+        assertEquals("\u0994", shiftRow3.get(1).getAttribute("latin:keyHintLabel"));
+        assertTrue(shiftRow3.get(1).getAttribute("latin:moreKeys").contains("\u0994"));
+        // Shifted row 3: c: ৈ -> hint ঐ, moreKeys ঐ
+        assertEquals("\u0990", shiftRow3.get(2).getAttribute("latin:keyHintLabel"));
+        assertTrue(shiftRow3.get(2).getAttribute("latin:moreKeys").contains("\u0990"));
+        // Shifted row 3: v: ্র (ro-fola)
+        assertEquals("\u09CD\u09B0", shiftRow3.get(3).getAttribute("latin:keySpec"));
+    }
+
+    @Test
+    public void testProvatHintsAndPopupWithoutNoPanelAutoMoreKey() throws Exception {
+        Document doc = parseXml("rows_bengali_probhat.xml");
+        NodeList keys = doc.getElementsByTagName("Key");
+        for (int i = 0; i < keys.getLength(); i++) {
+            Element key = (Element) keys.item(i);
+            String moreKeys = key.getAttribute("latin:moreKeys");
+            assertFalse("rows_bengali_probhat.xml must NOT contain !noPanelAutoMoreKey!",
+                    moreKeys != null && moreKeys.contains("!noPanelAutoMoreKey!"));
+        }
+
+        NodeList rows = doc.getElementsByTagName("Row");
+        Element row3 = (Element) rows.item(2);
+        List<Element> baseRow3 = getKeysByLayoutElement(row3, false);
+        Element yKey = baseRow3.get(0);
+        assertEquals("Probhat Row 3 key 1 must be য়", "\u09DF", yKey.getAttribute("latin:keySpec"));
+        assertEquals("Probhat Row 3 key 1 hint must be ্য", "\u09CD\u09AF", yKey.getAttribute("latin:keyHintLabel"));
+        assertEquals("Probhat Row 3 key 1 moreKeys must be ্য,য,র‍্য", "\u09CD\u09AF,\u09AF,\u09B0\u200D\u09CD\u09AF", yKey.getAttribute("latin:moreKeys"));
+
+        // Row 2 key 'ত' (f): hint 'থ', moreKeys 'থ,ৎ'
+        Element row2 = (Element) rows.item(1);
+        List<Element> baseRow2 = getKeysByLayoutElement(row2, false);
+        Element tKey = baseRow2.get(3); // 'f' key is index 3 (a=0, s=1, d=2, f=3)
+        assertEquals("Probhat Row 2 key 4 must be ত", "\u09A4", tKey.getAttribute("latin:keySpec"));
+        assertEquals("Probhat 'ত' key hint must be থ", "\u09A5", tKey.getAttribute("latin:keyHintLabel"));
+        assertEquals("Probhat 'ত' key moreKeys must place থ first then ৎ", "\u09A5,\u09CE", tKey.getAttribute("latin:moreKeys"));
+    }
+
+    @Test
+    public void testRidmikBinaryDictionaryInstalled() {
+        File dictFile = new File("java/res/raw/main_bn.dict");
+        if (!dictFile.exists()) {
+            dictFile = new File("nth-kbd/java/res/raw/main_bn.dict");
+        }
+        assertTrue("main_bn.dict must exist", dictFile.exists());
+        assertTrue("main_bn.dict must be Ridmik's complete 2.96 MB dictionary (size >= 2900000 bytes), but was " + dictFile.length(),
+                dictFile.length() >= 2900000L);
+    }
+
+    @Test
+    public void testJatiyoShiftedDariToDot() throws Exception {
+        for (String file : new String[]{"rows_bengali_jatiyo.xml", "rows_bengali_jatiyo_classic.xml"}) {
+            Document doc = parseXml(file);
+            NodeList rows = doc.getElementsByTagName("Row");
+            Element row4 = (Element) rows.item(3);
+
+            List<Element> unshiftedKeys = getKeysByLayoutElement(row4, false);
+            boolean foundUnshiftedDari = false;
+            for (Element key : unshiftedKeys) {
+                if ("\u0964".equals(key.getAttribute("latin:keySpec"))) {
+                    foundUnshiftedDari = true;
+                    break;
+                }
+            }
+            assertTrue(file + " Row 4 unshifted must contain Dari (।)", foundUnshiftedDari);
+
+            List<Element> shiftedKeys = getKeysByLayoutElement(row4, true);
+            boolean foundShiftedDot = false;
+            for (Element key : shiftedKeys) {
+                if (".".equals(key.getAttribute("latin:keySpec"))) {
+                    foundShiftedDot = true;
+                    break;
+                }
+            }
+            assertTrue(file + " Row 4 shifted must contain dot (.) instead of Dari (।)", foundShiftedDot);
+        }
     }
 }

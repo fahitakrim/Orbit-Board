@@ -183,6 +183,18 @@ class UixActionKeyboardManager(val uixManager: UixManager, val latinIME: LatinIM
         }
     }
 
+    override fun replaceTranslationSessionText(newText: String, prevLen: Int) {
+        val ic = latinIME.getBaseInputConnection()
+        if (ic != null) {
+            if (prevLen > 0) {
+                ic.deleteSurroundingText(prevLen, 0)
+            }
+            if (newText.isNotEmpty()) {
+                ic.commitText(newText, 1)
+            }
+        }
+    }
+
     override fun typeUri(uri: Uri, mimeTypes: List<String>): Boolean {
         if(mimeTypes.isEmpty()) {
             Log.w("UixManager", "mimeTypes is empty")
@@ -210,34 +222,52 @@ class UixActionKeyboardManager(val uixManager: UixManager, val latinIME: LatinIM
             Constants.NOT_A_COORDINATE, false)
     }
 
+    override fun deleteCharacterBeforeCursor() {
+        val ic = latinIME.currentInputConnection
+        if (ic == null) {
+            latinIME.sendDownUpKeyEvents(android.view.KeyEvent.KEYCODE_DEL)
+            return
+        }
+        try {
+            val selected = ic.getSelectedText(0)
+            if (!selected.isNullOrEmpty()) {
+                ic.commitText("", 1)
+                return
+            }
+
+            val textBefore = ic.getTextBeforeCursor(16, 0)
+            if (textBefore.isNullOrEmpty()) {
+                latinIME.sendDownUpKeyEvents(android.view.KeyEvent.KEYCODE_DEL)
+                return
+            }
+
+            val breakIterator = java.text.BreakIterator.getCharacterInstance()
+            breakIterator.setText(textBefore.toString())
+            val end = breakIterator.last()
+            val start = breakIterator.previous()
+
+            val success = if (start != java.text.BreakIterator.DONE && end > start) {
+                val lengthToDelete = end - start
+                ic.deleteSurroundingText(lengthToDelete, 0)
+            } else {
+                ic.deleteSurroundingText(1, 0)
+            }
+            if (!success) {
+                latinIME.sendDownUpKeyEvents(android.view.KeyEvent.KEYCODE_DEL)
+            }
+        } catch (e: Exception) {
+            Log.e("UixManager", "Error deleting character before cursor", e)
+            latinIME.sendDownUpKeyEvents(android.view.KeyEvent.KEYCODE_DEL)
+        }
+    }
+
     override fun closeActionWindow() {
         if(uixManager.currWindowActionWindow == null) return
         uixManager.returnBackToMainKeyboardViewFromAction()
     }
 
     override fun triggerSystemVoiceInput() {
-        val richImm = org.futo.inputmethod.latin.RichInputMethodManager.getInstance()
-        if (richImm != null && richImm.isShortcutImeReady) {
-            latinIME.latinIMELegacy.onCodeInput(
-                Constants.CODE_SHORTCUT,
-                Constants.SUGGESTION_STRIP_COORDINATE,
-                Constants.SUGGESTION_STRIP_COORDINATE,
-                false
-            )
-        } else {
-            try {
-                val locale = getActiveLocale()
-                val intent = android.content.Intent(android.speech.RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
-                    putExtra(android.speech.RecognizerIntent.EXTRA_LANGUAGE_MODEL, android.speech.RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
-                    putExtra(android.speech.RecognizerIntent.EXTRA_LANGUAGE, locale.toLanguageTag())
-                    putExtra(android.speech.RecognizerIntent.EXTRA_PROMPT, "Speak now...")
-                    flags = android.content.Intent.FLAG_ACTIVITY_NEW_TASK
-                }
-                latinIME.startActivity(intent)
-            } catch (e: Exception) {
-                uixManager.onActionActivated(org.futo.inputmethod.latin.uix.actions.VoiceInputAction)
-            }
-        }
+        uixManager.systemVoiceInputManager.toggle(getActiveLocale())
     }
 
     override fun updateTheme(newTheme: ThemeOption) {
@@ -339,12 +369,14 @@ class UixManager(private val latinIME: LatinIME) {
     private var numSuggestionsSinceNotice = 0
     private var currentNotice: MutableState<ImportantNotice?> = mutableStateOf(null)
 
-    // Assistant transient message (shown via FakeToast)
+    // Transient status message (shown via FakeToast for voice input etc.)
     val assistantMessage: MutableState<String?> = mutableStateOf(null)
 
     fun showAssistantMessage(msg: String?) {
         assistantMessage.value = msg
     }
+
+    val systemVoiceInputManager = org.futo.inputmethod.latin.uix.voiceinput.SystemVoiceInputManager(latinIME)
 
     private var isActionsExpanded = mutableStateOf(false)
     private fun toggleActionsExpanded() {
@@ -458,9 +490,13 @@ class UixManager(private val latinIME: LatinIME) {
     fun returnBackToMainKeyboardViewFromAction() {
         if(currWindowActionWindow == null) return
 
-        val name = latinIME.resources.getString(currWindowAction!!.name)
+        val name = currWindowAction?.let {
+            try { latinIME.resources.getString(it.name) } catch (_: Throwable) { "" }
+        } ?: ""
 
-        currWindowActionWindow!!.close()
+        try {
+            currWindowActionWindow?.close()
+        } catch (_: Throwable) {}
 
         currWindowAction = null
         currWindowActionWindow = null
@@ -473,7 +509,9 @@ class UixManager(private val latinIME: LatinIME) {
 
         setContent()
 
-        keyboardManagerForAction.announce("$name closed")
+        if (name.isNotEmpty()) {
+            keyboardManagerForAction.announce("$name closed")
+        }
     }
 
     fun toggleExpandAction(to: Boolean? = null) {
@@ -496,7 +534,7 @@ class UixManager(private val latinIME: LatinIME) {
             if(mainKeyboardHidden || latinIME.isInputConnectionOverridden) {
                 ActionWindowBar(
                     onBack = { returnBackToMainKeyboardViewFromAction() },
-                    canExpand = currWindowAction!!.canShowKeyboard,
+                    canExpand = currWindowAction?.canShowKeyboard == true,
                     onExpand = { toggleExpandAction() },
                     windowTitleBar = { windowImpl.WindowTitleBar(this) }
                 )
@@ -681,7 +719,7 @@ class UixManager(private val latinIME: LatinIME) {
 
                                             ForgetWordDialog()
 
-                                            // Assistant transient message (FakeToast) shown at bottom center
+                                            // Transient message (FakeToast) shown at bottom center
                                             FakeToast(modifier = Modifier.align(Alignment.BottomCenter).offset(y = (-16).dp), message = assistantMessage.value)
                                         }
                                     }
@@ -783,6 +821,7 @@ class UixManager(private val latinIME: LatinIME) {
     }
 
     fun onInputFinishing() {
+        systemVoiceInputManager.stopListening()
         closeActionWindow()
         languageSwitcherDialog?.dismiss()
         isShowingActionEditor.value = false
@@ -790,6 +829,7 @@ class UixManager(private val latinIME: LatinIME) {
 
     fun cleanUpPersistentStates() {
         println("Cleaning up persistent states")
+        systemVoiceInputManager.destroy()
         for((key, value) in persistentStates.entries) {
             if(currWindowAction != key) {
                 latinIME.lifecycleScope.launch { value?.cleanUp() }

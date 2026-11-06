@@ -6,7 +6,7 @@ import androidx.compose.material3.ColorScheme
 import org.futo.inputmethod.latin.uix.theme.presets.AMOLEDDarkPurple
 import org.futo.inputmethod.latin.uix.theme.presets.AMOLEDNothing
 import org.futo.inputmethod.latin.uix.theme.presets.OrbitTheme
-import org.futo.inputmethod.latin.uix.theme.presets.BakeryTheme
+import org.futo.inputmethod.latin.uix.theme.presets.ChaosTheme
 import org.futo.inputmethod.latin.uix.theme.presets.NothingLight
 import org.futo.inputmethod.latin.uix.theme.presets.NothingDark
 import org.futo.inputmethod.latin.uix.theme.presets.ClassicMaterialDark
@@ -34,7 +34,6 @@ data class ThemeOption(
 
 val ThemeOptions = mapOf(
     OrbitTheme.key to OrbitTheme,
-    BakeryTheme.key to BakeryTheme,
     VoiceInputTheme.key to VoiceInputTheme,
 
     DynamicNothing.key to DynamicNothing,
@@ -58,6 +57,7 @@ val ThemeOptions = mapOf(
     DeepSeaLight.key to DeepSeaLight,
     DeepSeaDark.key to DeepSeaDark,
 
+    ChaosTheme.key to ChaosTheme
 )
 
 val ThemeOptionKeys = ThemeOptions.keys

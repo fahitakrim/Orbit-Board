@@ -1,6 +1,9 @@
 package org.futo.inputmethod.latin.uix.settings
 
-import androidx.compose.animation.ExitTransition
+import androidx.compose.animation.AnimatedContentTransitionScope
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.res.stringResource
 import androidx.navigation.NavHostController
@@ -20,6 +23,7 @@ import org.futo.inputmethod.latin.uix.settings.pages.HomeScreen
 import org.futo.inputmethod.latin.uix.settings.pages.LanguagesScreen
 import org.futo.inputmethod.latin.uix.settings.pages.PredictiveTextScreen
 import org.futo.inputmethod.latin.uix.settings.pages.ThemeScreen
+import org.futo.inputmethod.latin.uix.settings.pages.addModelManagerNavigation
 import org.futo.inputmethod.latin.uix.settings.pages.addTypingNavigation
 import org.futo.inputmethod.latin.uix.urlDecode
 import org.futo.inputmethod.latin.uix.urlEncode
@@ -40,15 +44,26 @@ fun SettingsNavigator(
     NavHost(
         navController = navController,
         startDestination = "home",
-        exitTransition = { ExitTransition.None },
-        popExitTransition = { ExitTransition.None }
+        enterTransition = {
+            fadeIn(animationSpec = tween(220)) + slideIntoContainer(AnimatedContentTransitionScope.SlideDirection.Start, tween(220))
+        },
+        exitTransition = {
+            fadeOut(animationSpec = tween(180)) + slideOutOfContainer(AnimatedContentTransitionScope.SlideDirection.Start, tween(180))
+        },
+        popEnterTransition = {
+            fadeIn(animationSpec = tween(220)) + slideIntoContainer(AnimatedContentTransitionScope.SlideDirection.End, tween(220))
+        },
+        popExitTransition = {
+            fadeOut(animationSpec = tween(180)) + slideOutOfContainer(AnimatedContentTransitionScope.SlideDirection.End, tween(180))
+        }
     ) {
-        composable("home") { HomeScreen(navController) }
+        composable("home") { MainPagerScreen(navController) }
         composable("languages") { LanguagesScreen(navController) }
         composable("addLanguage") { org.futo.inputmethod.latin.uix.settings.pages.AddLanguageScreen(navController) }
         composable("predictiveText") { PredictiveTextScreen(navController) }
         composable("advancedparams") { AdvancedParametersScreen(navController) }
         addTypingNavigation(navController)
+        addModelManagerNavigation(navController)
 
         composable("themes") { ThemeScreen(navController) }
         composable("help") { HelpScreen(navController) }

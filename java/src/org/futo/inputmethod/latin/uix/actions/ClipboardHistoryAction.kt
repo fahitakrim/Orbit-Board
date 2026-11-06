@@ -205,46 +205,52 @@ class ClipboardHistoryManager(val context: Context, val coroutineScope: Lifecycl
 
             withContext(Dispatchers.Main) {
                 clipboardManager.addPrimaryClipChangedListener {
-                    if(!context.getSettingBlocking(ClipboardHistoryEnabled)) return@addPrimaryClipChangedListener
+                    try {
+                        if(!context.getSettingBlocking(ClipboardHistoryEnabled)) return@addPrimaryClipChangedListener
 
-                    val clip = clipboardManager.primaryClip
+                        val clip = clipboardManager.primaryClip ?: return@addPrimaryClipChangedListener
+                        if (clip.itemCount <= 0) return@addPrimaryClipChangedListener
+                        val firstItem = clip.getItemAt(0) ?: return@addPrimaryClipChangedListener
 
-                    val text = clip?.getItemAt(0)?.coerceToText(context)?.toString()
-                    val uri = clip?.getItemAt(0)?.uri
+                        val text = firstItem.coerceToText(context)?.toString()
+                        val uri = firstItem.uri
 
-                    val timestamp = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                        clip?.description?.timestamp
-                    } else {
-                        null
-                    } ?: System.currentTimeMillis()
+                        val timestamp = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                            clip.description?.timestamp
+                        } else {
+                            null
+                        } ?: System.currentTimeMillis()
 
-                    val mimeTypes = List(clip?.description?.mimeTypeCount ?: 0) {
-                        clip?.description?.getMimeType(it)
-                    }.filterNotNull()
+                        val mimeTypes = List(clip.description?.mimeTypeCount ?: 0) {
+                            clip.description?.getMimeType(it)
+                        }.filterNotNull()
 
-                    val isSensitive = clip?.description?.extras?.getBoolean(
-                        ClipDescription.EXTRA_IS_SENSITIVE, false) ?: false
+                        val isSensitive = clip.description?.extras?.getBoolean(
+                            ClipDescription.EXTRA_IS_SENSITIVE, false) ?: false
 
-                    // TODO: Support images and other non-text media
-                    if (text != null && uri == null && !isSensitive) {
-                        val isAlreadyPinned = clipboardHistory.firstOrNull {
-                            ((it.text != null && it.text == text) || (it.uri != null && it.uri == uri)) && it.pinned
-                        }?.pinned ?: false
+                        // TODO: Support images and other non-text media
+                        if (text != null && uri == null && !isSensitive) {
+                            val isAlreadyPinned = clipboardHistory.firstOrNull {
+                                ((it.text != null && it.text == text) || (it.uri != null && it.uri == uri)) && it.pinned
+                            }?.pinned ?: false
 
-                        clipboardHistory.removeAll {
-                            (it.text != null && it.text == text) || (it.uri != null && it.uri == uri)
+                            clipboardHistory.removeAll {
+                                (it.text != null && it.text == text) || (it.uri != null && it.uri == uri)
+                            }
+
+                            val newEntry = ClipboardEntry(
+                                timestamp = timestamp,
+                                pinned = isAlreadyPinned,
+                                text = text,
+                                uri = uri,
+                                mimeTypes = mimeTypes
+                            )
+                            clipboardHistory.add(newEntry)
+
+                            saveClipboard()
                         }
-
-                        val newEntry = ClipboardEntry(
-                            timestamp = timestamp,
-                            pinned = isAlreadyPinned,
-                            text = text,
-                            uri = uri,
-                            mimeTypes = mimeTypes
-                        )
-                        clipboardHistory.add(newEntry)
-
-                        saveClipboard()
+                    } catch (e: Throwable) {
+                        e.printStackTrace()
                     }
                 }
             }
@@ -345,9 +351,14 @@ class ClipboardHistoryManager(val context: Context, val coroutineScope: Lifecycl
     fun onRemove(item: ClipboardEntry) {
         // Clear the clipboard if the item being removed is the current one
         if(Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
-            // TODO: URI
-            if((item.text != null) && item.text == clipboardManager.primaryClip?.getItemAt(0)?.coerceToText(context)?.toString()) {
-                clipboardManager.clearPrimaryClip()
+            try {
+                val clip = clipboardManager.primaryClip
+                val currentText = if (clip != null && clip.itemCount > 0) clip.getItemAt(0)?.coerceToText(context)?.toString() else null
+                if((item.text != null) && item.text == currentText) {
+                    clipboardManager.clearPrimaryClip()
+                }
+            } catch (e: Throwable) {
+                e.printStackTrace()
             }
         }
         clipboardHistory.remove(item)
@@ -390,7 +401,11 @@ val ClipboardHistoryAction = Action(
         object : ActionWindow {
             @Composable
             override fun windowName(): String {
-                return stringResource(R.string.clipboard_manager_action_title)
+                val base = stringResource(R.string.clipboard_manager_action_title)
+                val count = clipboardHistoryManager.clipboardHistory.count {
+                    !(it.timestamp == 0L && it.text == "Clipboard entries will appear here")
+                }
+                return "$base ($count)"
             }
 
             @Composable
@@ -479,31 +494,28 @@ val ClipboardHistoryAction = Action(
                         }
                     }
                 } else {
+                    val entries = clipboardHistoryManager.clipboardHistory.toList().asReversed()
                     LazyVerticalStaggeredGrid(
                         modifier = Modifier.fillMaxWidth(),
                         columns = StaggeredGridCells.Adaptive(180.dp),
                         verticalItemSpacing = 4.dp,
                         horizontalArrangement = Arrangement.spacedBy(4.dp),
                     ) {
-                        items(clipboardHistoryManager.clipboardHistory.size, key = { r_i ->
-                            val i = clipboardHistoryManager.clipboardHistory.size - r_i - 1
-                            val entry = clipboardHistoryManager.clipboardHistory[i]
-
-                            entry.text?.let {
-                                if(it.length > 512) {
-                                    // Compose really doesn't like extremely long keys, so
-                                    // to avoid crashing we just provide a hash
-                                    it.toFNV1aHash()
+                        items(
+                            count = entries.size,
+                            key = { idx ->
+                                val entry = entries.getOrNull(idx)
+                                if (entry != null) {
+                                    val contentHash = entry.text?.hashCode() ?: entry.uri?.hashCode() ?: 0
+                                    "${entry.timestamp}_${contentHash}_${entry.pinned}_$idx"
                                 } else {
-                                    it
+                                    "clip_item_$idx"
                                 }
-                            } ?: i
-                            i
-                        }) { r_i ->
-                            val i = clipboardHistoryManager.clipboardHistory.size - r_i - 1
-                            val entry = clipboardHistoryManager.clipboardHistory[i]
+                            }
+                        ) { idx ->
+                            val entry = entries.getOrNull(idx) ?: return@items
                             ClipboardEntryView(
-                                modifier = Modifier.animateItemPlacement(),
+                                modifier = Modifier,
                                 clipboardEntry = entry, onPaste = {
                                 if (it.uri != null) {
                                     if (!manager.typeUri(it.uri, it.mimeTypes)) {

@@ -127,73 +127,7 @@ fun ActionEditorScreen(navController: NavHostController = rememberNavController(
 @Preview(showBackground = true)
 @Composable
 fun ResizeScreen(navController: NavHostController = rememberNavController()) {
-    val context = LocalContext.current
-    Box {
-        ScrollableList {
-            ScreenTitle("Resize Keyboard", showBack = true, navController)
-
-            SettingSlider(
-                title = "Keyboard Height",
-                setting = KeyboardHeightMultiplierSetting,
-                range = 0.33f..1.75f, transform = { it },
-                indicator = { "${(it * 100.0f).roundToInt()}%" },
-                steps = 16
-            )
-            SettingSlider(
-                title = "Keyboard Offset",
-                setting = KeyboardBottomOffsetSetting,
-                range = 0.0f..50.0f,
-                hardRange = 0.0f..250.0f,
-                transform = { it },
-                indicator = { "${String.format("%.1f", it)} dp" },
-                steps = 9
-            )
-
-            AndroidTextInput(allowPredictions = false)
-        }
-
-        /*
-        AndroidView(factory = {
-            val ctx = ContextThemeWrapper(context, R.style.KeyboardTheme_LXX_Light)
-
-            val inputView = LayoutInflater.from(ctx).inflate(
-                R.layout.input_view, null, false
-            ) as InputView
-
-            val settingsValues = Settings.getInstance().current
-
-            val builder = KeyboardLayoutSet.Builder(ctx, null)
-            val res: Resources = ctx.resources
-
-            val currentSubtype = RichInputMethodSubtype(Subtypes.getActiveSubtype(ctx))
-
-            val keyboardWidth = ResourceUtils.getDefaultKeyboardWidth(res)
-            val keyboardHeight = ResourceUtils.getKeyboardHeight(res, settingsValues)
-            builder.setKeyboardGeometry(keyboardWidth, keyboardHeight)
-            builder.setSubtype(currentSubtype)
-            builder.setVoiceInputKeyEnabled(settingsValues.mShowsVoiceInputKey)
-            builder.setBottomActionKey(settingsValues.mShowsActionKey, settingsValues.mActionKeyId)
-            builder.setSplitLayoutEnabledByUser(
-                ProductionFlags.IS_SPLIT_KEYBOARD_SUPPORTED
-                        && settingsValues.mIsSplitKeyboardEnabled
-            )
-            builder.setNumberRow(settingsValues.mIsNumberRowEnabled)
-
-
-            val keyboardLayoutSet = builder.build()
-
-            val keyboardView = inputView.findViewById<View>(R.id.keyboard_view) as MainKeyboardView
-
-            keyboardView.setKeyboard(keyboardLayoutSet.getKeyboard(KeyboardId.ELEMENT_ALPHABET))
-            /*
-            mMainKeyboardFrame = mCurrentInputView!!.findViewById<View>(R.id.main_keyboard_frame)
-            mKeyboardView =
-                mCurrentInputView!!.findViewById<View>(R.id.keyboard_view) as MainKeyboardView
-            */
-            inputView
-        }, modifier = Modifier.align(Alignment.BottomCenter))
-        */
-    }
+    ResizeKeyboardScreen(navController)
 }
 
 @OptIn(ExperimentalFoundationApi::class)
@@ -386,6 +320,15 @@ fun LongPressScreen(navController: NavHostController = rememberNavController()) 
         }
 
         item {
+            SettingToggleSharedPrefs(
+                title = "Long-press 'A' to Select All",
+                subtitle = "Long-pressing 'A' performs Select All. Disable to input '@' hint directly",
+                key = Settings.PREF_LONG_PRESS_A_SELECT_ALL,
+                default = true
+            )
+        }
+
+        item {
             SettingRadio(
                 title = "Backspace Behavior when holding/swiping",
                 options = listOf(
@@ -400,15 +343,6 @@ fun LongPressScreen(navController: NavHostController = rememberNavController()) 
                     key = Settings.PREF_BACKSPACE_MODE,
                     default = Settings.BACKSPACE_MODE_CHARACTERS
                 )
-            )
-        }
-
-        item {
-            SettingToggleSharedPrefs(
-                title = "Pin keyboard name on spacebar",
-                subtitle = "Keep the active keyboard name (English, Avro, Probhat, Bangla) permanently visible on the spacebar",
-                key = Settings.PREF_PIN_KEYBOARD_NAME_ON_SPACEBAR,
-                default = true
             )
         }
 
@@ -464,65 +398,7 @@ fun TypingScreen(navController: NavHostController = rememberNavController()) {
     }
 
     ScrollableList {
-        ScreenTitle("Keyboard", showBack = true, navController)
-
-        SettingRadio(
-            title = "Keyboard Font Style",
-            options = listOf("nothing", "normal"),
-            optionNames = listOf("Nothing Dot Font", "Normal System Font"),
-            setting = useDataStore(
-                key = KeyboardFontSetting.key,
-                default = KeyboardFontSetting.default
-            )
-        )
-
-        SettingRadio(
-            title = "Spacebar Color",
-            options = listOf("default", "red", "blue", "yellow", "white", "dark"),
-            optionNames = listOf("Default", "Matte Red", "Matte Blue", "Matte Yellow", "Matte White", "Matte Dark"),
-            setting = useDataStore(
-                key = SpacebarColorSetting.key,
-                default = SpacebarColorSetting.default
-            )
-        )
-
-        NavigationItem(
-            title = "Resize Keyboard",
-            subtitle = "Change the height and offset of the keyboard",
-            style = NavigationItemStyle.Misc,
-            navigate = { navController.navigate("resize") },
-            icon = painterResource(id = R.drawable.maximize)
-        )
-
-        ScreenTitle(title = "Keyboard Rows")
-
-        SettingToggleDataStore(
-            title = "Suggestion Row",
-            subtitle = "Show word suggestions and actions bar above the keyboard",
-            setting = ActionBarDisplayedSetting,
-            icon = {
-                Icon(painterResource(id = R.drawable.more_horizontal), contentDescription = null)
-            }
-        )
-
-        SettingToggleSharedPrefs(
-            title = "Number Row",
-            subtitle = "Show dedicated row of numbers (0-9) on top of the keyboard",
-            key = Settings.PREF_ENABLE_NUMBER_ROW,
-            default = false,
-            icon = { Text("123", style = TextBodyRegularMlStyle, color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.75f)) }
-        )
-
-        SettingToggleSharedPrefs(
-            title = "Pin Name on Spacebar",
-            subtitle = "Keep active keyboard name visible on spacebar. When off, it shows briefly then fades out.",
-            key = Settings.PREF_PIN_KEYBOARD_NAME_ON_SPACEBAR,
-            default = true,
-            icon = {
-                Icon(painterResource(id = R.drawable.keyboard), contentDescription = null,
-                    tint = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.75f))
-            }
-        )
+        ScreenTitle("Typing preferences", showBack = true, navController)
 
         NavigationItem(
             title = "Long-Press Keys & Spacebar",
@@ -575,7 +451,7 @@ fun TypingScreen(navController: NavHostController = rememberNavController()) {
             title = stringResource(R.string.auto_correction),
             subtitle = stringResource(R.string.auto_correction_summary),
             key = Settings.PREF_AUTO_CORRECTION,
-            default = true,
+            default = false,
             icon = {
                 Icon(painterResource(id = R.drawable.icon_spellcheck), contentDescription = null,
                     tint = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.75f))
@@ -586,7 +462,7 @@ fun TypingScreen(navController: NavHostController = rememberNavController()) {
             title = stringResource(R.string.auto_cap),
             subtitle = stringResource(R.string.auto_cap_summary),
             key = Settings.PREF_AUTO_CAP,
-            default = true,
+            default = false,
             icon = {
                 Text("Aa", style = TextBodyRegularMlStyle, color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.75f))
             }

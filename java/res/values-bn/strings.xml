@@ -212,8 +212,9 @@
     <string name="english_ime_settings">Orbit Board &#x09B8;&#x09C7;&#x099F;&#x09BF;&#x0982;&#x09B8;</string>
     <string name="layout_bengali_avro">Avro (&#x0985;&#x09AD;&#x09CD;&#x09B0;)</string>
     <string name="layout_bengali_jatiyo">জাতীয় মডার্ন (Jatiyo)</string>
-    <string name="layout_bengali_jatiyo_classic">জাতীয় পুরোনো (Classic)</string>
+    <string name="layout_bengali_jatiyo_classic">জাতীয় ক্লাসিক (Classic)</string>
     <string name="layout_bengali_probhat">Probhat (&#x09AA;&#x09CD;&#x09B0;&#x09AD;&#x09BE;&#x09A4;)</string>
     <string name="layout_bengali_akkhor">Bangla (&#x09AC;&#x09BE;&#x0982;&#x09B2;&#x09BE;)</string>
     <string name="layout_bengali">Bangla (&#x09AC;&#x09BE;&#x0982;&#x09B2;&#x09BE;)</string>
+    <string name="action_number_pad">নাম্বার প্যাড</string>
 </resources>

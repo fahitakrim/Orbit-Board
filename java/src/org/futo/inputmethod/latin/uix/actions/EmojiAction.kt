@@ -720,16 +720,20 @@ fun EmojiGrid(
 
 @JvmOverloads
 fun isEmojiSupported(emoji: String, paint: Paint? = null, sdkInt: Int = Build.VERSION.SDK_INT): Boolean {
-    return if (sdkInt >= Build.VERSION_CODES.TIRAMISU || sdkInt == 0) {
+    val effectiveSdk = sdkInt
+    return if (effectiveSdk >= Build.VERSION_CODES.TIRAMISU || effectiveSdk == 0) {
         // Modern Android (API 33+ / Android 13, 14, 15) and test environments use up-to-date
         // system font or test definitions; avoid frozen JVM Character table checks.
         true
     } else if (sdkInt >= Build.VERSION_CODES.M) {
-        try {
-            val p = paint ?: Paint()
-            PaintCompat.hasGlyph(p, emoji)
-        } catch (_: Throwable) {
+        if (paint == null) {
             true
+        } else {
+            try {
+                PaintCompat.hasGlyph(paint, emoji)
+            } catch (_: Throwable) {
+                true
+            }
         }
     } else {
         emoji.codePoints().toList().all { c -> Character.getName(c) != null }
@@ -847,7 +851,11 @@ val EmojiAction = Action(
                         manager.sendCodePointEvent(Constants.CODE_SPACE)
                         manager.performHapticAndAudioFeedback(Constants.CODE_SPACE, view)
                     }, onBackspace = { isRepeated ->
-                        manager.sendCodePointEvent(Constants.CODE_DELETE)
+                        if (searching.value && searchText.value.isNotEmpty()) {
+                            searchText.value = searchText.value.dropLast(1)
+                        } else {
+                            manager.deleteCharacterBeforeCursor()
+                        }
                         if(!isRepeated) {
                             manager.performHapticAndAudioFeedback(Constants.CODE_DELETE, view)
                         }

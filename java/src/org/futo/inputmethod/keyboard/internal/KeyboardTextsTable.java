@@ -5282,7 +5282,7 @@ public final class KeyboardTextsTable {
         EMPTY,
         ".com",
         "|",
-        "$,\u20ac,\u00a3,\u00a5,\u00a2",
+        "$,\u09f3,\u20ac,\u00a3,\u00a5,\u00a2",
         EMPTY,
         "!fixedColumnOrder!4,!needsDividers!,!icon/action_switch_language|!code/action_switch_language,!icon/action_text_edit|!code/action_text_edit,!icon/action_clipboard_history|!code/action_clipboard_history,!icon/action_emoji|!code/action_emoji,!icon/action_undo|!code/action_undo,!icon/action_redo|!code/action_redo",
         "@",
