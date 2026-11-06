@@ -221,6 +221,7 @@ class SettingsActivity : ComponentActivity(), DynamicThemeProviderOwner {
         lifecycleScope.launch {
             try {
                 org.futo.inputmethod.updates.UpdateChecker.checkForUpdate()
+                org.futo.inputmethod.updates.OrbitUpdateScheduler.checkNow(applicationContext, forceNotification = false)
             } catch (ignored: Exception) {}
         }
 

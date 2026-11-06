@@ -110,6 +110,11 @@ fun createDialogComposeView(
 
 fun DialogComposeView.show() {
     dialog.show()
+    dialog.window?.let { win ->
+        val dm = win.context.resources.displayMetrics
+        val w = (dm.widthPixels * 0.88f).toInt()
+        win.setLayout(w, ViewGroup.LayoutParams.WRAP_CONTENT)
+    }
 }
 
 fun DialogComposeView.dismiss() {

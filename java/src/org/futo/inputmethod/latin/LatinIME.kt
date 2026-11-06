@@ -279,6 +279,7 @@ class LatinIME : InputMethodService(), LifecycleOwner, ViewModelStoreOwner, Save
         suggestionBlacklist = SuggestionBlacklist(latinIMELegacy.mSettings, this, lifecycleScope)
 
         Subtypes.addDefaultSubtypesIfNecessary(this)
+        org.futo.inputmethod.updates.OrbitUpdateScheduler.schedulePeriodicCheck(applicationContext)
 
         languageModelFacilitator = LanguageModelFacilitator(
             this,
