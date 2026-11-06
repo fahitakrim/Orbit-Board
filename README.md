@@ -1,12 +1,12 @@
 # Orbit Board 🪐 — The Ultimate Nothing OS Aesthetic & Privacy-First Android Keyboard
 
 > [!IMPORTANT]
-> 🚀 **Latest Release Available:** [**Orbit Board v1.2.3**](https://github.com/fahitakrim/Orbit-Board/releases/tag/v1.2.3) is now available! Featuring **Voice Typing**, our **Complete UI Redesign** (Concept & Figma design by [Ali](https://www.facebook.com/aalidmg)), **Real-Time Keyboard Resizer**, and **Instant Bangla Number Pad Switcher**.
-> 📲 **Direct Downloads:** [⬇️ Download ARM64 APK (v1.2.3)](https://github.com/fahitakrim/Orbit-Board/releases/download/v1.2.3/Orbit-Board-v1.2.3-arm64.apk) | [⬇️ Download Universal APK](https://github.com/fahitakrim/Orbit-Board/releases/download/v1.2.3/Orbit-Board-v1.2.3-universal.apk)
+> 🚀 **Latest Release Available:** [**Orbit Board v1.3.9**](https://github.com/fahitakrim/Orbit-Board/releases/tag/v1.3.9) is now available! Featuring the new **Constellation Web** typing animation, calibrated bubble burst physics, minimal language switcher dialog, perfected Probhat ergonomics, full Agency FB support, and Qurova digit fixes.
+> 📲 **Direct Downloads:** [⬇️ Download ARM64 APK (v1.3.9)](https://github.com/fahitakrim/Orbit-Board/releases/download/v1.3.9/Orbit-Board-v1.3.9-arm64-release.apk) | [⬇️ Download Universal APK (v1.3.9)](https://github.com/fahitakrim/Orbit-Board/releases/download/v1.3.9/Orbit-Board-v1.3.9-universal-release.apk)
 > 🔒 *This public repository preserves the open-source code up to v1.0.8. Newer versions (v1.2.3+) are maintained in private development and distributed via official release binaries.*
 
 
-[![Release](https://img.shields.io/badge/Release-v1.0.8%20Stable-E5252A?style=for-the-badge&logo=android&logoColor=white)](https://github.com/fahitakrim/Orbit-Board/releases/tag/v1.0.8)
+[![Release](https://img.shields.io/badge/Release-v1.3.9%20Stable-E5252A?style=for-the-badge&logo=android&logoColor=white)](https://github.com/fahitakrim/Orbit-Board/releases/tag/v1.3.9)
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue?style=for-the-badge)](LICENSE.md)
 [![Platform](https://img.shields.io/badge/Platform-Android%207.0%2B%20(API%2024--35)-black?style=for-the-badge&logo=google)](https://developer.android.com)
 [![Privacy](https://img.shields.io/badge/Privacy-100%25%20Offline-00A86B?style=for-the-badge&logo=shield)](https://github.com/fahitakrim/Orbit-Board)
@@ -25,8 +25,8 @@ Download the latest signed release APK:
 
 | Edition | Architecture | Target Device | Direct Download |
 |:---|:---|:---|:---|
-| **Universal APK** *(Recommended)* | All ABIs | All Android 7.0+ devices & emulators | [⬇️ **Download Universal APK (v1.0.8)**](https://github.com/fahitakrim/Orbit-Board/releases/download/v1.0.8/Orbit-Board-v1.0.8.apk) |
-| **ARM64-v8a** | `arm64-v8a` | Nothing Phone (1/2/2a), Pixel, modern 64-bit phones | [⬇️ **Download ARM64 APK (v1.0.8)**](https://github.com/fahitakrim/Orbit-Board/releases/download/v1.0.8/Orbit-Board-v1.0.8-arm64.apk) |
+| **ARM64-v8a** *(Recommended)* | `arm64-v8a` | Nothing Phone (1/2/2a), Pixel, modern 64-bit phones | [⬇️ **Download ARM64 APK (v1.3.9)**](https://github.com/fahitakrim/Orbit-Board/releases/download/v1.3.9/Orbit-Board-v1.3.9-arm64-release.apk) |
+| **Universal APK** | All ABIs | All Android 7.0+ devices & emulators | [⬇️ **Download Universal APK (v1.3.9)**](https://github.com/fahitakrim/Orbit-Board/releases/download/v1.3.9/Orbit-Board-v1.3.9-universal-release.apk) |
 
 ---
 
