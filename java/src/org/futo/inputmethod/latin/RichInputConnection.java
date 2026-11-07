@@ -1208,6 +1208,10 @@ public final class RichInputConnection implements PrivateCommandPerformer {
         return steps;
     }
 
+    public boolean hasComposingText() {
+        return mComposingText.length() > 0;
+    }
+
     public StringBuilder getComposingTextForDebug() {
         return mComposingText;
     }

@@ -51,6 +51,9 @@ import org.futo.inputmethod.announcements.AnnouncementSheet
 import org.futo.inputmethod.latin.BuildConfig
 import org.futo.inputmethod.latin.R
 import org.futo.inputmethod.latin.settings.Settings
+import org.futo.inputmethod.latin.AudioAndHapticFeedbackManager
+import org.futo.inputmethod.latin.common.Constants
+import org.futo.inputmethod.latin.uix.PreferenceUtils
 import org.futo.inputmethod.latin.uix.settings.DeveloperDetailsCard
 import org.futo.inputmethod.latin.uix.settings.NavigationItem
 import org.futo.inputmethod.latin.uix.settings.NavigationItemStyle
@@ -94,7 +97,11 @@ fun MoreSettingsScreen(
     val (soundOn, setSoundOn) = useSharedPrefsBool(Settings.PREF_SOUND_ON, false)
     val (soundVolume, setSoundVolume) = useDataStore(soundVolumeSetting.key, soundVolumeSetting.default)
     val (spacebarMode, setSpacebarMode) = useSharedPrefsInt(Settings.PREF_SPACEBAR_MODE, Settings.SPACEBAR_MODE_SWIPE_LANGUAGE)
+    val (doubleSpacePeriod, setDoubleSpacePeriod) = useSharedPrefsBool(Settings.PREF_KEY_USE_DOUBLE_SPACE_PERIOD, true)
+
     val (longPressShortcuts, setLongPressShortcuts) = useDataStore(LongPressShortcutsSetting.key, LongPressShortcutsSetting.default)
+    val (longPressASelectAll, setLongPressASelectAll) = useSharedPrefsBool(Settings.PREF_LONG_PRESS_A_SELECT_ALL, false)
+    val (swipeGesture, setSwipeGesture) = useSharedPrefsBool(Settings.PREF_GESTURE_INPUT, true)
 
     // Voice & Preferences
     val (isVoiceSoundActive, setVoiceSoundActive) = useSharedPrefsBool(Settings.PREF_VOICE_INPUT_SOUND, true)
@@ -133,9 +140,9 @@ fun MoreSettingsScreen(
 
         Spacer(modifier = Modifier.height(14.dp))
 
-        // 2. Section: Gestures & Feedback
+        // 2. Section: Haptics & Sound Feedback
         SectionHeader(
-            title = "Gestures & Feedback",
+            title = "Haptics & Sound",
             modifier = Modifier.padding(horizontal = 16.dp)
         )
         Spacer(modifier = Modifier.height(4.dp))
@@ -162,7 +169,7 @@ fun MoreSettingsScreen(
                             color = Color.White
                         )
                         Text(
-                            text = "Tactile haptic feedback when tapping keys",
+                            text = "Haptic feedback on each keystroke",
                             fontFamily = Inter,
                             fontSize = 12.sp,
                             color = TextSecondary
@@ -203,7 +210,13 @@ fun MoreSettingsScreen(
                     }
                     Slider(
                         value = vibrationDuration.toFloat().coerceIn(-1f, 100f),
-                        onValueChange = { setVibrationDuration(it.roundToInt()) },
+                        onValueChange = {
+                            val duration = it.roundToInt()
+                            setVibrationDuration(duration)
+                            val sharedPrefs = PreferenceUtils.getDefaultSharedPreferences(context)
+                            sharedPrefs.edit().putInt(Settings.PREF_VIBRATION_DURATION_SETTINGS, duration).apply()
+                            AudioAndHapticFeedbackManager.getInstance().vibrate(if (duration <= -1) 10L else duration.toLong())
+                        },
                         valueRange = -1f..100f,
                         colors = SliderDefaults.colors(
                             thumbColor = Color.White,
@@ -274,7 +287,19 @@ fun MoreSettingsScreen(
                     }
                     Slider(
                         value = soundVolume.toFloat().coerceIn(-1f, 100f),
-                        onValueChange = { setSoundVolume(it.roundToInt()) },
+                        onValueChange = {
+                            val volInt = it.roundToInt()
+                            setSoundVolume(volInt)
+                            val sharedPrefs = PreferenceUtils.getDefaultSharedPreferences(context)
+                            sharedPrefs.edit().apply {
+                                if (volInt <= -1) {
+                                    remove(Settings.PREF_KEYPRESS_SOUND_VOLUME)
+                                } else {
+                                    putFloat(Settings.PREF_KEYPRESS_SOUND_VOLUME, (volInt.coerceIn(0, 100)) / 100.0f)
+                                }
+                            }.apply()
+                            AudioAndHapticFeedbackManager.getInstance().performAudioFeedback(Constants.CODE_SPACE)
+                        },
                         valueRange = -1f..100f,
                         colors = SliderDefaults.colors(
                             thumbColor = Color.White,
@@ -284,11 +309,25 @@ fun MoreSettingsScreen(
                         modifier = Modifier.fillMaxWidth()
                     )
                 }
+            }
+        }
 
-                Spacer(modifier = Modifier.height(12.dp))
-                Box(Modifier.fillMaxWidth().height(1.dp).background(DividerColor))
-                Spacer(modifier = Modifier.height(12.dp))
+        Spacer(modifier = Modifier.height(18.dp))
 
+        // 3. Section: Spacebar Settings (Unified Card)
+        SectionHeader(
+            title = "Spacebar Settings",
+            modifier = Modifier.padding(horizontal = 16.dp)
+        )
+        Spacer(modifier = Modifier.height(4.dp))
+
+        NeuCard(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp),
+            contentPadding = 14.dp
+        ) {
+            Column(modifier = Modifier.fillMaxWidth()) {
                 // Spacebar Swipe Behavior
                 Row(
                     modifier = Modifier.fillMaxWidth(),
@@ -304,7 +343,7 @@ fun MoreSettingsScreen(
                             color = Color.White
                         )
                         Text(
-                            text = "Action when sliding across spacebar",
+                            text = "Slide across spacebar to switch or move",
                             fontFamily = Inter,
                             fontSize = 12.sp,
                             color = TextSecondary
@@ -338,7 +377,7 @@ fun MoreSettingsScreen(
                                     width = if (isSelected) 1.5.dp else 1.dp,
                                     color = if (isSelected) NothingRed else BorderColor,
                                     shape = RoundedCornerShape(10.dp)
-                               )
+                                )
                                 .clickable { setSpacebarMode(mode) },
                             contentAlignment = Alignment.Center
                         ) {
@@ -357,6 +396,57 @@ fun MoreSettingsScreen(
                 Box(Modifier.fillMaxWidth().height(1.dp).background(DividerColor))
                 Spacer(modifier = Modifier.height(12.dp))
 
+                // Double Space Period
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = "Double Tap Space for Period (.)",
+                            fontFamily = Inter,
+                            fontWeight = FontWeight.Medium,
+                            fontSize = 15.sp,
+                            color = Color.White
+                        )
+                        Text(
+                            text = "Double-tapping space inserts a period and space",
+                            fontFamily = Inter,
+                            fontSize = 12.sp,
+                            color = TextSecondary
+                        )
+                    }
+                    Switch(
+                        checked = doubleSpacePeriod,
+                        onCheckedChange = { setDoubleSpacePeriod(it) },
+                        colors = SwitchDefaults.colors(
+                            checkedThumbColor = Color.White,
+                            checkedTrackColor = NothingRed,
+                            uncheckedThumbColor = TextSecondary,
+                            uncheckedTrackColor = SurfaceVariant
+                        )
+                    )
+                }
+            }
+        }
+
+        Spacer(modifier = Modifier.height(18.dp))
+
+        // 4. Section: Shortcuts & Gestures (Unified Card)
+        SectionHeader(
+            title = "Shortcuts & Gestures",
+            modifier = Modifier.padding(horizontal = 16.dp)
+        )
+        Spacer(modifier = Modifier.height(4.dp))
+
+        NeuCard(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp),
+            contentPadding = 14.dp
+        ) {
+            Column(modifier = Modifier.fillMaxWidth()) {
                 // Long Press Shortcuts (C, X, V)
                 Row(
                     modifier = Modifier.fillMaxWidth(),
@@ -381,6 +471,80 @@ fun MoreSettingsScreen(
                     Switch(
                         checked = longPressShortcuts,
                         onCheckedChange = { setLongPressShortcuts(it) },
+                        colors = SwitchDefaults.colors(
+                            checkedThumbColor = Color.White,
+                            checkedTrackColor = NothingRed,
+                            uncheckedThumbColor = TextSecondary,
+                            uncheckedTrackColor = SurfaceVariant
+                        )
+                    )
+                }
+
+                Spacer(modifier = Modifier.height(12.dp))
+                Box(Modifier.fillMaxWidth().height(1.dp).background(DividerColor))
+                Spacer(modifier = Modifier.height(12.dp))
+
+                // Long-press 'A' to Select All
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = "Long-Press 'A' Select All",
+                            fontFamily = Inter,
+                            fontWeight = FontWeight.Medium,
+                            fontSize = 15.sp,
+                            color = Color.White
+                        )
+                        Text(
+                            text = "Default off (holding 'a' outputs '@'). Turn on for Select All",
+                            fontFamily = Inter,
+                            fontSize = 12.sp,
+                            color = TextSecondary
+                        )
+                    }
+                    Switch(
+                        checked = longPressASelectAll,
+                        onCheckedChange = { setLongPressASelectAll(it) },
+                        colors = SwitchDefaults.colors(
+                            checkedThumbColor = Color.White,
+                            checkedTrackColor = NothingRed,
+                            uncheckedThumbColor = TextSecondary,
+                            uncheckedTrackColor = SurfaceVariant
+                        )
+                    )
+                }
+
+                Spacer(modifier = Modifier.height(12.dp))
+                Box(Modifier.fillMaxWidth().height(1.dp).background(DividerColor))
+                Spacer(modifier = Modifier.height(12.dp))
+
+                // Swipe Typing
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = "Swipe Typing (Glide)",
+                            fontFamily = Inter,
+                            fontWeight = FontWeight.Medium,
+                            fontSize = 15.sp,
+                            color = Color.White
+                        )
+                        Text(
+                            text = "Continuous glide gesture typing across keys",
+                            fontFamily = Inter,
+                            fontSize = 12.sp,
+                            color = TextSecondary
+                        )
+                    }
+                    Switch(
+                        checked = swipeGesture,
+                        onCheckedChange = { setSwipeGesture(it) },
                         colors = SwitchDefaults.colors(
                             checkedThumbColor = Color.White,
                             checkedTrackColor = NothingRed,

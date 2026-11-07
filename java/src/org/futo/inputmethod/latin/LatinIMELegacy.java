@@ -1423,6 +1423,7 @@ public class LatinIMELegacy implements KeyboardActionListener,
                     final CharSequence text = clip.getItemAt(0).coerceToText(mInputMethodService);
                     if (text != null && text.length() > 0) {
                         onTextInput(text.toString());
+                        mInputLogic.clearEnteredText();
                         android.widget.Toast.makeText(mInputMethodService, "Pasted", android.widget.Toast.LENGTH_SHORT).show();
                         AudioAndHapticFeedbackManager.getInstance().performHapticFeedback(
                                 mKeyboardSwitcher.getMainKeyboardView(), false);
@@ -1435,6 +1436,7 @@ public class LatinIMELegacy implements KeyboardActionListener,
             if (ic != null) {
                 ic.performContextMenuAction(android.R.id.paste);
             }
+            mInputLogic.clearEnteredText();
             android.widget.Toast.makeText(mInputMethodService, "Pasted", android.widget.Toast.LENGTH_SHORT).show();
             AudioAndHapticFeedbackManager.getInstance().performHapticFeedback(
                     mKeyboardSwitcher.getMainKeyboardView(), false);

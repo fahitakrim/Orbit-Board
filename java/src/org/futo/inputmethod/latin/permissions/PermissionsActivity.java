@@ -90,8 +90,10 @@ public final class PermissionsActivity
     public void onRequestPermissionsResult(
             int requestCode, @NonNull String[] permissions, @NonNull int[] grantResults) {
         mPendingRequestCode = INVALID_REQUEST_CODE;
-        PermissionsManager.get(this).onRequestPermissionsResult(
-                requestCode, permissions, grantResults);
+        try {
+            PermissionsManager.get(this).onRequestPermissionsResult(
+                    requestCode, permissions, grantResults);
+        } catch (final Throwable ignored) {}
         finish();
     }
 }

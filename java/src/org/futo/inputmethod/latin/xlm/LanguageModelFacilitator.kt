@@ -164,7 +164,20 @@ public class LanguageModelFacilitator(
     }
 
     private fun getEmojiCandidate(word: String): SuggestedWordInfo? {
-        val emoji = emojiData.emojiAliases[word.lowercase()]
+        val lower = word.lowercase()
+        val bengaliEmoji = org.futo.inputmethod.latin.bengali.BanglaSuggestionEngine.getEmojiForWord(lower)
+        if (bengaliEmoji != null) {
+            return SuggestedWordInfo(
+                bengaliEmoji,
+                "",
+                25,
+                SuggestedWordInfo.KIND_EMOJI_SUGGESTION,
+                null,
+                0,
+                0
+            )
+        }
+        val emoji = emojiData.emojiAliases[lower]
 
         if(emoji != null) {
             return SuggestedWordInfo(

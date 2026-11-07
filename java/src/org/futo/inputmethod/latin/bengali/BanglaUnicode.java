@@ -83,6 +83,8 @@ public class BanglaUnicode {
 		map.put("OU", "\u0994");
 		map.put("OI", "\u0990");
 		map.put("hs", "\u09CD");
+		map.put(":", "\u0983");
+		map.put("HH", "\u0983");
 		map.put("nj", "\u099E\u09CD\u099C"); //
 		map.put("nc", "\u099E\u09CD\u099A"); //
 		

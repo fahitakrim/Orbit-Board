@@ -2250,6 +2250,8 @@ public final class InputLogic {
      *
      * @param alsoResetLastComposedWord whether to also reset the last composed word.
      */
+    public void clearEnteredText() { mEnteredText = null; }
+
     private void resetComposingState(final boolean alsoResetLastComposedWord) {
         mWordComposer.reset();
         if (alsoResetLastComposedWord) {
@@ -2544,6 +2546,24 @@ public final class InputLogic {
                     + "Connection.getNgramContextFromNthPreviousWord()");
             Log.d(TAG, "commitChosenWord() : NgramContext = " + ngramContext);
             startTimeMillis = System.currentTimeMillis();
+        }
+        if (!mConnection.hasComposingText() && mWordComposer.isComposingWord()) {
+            final String rawTyped = mWordComposer.getTypedWord();
+            final String displayText = isAvroActive() ? mRidmikParser.toBangla(rawTyped) : rawTyped;
+            final int lenToDelete = (displayText != null && !displayText.isEmpty()) ? displayText.length() : (rawTyped != null ? rawTyped.length() : 0);
+            if (lenToDelete > 0) {
+                final CharSequence textBefore = mConnection.getTextBeforeCursor(lenToDelete, 0);
+                if (textBefore != null && textBefore.toString().equals(displayText)) {
+                    mConnection.deleteTextBeforeCursor(lenToDelete);
+                } else if (rawTyped != null) {
+                    final CharSequence rawBefore = mConnection.getTextBeforeCursor(rawTyped.length(), 0);
+                    if (rawBefore != null && rawBefore.toString().equals(rawTyped)) {
+                        mConnection.deleteTextBeforeCursor(rawTyped.length());
+                    } else if (textBefore != null && textBefore.length() > 0) {
+                        mConnection.deleteTextBeforeCursor(lenToDelete);
+                    }
+                }
+            }
         }
         mConnection.commitText(chosenWordWithSuggestions, 1);
         if (DebugFlags.DEBUG_ENABLED) {

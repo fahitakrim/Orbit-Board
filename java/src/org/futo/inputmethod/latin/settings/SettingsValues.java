@@ -149,12 +149,16 @@ public class SettingsValues {
         mIncludesOtherImesInLanguageSwitchList = Settings.ENABLE_SHOW_LANGUAGE_SWITCH_KEY_SETTINGS
                 ? prefs.getBoolean(Settings.PREF_INCLUDE_OTHER_IMES_IN_LANGUAGE_SWITCH_LIST, false)
                 : true /* forcibly */;
-        mActionKeyId = ActionRegistry.INSTANCE.actionStringIdToIdx(
+        int actionKeyId = ActionRegistry.INSTANCE.actionStringIdToIdx(
                 prefs.getString(
                         Settings.PREF_ACTION_KEY_ID,
                         RegistryKt.getDefaultActionKey()
                 ));
-        mShowsActionKey = mActionKeyId != -1 && prefs.getBoolean(Settings.PREF_SHOW_EMOJI_KEY, true);
+        if (actionKeyId == -1) {
+            actionKeyId = ActionRegistry.INSTANCE.actionStringIdToIdx("emoji");
+        }
+        mActionKeyId = actionKeyId;
+        mShowsActionKey = prefs.getBoolean(Settings.PREF_SHOW_EMOJI_KEY, true);
         mIsNumberRowEnabled = prefs.getBoolean(Settings.PREF_ENABLE_NUMBER_ROW, false);
         mUseContactsDict = prefs.getBoolean(Settings.PREF_KEY_USE_CONTACTS_DICT, true);
         mUsePersonalizedDicts = prefs.getBoolean(Settings.PREF_KEY_USE_PERSONALIZED_DICTS, true);
@@ -176,7 +180,7 @@ public class SettingsValues {
         mSpacebarMode = prefs.getInt(Settings.PREF_SPACEBAR_MODE, Settings.SPACEBAR_MODE_SWIPE_LANGUAGE);
         mBackspaceMode = prefs.getInt(Settings.PREF_BACKSPACE_MODE, Settings.BACKSPACE_MODE_CHARACTERS);
         mPinKeyboardNameOnSpacebar = prefs.getBoolean(Settings.PREF_PIN_KEYBOARD_NAME_ON_SPACEBAR, true);
-        mLongPressASelectAll = prefs.getBoolean(Settings.PREF_LONG_PRESS_A_SELECT_ALL, true);
+        mLongPressASelectAll = prefs.getBoolean(Settings.PREF_LONG_PRESS_A_SELECT_ALL, false);
         mVoiceInputSoundEnabled = prefs.getBoolean(Settings.PREF_VOICE_INPUT_SOUND, true);
 
         mShouldShowLxxSuggestionUi = Settings.SHOULD_SHOW_LXX_SUGGESTION_UI

@@ -424,6 +424,9 @@ class LatinIME : InputMethodService(), LifecycleOwner, ViewModelStoreOwner, Save
     private var isInputModal = false
     fun setInputModal(to: Boolean) {
         isInputModal = to
+        window?.window?.decorView?.post {
+            window?.window?.decorView?.requestLayout()
+        }
     }
 
     // The keyboard view really doesn't like being detached, so it's always
@@ -599,12 +602,13 @@ class LatinIME : InputMethodService(), LifecycleOwner, ViewModelStoreOwner, Save
         val touchTop = if(isInputModal) { 0 } else { visibleTopY }
         val touchRight = composeView.width
         val touchBottom = inputHeight
+        val contentTop = if(isInputModal) { 0 } else { visibleTopY }
 
         latinIMELegacy.setInsets(outInsets!!.apply {
             touchableInsets = Insets.TOUCHABLE_INSETS_REGION;
             touchableRegion.set(touchLeft, touchTop, touchRight, touchBottom);
-            contentTopInsets = visibleTopY
-            visibleTopInsets = visibleTopY
+            contentTopInsets = contentTop
+            visibleTopInsets = contentTop
         })
     }
 

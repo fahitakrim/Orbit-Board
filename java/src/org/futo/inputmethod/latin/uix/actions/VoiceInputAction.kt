@@ -281,7 +281,7 @@ val VoiceInputAction = Action(icon = R.drawable.mic_fill,
         manager.triggerSystemVoiceInput()
     },
     keepScreenAwake = true,
-    persistentState = { VoiceInputPersistentState(it) },
+    persistentState = null,
     shownInEditor = true,
     windowImpl = null
 )

@@ -324,7 +324,7 @@ fun LongPressScreen(navController: NavHostController = rememberNavController()) 
                 title = "Long-press 'A' to Select All",
                 subtitle = "Long-pressing 'A' performs Select All. Disable to input '@' hint directly",
                 key = Settings.PREF_LONG_PRESS_A_SELECT_ALL,
-                default = true
+                default = false
             )
         }
 

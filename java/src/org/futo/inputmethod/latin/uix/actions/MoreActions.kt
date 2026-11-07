@@ -6,7 +6,9 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.RowScope
+import androidx.compose.material3.Button
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
@@ -168,12 +170,16 @@ fun ActionsEditor(header: @Composable () -> Unit) {
         DefaultActionSettings.flattenToActionEditorItems().distinctBy { it.toKey() }
     }
 
+    val isInspection = LocalInspectionMode.current
     val list = remember { initialList.toMutableStateList() }
     val lazyListState = rememberLazyGridState()
     val reorderableLazyListState = rememberReorderableLazyGridState(lazyListState) { from, to ->
         val itemToAdd = list.removeAt(from.index)
         list.add(to.index, itemToAdd)
-
+        if (!isInspection) {
+            val map = list.toActionMap()
+            context.updateSettingsWithNewActions(map)
+        }
         view.performHapticFeedback(HapticFeedbackConstants.SEGMENT_FREQUENT_TICK)
     }
 
@@ -213,12 +219,16 @@ fun ActionsEditor(header: @Composable () -> Unit) {
                             },
                             onDragStopped = {
                                 view.performHapticFeedback(HapticFeedbackConstants.GESTURE_END)
+                                if (!isInspection) {
+                                    val map = list.toActionMap()
+                                    context.updateSettingsWithNewActions(map)
+                                }
                             },
                         ), dragIcon = true, dragIconModifier = Modifier.draggableHandle())
                     }
                 }
                 is ActionEditorItem.Separator -> {
-                    ReorderableItem(reorderableLazyListState, modifier = Modifier.fillMaxWidth(), key = it.toKey(), enabled = it.category != ActionCategory.entries[0]) { _ ->
+                    ReorderableItem(reorderableLazyListState, modifier = Modifier.fillMaxWidth(), key = it.toKey(), enabled = false) { _ ->
                         Column {
                             if (it.category == ActionCategory.entries[0]) {
                                 header()
@@ -259,6 +269,7 @@ fun ActionsEditor(header: @Composable () -> Unit) {
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun ActionEditor() {
+    val manager = if (LocalInspectionMode.current) null else LocalManager.current
     Surface(
         modifier = Modifier
             .fillMaxWidth()
@@ -267,7 +278,21 @@ fun ActionEditor() {
         shape = RoundedCornerShape(32.dp, 32.dp, 0.dp, 0.dp)
     ) {
         ActionsEditor {
-            ScreenTitle(title = "Edit actions")
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 8.dp, vertical = 6.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                ScreenTitle(title = "Edit actions")
+                Button(
+                    onClick = { manager?.closeActionWindow() },
+                    shape = RoundedCornerShape(16.dp)
+                ) {
+                    Text("Done")
+                }
+            }
         }
     }
 }

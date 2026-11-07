@@ -65,16 +65,23 @@ class SystemVoiceInputManager(private val latinIME: LatinIME) : RecognitionListe
             // Check RECORD_AUDIO permission before attempting to listen
             if (ContextCompat.checkSelfPermission(latinIME, Manifest.permission.RECORD_AUDIO)
                     != PackageManager.PERMISSION_GRANTED) {
-                Log.w(TAG, "RECORD_AUDIO permission not granted, requesting via PermissionsActivity")
+                Log.w(TAG, "RECORD_AUDIO permission not granted, requesting via PermissionsManager")
                 try {
-                    PermissionsActivity.run(
-                        latinIME,
-                        101,
+                    org.futo.inputmethod.latin.permissions.PermissionsManager.get(latinIME).requestPermissions(
+                        { allGranted ->
+                            if (allGranted) {
+                                mainHandler.post {
+                                    startListening(locale)
+                                }
+                            } else {
+                                latinIME.uixManager.showAssistantMessage("মাইক্রোফোন পারমিশন প্রয়োজন")
+                            }
+                        },
+                        null,
                         Manifest.permission.RECORD_AUDIO
                     )
-                    latinIME.uixManager.showAssistantMessage("মাইক্রোফোন পারমিশন দিয়ে আবার মাইকে চাপুন")
                 } catch (e: Throwable) {
-                    Log.e(TAG, "Failed to start PermissionsActivity", e)
+                    Log.e(TAG, "Failed to request permission via PermissionsManager", e)
                     latinIME.uixManager.showAssistantMessage("মাইক্রোফোন পারমিশন প্রয়োজন")
                 }
                 return
@@ -103,8 +110,9 @@ class SystemVoiceInputManager(private val latinIME: LatinIME) : RecognitionListe
 
     private fun resetRecognizer() {
         try {
+            speechRecognizer?.setRecognitionListener(null)
             speechRecognizer?.destroy()
-        } catch (e: Exception) {
+        } catch (e: Throwable) {
             Log.e(TAG, "Error destroying speechRecognizer", e)
         }
         speechRecognizer = null
@@ -232,9 +240,9 @@ class SystemVoiceInputManager(private val latinIME: LatinIME) : RecognitionListe
                 putExtra(RecognizerIntent.EXTRA_MAX_RESULTS, 1)
                 putExtra(RecognizerIntent.EXTRA_CALLING_PACKAGE, latinIME.packageName)
                 // Extended silence tolerances allowing user to pause and breathe naturally without cutting off
-                putExtra("android.speech.extras.SPEECH_INPUT_COMPLETE_SILENCE_LENGTH_MILLIS", 3500L)
-                putExtra("android.speech.extras.SPEECH_INPUT_POSSIBLY_COMPLETE_SILENCE_LENGTH_MILLIS", 3000L)
-                putExtra("android.speech.extras.SPEECH_INPUT_MINIMUM_LENGTH_MILLIS", 2000L)
+                putExtra("android.speech.extras.SPEECH_INPUT_COMPLETE_SILENCE_LENGTH_MILLIS", 5000L)
+                putExtra("android.speech.extras.SPEECH_INPUT_POSSIBLY_COMPLETE_SILENCE_LENGTH_MILLIS", 5000L)
+                putExtra("android.speech.extras.SPEECH_INPUT_MINIMUM_LENGTH_MILLIS", 5000L)
             }
 
             latinIME.uixManager.assistantMessage.value = null
@@ -277,7 +285,7 @@ class SystemVoiceInputManager(private val latinIME: LatinIME) : RecognitionListe
                     // Safety auto-unmute after 2 seconds to ensure normal streams are never permanently muted
                     mainHandler.postDelayed({
                         restoreSoundIfMuted()
-                    }, 2000L)
+                    }, 5000L)
                 }
             }
         } catch (e: Throwable) {
@@ -406,7 +414,11 @@ class SystemVoiceInputManager(private val latinIME: LatinIME) : RecognitionListe
             // If user still has listening active, seamlessly restart recognizer for continuous dictation
             if (isListening && activeLocale != null) {
                 resetRecognizer()
-                startRecognitionInternal(activeLocale!!)
+                mainHandler.postDelayed({
+                    if (isListening && activeLocale != null) {
+                        startRecognitionInternal(activeLocale!!)
+                    }
+                }, 150L)
             } else {
                 isListening = false
                 isListeningState.value = false

@@ -24,10 +24,133 @@ import java.util.Set;
  */
 public final class BanglaSuggestionEngine {
 
+        private static final Map<String, String> EMOJI_MAP = new HashMap<>();
+    public static String getEmojiForWord(final String word) {
+        if (word == null) return null;
+        return EMOJI_MAP.get(word.trim().toLowerCase(Locale.ROOT));
+    }
+
     private static final Map<String, String[]> BANGLISH_ALIASES = new HashMap<>();
     private static final Set<String> SHORTHAND_ABBREVIATIONS = new HashSet<>();
 
     static {
+        // Bengali & Banglish to Emoji
+        final String[][] emojiPairs = {
+            {"love", "❤️"}, {"valobasha", "❤️"}, {"bhalobasha", "❤️"}, {"valobasi", "❤️"}, {"bhalobasi", "❤️"},
+            {"ভালোবাসা", "❤️"}, {"ভালোবাসি", "❤️"}, {"প্রেম", "❤️"}, {"prem", "❤️"}, {"heart", "❤️"}, {"valobasa", "❤️"},
+            {"hasi", "😊"}, {"smile", "😊"}, {"happy", "😊"}, {"khushi", "😊"}, {"kushi", "😊"}, {"হাসি", "😊"}, {"খুশি", "😊"},
+            {"kanna", "😭"}, {"cry", "😭"}, {"sad", "😭"}, {"dukho", "😭"}, {"dukkho", "😭"}, {"কান্না", "😭"}, {"দুঃখ", "😭"},
+            {"fire", "🔥"}, {"hot", "🔥"}, {"agun", "🔥"}, {"আগুন", "🔥"},
+            {"cha", "☕"}, {"tea", "☕"}, {"coffee", "☕"}, {"চা", "☕"}, {"কফি", "☕"},
+            {"taka", "💰"}, {"money", "💰"}, {"টাকা", "💰"}, {"poisa", "💰"}, {"পয়সা", "💰"},
+            {"bd", "🇧🇩"}, {"bangladesh", "🇧🇩"}, {"বাংলাদেশ", "🇧🇩"},
+            {"ok", "👍"}, {"thik", "👍"}, {"thikase", "👍"}, {"ঠিক", "👍"}, {"jos", "👍"}, {"like", "👍"},
+            {"congrats", "🎉"}, {"party", "🎉"}, {"shuvechha", "🎉"}, {"suvecha", "🎉"}, {"অভিনন্দন", "🎉"}, {"শুভেচ্ছা", "🎉"},
+            {"cool", "😎"}, {"smart", "😎"},
+            {"flower", "🌸"}, {"ful", "🌸"}, {"ফুল", "🌸"}, {"golap", "🌹"}, {"rose", "🌹"},
+            {"star", "⭐"}, {"tara", "⭐"}, {"তারা", "⭐"},
+            {"bye", "👋"}, {"tata", "👋"}, {"bidai", "👋"}, {"বিদায়", "👋"}, {"বিদায়", "👋"},
+            {"gift", "🎁"}, {"upohar", "🎁"}, {"উপহার", "🎁"},
+            {"biral", "🐱"}, {"cat", "🐱"}, {"বিড়াল", "🐱"},
+            {"kukur", "🐶"}, {"dog", "🐶"}, {"কুকুর", "🐶"},
+            {"mach", "🐟"}, {"fish", "🐟"}, {"মাছ", "🐟"},
+            {"food", "🍔"}, {"khabar", "🍔"}, {"খাবার", "🍔"},
+            {"sweet", "🍬"}, {"misti", "🍬"}, {"মিষ্টি", "🍬"},
+            {"car", "🚗"}, {"gari", "🚗"}, {"গাড়ি", "🚗"},
+            {"namaz", "🤲"}, {"dua", "🤲"}, {"দোয়া", "🤲"}, {"দোয়া", "🤲"}
+        };
+        for (String[] pair : emojiPairs) {
+            EMOJI_MAP.put(pair[0].toLowerCase(Locale.ROOT), pair[1]);
+        }
+
+        // Avro zero-shift conjuncts (যুক্তবর্ণ) & Visarga (বিসর্গ) words
+        addAlias("dukkho", "দুঃখ", "দুঃখী");
+        addAlias("dukho", "দুঃখ", "দুঃখী");
+        addAlias("dukhi", "দুঃখী", "দুঃখ");
+        addAlias("du:khi", "দুঃখী", "দুঃখ");
+        addAlias("du:kho", "দুঃখ", "দুঃখী");
+        addAlias("dukkhito", "দুঃখিত");
+        addAlias("dukhito", "দুঃখিত");
+        addAlias("prosno", "প্রশ্ন");
+        addAlias("proshno", "প্রশ্ন");
+        addAlias("proshnotor", "প্রশ্নোত্তর");
+        addAlias("somossa", "সমস্যা");
+        addAlias("shomossha", "সমস্যা");
+        addAlias("somossha", "সমস্যা");
+        addAlias("shonge", "সঙ্গে");
+        addAlias("songe", "সঙ্গে");
+        addAlias("shongo", "সঙ্গ");
+        addAlias("songo", "সঙ্গ");
+        addAlias("gyan", "জ্ঞান");
+        addAlias("gyani", "জ্ঞানী");
+        addAlias("koshto", "কষ্ট");
+        addAlias("kosto", "কষ্ট");
+        addAlias("koste", "কষ্টে");
+        addAlias("koshte", "কষ্টে");
+        addAlias("srishti", "সৃষ্টি");
+        addAlias("sristi", "সৃষ্টি");
+        addAlias("drishti", "দৃষ্টি");
+        addAlias("dristi", "দৃষ্টি");
+        addAlias("porikkha", "পরীক্ষা");
+        addAlias("porikha", "পরীক্ষা");
+        addAlias("porikkhar", "পরীক্ষার");
+        addAlias("biswas", "বিশ্বাস");
+        addAlias("bisshas", "বিশ্বাস");
+        addAlias("biswash", "বিশ্বাস");
+        addAlias("kkh", "ক্ষ");
+        addAlias("ksha", "ক্ষ");
+        addAlias("khoma", "ক্ষমা");
+        addAlias("kkhoma", "ক্ষমা");
+        addAlias("kkhoti", "ক্ষতি");
+        addAlias("khoti", "ক্ষতি");
+        addAlias("khuda", "ক্ষুধা");
+        addAlias("kkhuda", "ক্ষুধা");
+        addAlias("lokkhon", "লক্ষণ", "লক্ষ্য");
+        addAlias("lokkho", "লক্ষ", "লক্ষ্য");
+        addAlias("bikkhato", "বিখ্যাত");
+        addAlias("bikhyato", "বিখ্যাত");
+        addAlias("oviggota", "অভিজ্ঞতা");
+        addAlias("biggapon", "বিজ্ঞাপন");
+        addAlias("bigyan", "বিজ্ঞান");
+        addAlias("bijnan", "বিজ্ঞান");
+        addAlias("agya", "আজ্ঞা");
+        addAlias("obiggo", "অভিজ্ঞ");
+        addAlias("obiggyo", "অভিজ্ঞ");
+        addAlias("bishes", "বিশেষ");
+        addAlias("bishesh", "বিশেষ");
+        addAlias("bishesvabe", "বিশেষভাবে");
+        addAlias("obostha", "অবস্থা");
+        addAlias("byabohar", "ব্যবহার");
+        addAlias("babohar", "ব্যবহার");
+        addAlias("byartho", "ব্যর্থ");
+        addAlias("bartho", "ব্যর্থ");
+        addAlias("byatha", "ব্যথা");
+        addAlias("batha", "ব্যথা");
+        addAlias("byasto", "ব্যস্ত");
+        addAlias("basto", "ব্যস্ত");
+        addAlias("shanto", "শান্ত");
+        addAlias("santo", "শান্ত");
+        addAlias("klanto", "ক্লান্ত");
+        addAlias("mukto", "মুক্ত");
+        addAlias("shokto", "শক্ত");
+        addAlias("sokto", "শক্ত");
+        addAlias("bhokto", "ভক্ত");
+        addAlias("vokto", "ভক্ত");
+        addAlias("rokto", "রক্ত");
+        addAlias("rokte", "রক্তে");
+        addAlias("ukti", "উক্তি");
+        addAlias("yukti", "যুক্তি");
+        addAlias("jukti", "যুক্তি");
+        addAlias("sotto", "সত্য");
+        addAlias("shotto", "সত্য");
+        addAlias("mitthe", "মিথ্যা");
+        addAlias("mittha", "মিথ্যা");
+        addAlias("anondo", "আনন্দ");
+        addAlias("utsah", "উৎসাহ");
+        addAlias("utsob", "উৎসব");
+        addAlias("bhabna", "ভাবনা");
+        addAlias("chinta", "চিন্তা");
+
         // Conversational essentials & greetings
         addShorthand("kmn", "কেমন", "কমন");
         addShorthand("kmnacho", "কেমন আছো");

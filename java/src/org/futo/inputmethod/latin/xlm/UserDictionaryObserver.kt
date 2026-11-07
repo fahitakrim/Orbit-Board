@@ -25,52 +25,63 @@ class UserDictionaryObserver(context: Context) {
     }
 
     init {
-        contentResolver.registerContentObserver(uri, true, contentObserver)
-        updateWords()
+        try {
+            contentResolver.registerContentObserver(uri, true, contentObserver)
+            updateWords()
+        } catch (e: Throwable) {
+            Log.w("UserDictionaryObserver", "UserDictionary ContentProvider not available on this device", e)
+        }
     }
 
     fun getWords(): List<Word> = words
 
     private fun updateWords() {
-        val projection = arrayOf(UserDictionary.Words.WORD, UserDictionary.Words.FREQUENCY)
-        val cursor: Cursor? = contentResolver.query(uri, projection, null, null, null)
+        try {
+            val projection = arrayOf(UserDictionary.Words.WORD, UserDictionary.Words.FREQUENCY)
+            val cursor: Cursor? = contentResolver.query(uri, projection, null, null, null)
 
-        words.clear()
+            words.clear()
 
-        cursor?.use {
-            val wordColumn = it.getColumnIndex(UserDictionary.Words.WORD)
-            val frequencyColumn = it.getColumnIndex(UserDictionary.Words.FREQUENCY)
+            cursor?.use {
+                val wordColumn = it.getColumnIndex(UserDictionary.Words.WORD)
+                val frequencyColumn = it.getColumnIndex(UserDictionary.Words.FREQUENCY)
 
-            while (it.moveToNext()) {
-                val word = it.getString(wordColumn)
-                val frequency = it.getInt(frequencyColumn)
+                while (it.moveToNext()) {
+                    val word = it.getString(wordColumn)
+                    val frequency = it.getInt(frequencyColumn)
 
-                if(word.length < 64) {
-                    words.add(Word(word, frequency))
+                    if(word.length < 64) {
+                        words.add(Word(word, frequency))
+                    }
                 }
             }
-        }
 
-        words.sortByDescending { it.frequency }
+            words.sortByDescending { it.frequency }
 
-
-        var approxNumTokens = 0
-        var cutoffIndex = -1
-        for(index in 0 until words.size) {
-            approxNumTokens += words[index].word.length / 4
-            if(approxNumTokens > 600) {
-                cutoffIndex = index
-                break
+            var approxNumTokens = 0
+            var cutoffIndex = -1
+            for(index in 0 until words.size) {
+                approxNumTokens += words[index].word.length / 4
+                if(approxNumTokens > 600) {
+                    cutoffIndex = index
+                    break
+                }
             }
-        }
 
-        if(cutoffIndex != -1) {
-            Log.w("UserDictionaryObserver", "User Dictionary is being trimmed to $cutoffIndex due to reaching num token limit")
-            words = words.subList(0, cutoffIndex)
+            if(cutoffIndex != -1) {
+                Log.w("UserDictionaryObserver", "User Dictionary is being trimmed to $cutoffIndex due to reaching num token limit")
+                words = words.subList(0, cutoffIndex)
+            }
+        } catch (e: Throwable) {
+            Log.w("UserDictionaryObserver", "Failed to query UserDictionary", e)
         }
     }
 
     fun unregister() {
-        contentResolver.unregisterContentObserver(contentObserver)
+        try {
+            contentResolver.unregisterContentObserver(contentObserver)
+        } catch (e: Throwable) {
+            Log.w("UserDictionaryObserver", "Failed to unregister ContentObserver", e)
+        }
     }
 }
