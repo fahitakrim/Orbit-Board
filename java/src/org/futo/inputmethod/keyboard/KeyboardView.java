@@ -96,11 +96,13 @@ public class KeyboardView extends View {
     private final float mKeyShiftedLetterHintPadding;
     private final float mKeyTextShadowRadius;
     private final float mVerticalCorrection;
-    private final Drawable mKeyboardBackground;
-    private final Drawable mKeyBackground;
-    private final Drawable mFunctionalKeyBackground;
-    private final Drawable mSpacebarBackground;
-    protected final DynamicThemeProvider mDrawableProvider;
+    private Drawable mKeyboardBackground;
+    private Drawable mKeyBackground;
+    private Drawable mFunctionalKeyBackground;
+    private Drawable mSpacebarBackground;
+    protected boolean mIsMoreKeys;
+    protected boolean mIsMoreKeysAction;
+    protected DynamicThemeProvider mDrawableProvider;
     private final float mSpacebarIconWidthRatio;
     private final Rect mKeyBackgroundPadding = new Rect();
     private static final float KET_TEXT_SHADOW_RADIUS_DISABLED = -1.0f;
@@ -171,16 +173,16 @@ public class KeyboardView extends View {
         }
 
 
-        boolean isMoreKeys = keyAttr.getBoolean(R.styleable.Keyboard_Key_isMoreKey, false);
-        boolean isMoreKeysAction = keyAttr.getBoolean(R.styleable.Keyboard_Key_isAction, false);
+        mIsMoreKeys = keyAttr.getBoolean(R.styleable.Keyboard_Key_isMoreKey, false);
+        mIsMoreKeysAction = keyAttr.getBoolean(R.styleable.Keyboard_Key_isAction, false);
 
-        mKeyboardBackground = isMoreKeysAction ? null :
-                isMoreKeys ?  mDrawableProvider.getMoreKeysKeyboardBackground() :
+        mKeyboardBackground = mIsMoreKeysAction ? null :
+                mIsMoreKeys ?  mDrawableProvider.getMoreKeysKeyboardBackground() :
                         mDrawableProvider.getKeyboardBackground();
         setBackground(mKeyboardBackground);
 
-        mKeyBackground = isMoreKeysAction ? mDrawableProvider.getActionPopupKey() :
-                isMoreKeys ? mDrawableProvider.getPopupKey() :
+        mKeyBackground = mIsMoreKeysAction ? mDrawableProvider.getActionPopupKey() :
+                mIsMoreKeys ? mDrawableProvider.getPopupKey() :
                         mDrawableProvider.getKeyBackground();
         mKeyBackground.getPadding(mKeyBackgroundPadding);
 
@@ -211,13 +213,55 @@ public class KeyboardView extends View {
 
         mKeyVisualAttributes = KeyVisualAttributes.newInstance(keyAttr, mDrawableProvider, typeface);
 
-        if((isMoreKeys || isMoreKeysAction) && mKeyVisualAttributes != null) {
+        if((mIsMoreKeys || mIsMoreKeysAction) && mKeyVisualAttributes != null) {
             mKeyVisualAttributes.mTextColor = mDrawableProvider.getMoreKeysTextColor();
         }
 
         keyAttr.recycle();
 
         mPaint.setAntiAlias(true);
+    }
+
+    @Nullable
+    public DynamicThemeProvider getDrawableProvider() {
+        return mDrawableProvider;
+    }
+
+    public void setDrawableProvider(@Nullable final DynamicThemeProvider provider) {
+        if (provider != null) {
+            mDrawableProvider = provider;
+            mKeyboardBackground = mIsMoreKeysAction ? null :
+                    mIsMoreKeys ? provider.getMoreKeysKeyboardBackground() :
+                            provider.getKeyboardBackground();
+            setBackground(mKeyboardBackground);
+            mKeyBackground = mIsMoreKeysAction ? provider.getActionPopupKey() :
+                    mIsMoreKeys ? provider.getPopupKey() :
+                            provider.getKeyBackground();
+            if (mKeyBackground != null) {
+                mKeyBackground.getPadding(mKeyBackgroundPadding);
+            }
+            mFunctionalKeyBackground = mKeyBackground;
+            mSpacebarBackground = provider.getSpaceBarBackground();
+            if ((mIsMoreKeys || mIsMoreKeysAction) && mKeyVisualAttributes != null) {
+                mKeyVisualAttributes.mTextColor = provider.getMoreKeysTextColor();
+            }
+            final Typeface typeface = (provider.getKeyboardTypeface() != null)
+                    ? provider.getKeyboardTypeface()
+                    : ResourcesCompat.getFont(getContext(), R.font.ndot_family);
+            if (mKeyVisualAttributes != null) {
+                mKeyVisualAttributes.mTypeface = typeface;
+            }
+            if (mKeyboard != null && mKeyboard.mKeyVisualAttributes != null) {
+                mKeyboard.mKeyVisualAttributes.mTypeface = typeface;
+            }
+            if (mKeyboard != null) {
+                final int keyHeight = mKeyboard.mMostCommonKeyHeight - mKeyboard.mVerticalGap;
+                final int keyWidth = mKeyboard.mMostCommonKeyWidth;
+                mKeyDrawParams.updateParams(keyWidth, Math.min(keyWidth, keyHeight), mKeyVisualAttributes);
+                mKeyDrawParams.updateParams(keyWidth, Math.min(keyWidth, keyHeight), mKeyboard.mKeyVisualAttributes);
+            }
+            invalidateAllKeys();
+        }
     }
 
     @Nullable
@@ -485,6 +529,14 @@ public class KeyboardView extends View {
         final float centerX = keyWidth * 0.5f;
         final float centerY = keyHeight * 0.5f;
 
+        if (mDrawableProvider != null && mDrawableProvider.onDrawCustomKeyTopVisuals(
+                key, canvas, paint, keyWidth, keyHeight, params.mAnimAlpha)) {
+            if (key.hasPopupHint() && key.getMoreKeys() != null) {
+                drawKeyPopupHint(key, canvas, paint, params);
+            }
+            return;
+        }
+
         // Draw key label.
         final Keyboard keyboard = getKeyboard();
         final Drawable icon = (keyboard == null) ? null
@@ -494,10 +546,13 @@ public class KeyboardView extends View {
         float labelX = centerX;
         float labelBaseline = centerY;
         final String rawLabel = cleanCombiningMarkForDisplay(key.getLabel());
-        final String label = (mDrawableProvider != null && rawLabel != null)
-                ? mDrawableProvider.getKeyLabelOverride(key, rawLabel)
+        final String override = (mDrawableProvider != null)
+                ? mDrawableProvider.getKeyLabelOverride(key, rawLabel != null ? rawLabel : "")
+                : null;
+        final String label = (override != null)
+                ? override
                 : rawLabel;
-        if (label != null) {
+        if (label != null && !label.isEmpty()) {
             final boolean isBengaliNumberPad = (keyboard != null && keyboard.mId != null &&
                     keyboard.mId.mElementId == KeyboardId.ELEMENT_NUMBER_BENGALI);
             final boolean isQurova = (mDrawableProvider != null && mDrawableProvider.isQurovaFont());
@@ -522,10 +577,11 @@ public class KeyboardView extends View {
                 labelX = centerX;
                 paint.setTextAlign(Align.CENTER);
             }
-            if (key.needsAutoXScale()) {
-                final float ratio = Math.min(1.0f, (keyWidth * MAX_LABEL_RATIO) /
-                        TypefaceUtils.getStringWidth(label, paint));
-                if (key.needsAutoScale()) {
+            final float stringWidth = TypefaceUtils.getStringWidth(label, paint);
+            final float maxLabelWidth = keyWidth * MAX_LABEL_RATIO;
+            if (key.needsAutoXScale() || stringWidth > maxLabelWidth) {
+                final float ratio = Math.min(1.0f, maxLabelWidth / Math.max(1.0f, stringWidth));
+                if (key.needsAutoScale() || stringWidth > maxLabelWidth) {
                     final float autoSize = paint.getTextSize() * ratio;
                     paint.setTextSize(autoSize);
                 } else {
@@ -585,7 +641,7 @@ public class KeyboardView extends View {
                 final float labelCharWidth = TypefaceUtils.getReferenceCharWidth(paint);
                 final float hintX, hintBaseline;
                 final float[] customCoords = (mDrawableProvider != null)
-                        ? mDrawableProvider.getKeyHintCoordinates(key, keyWidth, keyHeight, mKeyHintLetterPadding)
+                        ? mDrawableProvider.getKeyHintCoordinates(key, keyWidth, keyHeight, mKeyHintLetterPadding, paint)
                         : null;
                 if (customCoords != null && customCoords.length >= 2) {
                     hintX = customCoords[0];
@@ -603,18 +659,21 @@ public class KeyboardView extends View {
                     paint.setTextAlign(Align.LEFT);
                 } else if (key.hasShiftedLetterHint()) {
                     // The hint label is placed at top-right corner of the key. Used mainly on tablet.
-                    hintX = keyWidth - mKeyShiftedLetterHintPadding - labelCharWidth / 2.0f;
+                    final float padX = Math.max(mKeyShiftedLetterHintPadding, keyWidth * 0.08f);
+                    final float padY = Math.max(mKeyShiftedLetterHintPadding, keyHeight * 0.08f);
+                    hintX = keyWidth - padX - labelCharWidth / 2.0f;
                     paint.getFontMetrics(mFontMetrics);
-                    hintBaseline = -mFontMetrics.top;
+                    hintBaseline = -mFontMetrics.top + padY;
                     paint.setTextAlign(Align.CENTER);
                 } else { // key.hasHintLetter()
                     // The hint letter is placed at top-right corner of the key. Used mainly on phone.
                     final float hintDigitWidth = TypefaceUtils.getReferenceDigitWidth(paint);
                     final float hintLabelWidth = TypefaceUtils.getStringWidth(hintLabel, paint);
-                    hintX = keyWidth - mKeyHintLetterPadding
+                    final float padX = Math.max(mKeyHintLetterPadding, keyWidth * 0.08f);
+                    final float padY = Math.max(mKeyHintLetterPadding, keyHeight * 0.08f);
+                    hintX = keyWidth - padX
                             - Math.max(hintDigitWidth, hintLabelWidth) / 2.0f;
-                    final float hintTopPad = Math.max(mKeyHintLetterPadding * 0.75f, 6.0f);
-                    hintBaseline = -paint.ascent() + hintTopPad;
+                    hintBaseline = -paint.ascent() + padY;
                     paint.setTextAlign(Align.CENTER);
                 }
                 final float adjustmentY = (customCoords != null) ? 0.0f : (params.mHintLabelVerticalAdjustment * labelCharHeight);
@@ -643,7 +702,7 @@ public class KeyboardView extends View {
         }
 
         // Draw key icon.
-        if (label == null && icon != null) {
+        if ((label == null || label.isEmpty()) && icon != null) {
             final float size = key.selectTextSize(params) * 1.75f;
 
             int iconWidth;
@@ -678,6 +737,10 @@ public class KeyboardView extends View {
 
         if (key.hasPopupHint() && key.getMoreKeys() != null) {
             drawKeyPopupHint(key, canvas, paint, params);
+        }
+
+        if (mDrawableProvider != null) {
+            mDrawableProvider.onPostDrawKeyVisuals(key, canvas, paint, keyWidth, keyHeight, labelX, labelBaseline);
         }
     }
 
@@ -816,6 +879,9 @@ public class KeyboardView extends View {
                 hasBengali = true;
             } else if (Character.isDigit(c)) {
                 hasDigit = true;
+            } else if (c > 0x024F) {
+                // Symbols, arrows (↵, ⇑), emoji (🎀, 🙂), and Unicode art fallback safely to system default font
+                return true;
             }
         }
         return hasBengali || (isQurova && hasDigit);

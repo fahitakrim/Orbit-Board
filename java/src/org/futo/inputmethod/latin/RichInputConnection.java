@@ -21,6 +21,7 @@ import android.os.Build;
 import android.os.Bundle;
 import android.os.SystemClock;
 import android.text.SpannableStringBuilder;
+import android.text.Spanned;
 import android.text.TextUtils;
 import android.text.style.CharacterStyle;
 import android.util.Log;
@@ -140,6 +141,18 @@ public final class RichInputConnection implements PrivateCommandPerformer {
         mParent = parent;
         mIC = null;
         mNestLevel = 0;
+    }
+
+    @org.futo.inputmethod.annotations.UsedForTesting
+    public RichInputConnection() {
+        mParent = null;
+        mIC = null;
+        mNestLevel = 0;
+    }
+
+    @org.futo.inputmethod.annotations.UsedForTesting
+    public void setInputConnectionForTest(final InputConnection ic) {
+        mIC = ic;
     }
 
     public boolean isConnected() {
@@ -351,6 +364,30 @@ public final class RichInputConnection implements PrivateCommandPerformer {
         return isConnected() ?  mIC.getSelectedText(flags) : null;
     }
 
+    public boolean checkHostHasComposingSpan(final int length) {
+        if (!isConnected()) return false;
+        if (hasComposingText()) {
+            return true;
+        }
+        try {
+            final CharSequence textBefore = mIC.getTextBeforeCursor(Math.max(length, 1), InputConnection.GET_TEXT_WITH_STYLES);
+            if (textBefore instanceof Spanned) {
+                final Spanned spanned = (Spanned) textBefore;
+                final Object[] spans = spanned.getSpans(0, spanned.length(), Object.class);
+                if (spans != null) {
+                    for (final Object span : spans) {
+                        if ((spanned.getSpanFlags(span) & Spanned.SPAN_COMPOSING) != 0) {
+                            return true;
+                        }
+                    }
+                }
+            }
+        } catch (final Throwable t) {
+            // Ignored on IPC error
+        }
+        return false;
+    }
+
     public boolean canDeleteCharacters() {
         return mExpectedSelStart > 0;
     }
@@ -376,15 +413,36 @@ public final class RichInputConnection implements PrivateCommandPerformer {
         if (!isConnected()) {
             return Constants.TextUtils.CAP_MODE_OFF;
         }
+
+        // Synthesize CAP_MODE_SENTENCES for general text fields (excluding password, email, URL, number)
+        int effectiveInputType = inputType;
+        final int maskedClass = inputType & android.text.InputType.TYPE_MASK_CLASS;
+        if (maskedClass == android.text.InputType.TYPE_CLASS_TEXT) {
+            final int variation = inputType & android.text.InputType.TYPE_MASK_VARIATION;
+            final boolean isSpecialVariation =
+                    variation == android.text.InputType.TYPE_TEXT_VARIATION_PASSWORD
+                    || variation == android.text.InputType.TYPE_TEXT_VARIATION_VISIBLE_PASSWORD
+                    || variation == android.text.InputType.TYPE_TEXT_VARIATION_WEB_PASSWORD
+                    || variation == android.text.InputType.TYPE_TEXT_VARIATION_EMAIL_ADDRESS
+                    || variation == android.text.InputType.TYPE_TEXT_VARIATION_WEB_EMAIL_ADDRESS
+                    || variation == android.text.InputType.TYPE_TEXT_VARIATION_URI
+                    || variation == android.text.InputType.TYPE_TEXT_VARIATION_FILTER;
+            if (!isSpecialVariation) {
+                effectiveInputType |= TextUtils.CAP_MODE_SENTENCES;
+            }
+        }
+
         if (!TextUtils.isEmpty(mComposingText)) {
             if (hasSpaceBefore) {
                 // If we have some composing text and a space before, then we should have
                 // MODE_CHARACTERS and MODE_WORDS on.
-                return (TextUtils.CAP_MODE_CHARACTERS | TextUtils.CAP_MODE_WORDS) & inputType;
+                return (TextUtils.CAP_MODE_CHARACTERS | TextUtils.CAP_MODE_WORDS) & effectiveInputType;
             }
             // We have some composing text - we should be in MODE_CHARACTERS only.
-            return TextUtils.CAP_MODE_CHARACTERS & inputType;
+            return TextUtils.CAP_MODE_CHARACTERS & effectiveInputType;
         }
+
+
         // TODO: this will generally work, but there may be cases where the buffer contains SOME
         // information but not enough to determine the caps mode accurately. This may happen after
         // heavy pressing of delete, for example DEFAULT_TEXT_CACHE_SIZE - 5 times or so.
@@ -400,7 +458,7 @@ public final class RichInputConnection implements PrivateCommandPerformer {
         // never blocks or initiates IPC.
         // TODO: don't call #toString() here. Instead, all accesses to
         // mCommittedTextBeforeComposingText should be done on the main thread.
-        return CapsModeUtils.getCapsMode(mCommittedTextBeforeComposingText.toString(), inputType,
+        return CapsModeUtils.getCapsMode(mCommittedTextBeforeComposingText.toString(), effectiveInputType,
                 spacingAndPunctuations, hasSpaceBefore);
     }
 
@@ -418,7 +476,9 @@ public final class RichInputConnection implements PrivateCommandPerformer {
         // However, if we don't have an expected cursor position, then we should always
         // go fetch the cache again (as it happens, INVALID_CURSOR_POSITION < 0, so we need to
         // test for this explicitly)
-        if (INVALID_CURSOR_POSITION != mExpectedSelStart
+        // Bypass cache if caller requested styled text with spans (GET_TEXT_WITH_STYLES)
+        if ((flags & InputConnection.GET_TEXT_WITH_STYLES) == 0
+                && INVALID_CURSOR_POSITION != mExpectedSelStart
                 && (cachedLength >= n || cachedLength >= mExpectedSelStart)) {
             final StringBuilder s = new StringBuilder(mCommittedTextBeforeComposingText);
             // We call #toString() here to create a temporary object.
@@ -595,6 +655,9 @@ public final class RichInputConnection implements PrivateCommandPerformer {
     }
 
     public void setComposingRegion(final int start, final int end) {
+        if (start < 0 || end < start) {
+            return;
+        }
         if (DEBUG_BATCH_NESTING) checkBatchEdit();
         if (DEBUG_PREVIOUS_TEXT) checkConsistencyForDebug();
         final CharSequence textBeforeCursor =
@@ -1211,6 +1274,7 @@ public final class RichInputConnection implements PrivateCommandPerformer {
     public boolean hasComposingText() {
         return mComposingText.length() > 0;
     }
+
 
     public StringBuilder getComposingTextForDebug() {
         return mComposingText;

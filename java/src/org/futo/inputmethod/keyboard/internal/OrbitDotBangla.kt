@@ -21,8 +21,7 @@ object OrbitDotBangla {
         synchronized(this) {
             if (cachedTypeface == null) {
                 cachedTypeface = try {
-                    ResourcesCompat.getFont(context, R.font.orbit_dot_bangla)
-                        ?: ResourcesCompat.getFont(context, R.font.ndot_family)
+                    ResourcesCompat.getFont(context, R.font.inter)
                         ?: Typeface.DEFAULT
                 } catch (e: Exception) {
                     Typeface.DEFAULT

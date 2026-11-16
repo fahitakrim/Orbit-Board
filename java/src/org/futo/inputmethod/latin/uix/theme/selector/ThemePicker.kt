@@ -49,40 +49,41 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.text.font.FontWeight
 import org.futo.inputmethod.latin.uix.KeyBordersSetting
-import org.futo.inputmethod.latin.uix.KeyboardTypingEffectSetting
 import org.futo.inputmethod.latin.uix.CustomAccentColorSetting
+import org.futo.inputmethod.latin.uix.KeyboardBgColorSetting
+import org.futo.inputmethod.latin.uix.KeyboardKeyColorSetting
+import org.futo.inputmethod.latin.uix.KeyboardTextColorSetting
 import org.futo.inputmethod.latin.uix.SpacebarColorSetting
 import org.futo.inputmethod.latin.uix.SpacebarBorderSetting
-import org.futo.inputmethod.latin.uix.settings.SettingRadio
-import org.futo.inputmethod.latin.uix.KeyHintsSetting
-import org.futo.inputmethod.latin.uix.KeyboardBottomOffsetSetting
-import org.futo.inputmethod.latin.uix.KeyboardHeightMultiplierSetting
+import org.futo.inputmethod.latin.uix.SpacebarShapeSetting
 import org.futo.inputmethod.latin.uix.THEME_KEY
-import org.futo.inputmethod.latin.uix.settings.SettingSlider
-import org.futo.inputmethod.latin.uix.settings.SettingToggleDataStore
 import org.futo.inputmethod.latin.uix.settings.useDataStore
+import org.futo.inputmethod.latin.uix.settings.SegmentedControl
 import org.futo.inputmethod.latin.uix.theme.ThemeOption
 import org.futo.inputmethod.latin.uix.theme.ThemeOptionKeys
 import org.futo.inputmethod.latin.uix.theme.ThemeOptions
+import org.futo.inputmethod.latin.uix.theme.Doto
+import org.futo.inputmethod.latin.uix.theme.NothingRed
 import org.futo.inputmethod.latin.uix.theme.Typography
 import org.futo.inputmethod.latin.uix.theme.UixThemeWrapper
 import org.futo.inputmethod.latin.uix.theme.presets.AMOLEDDarkPurple
 import org.futo.inputmethod.latin.uix.theme.presets.AMOLEDNothing
 import org.futo.inputmethod.latin.uix.theme.presets.OrbitPreviewKeyboard
 import org.futo.inputmethod.latin.uix.theme.presets.ChaosPreviewKeyboard
+import org.futo.inputmethod.latin.uix.theme.presets.RetroBlocksPreviewKeyboard
+import org.futo.inputmethod.latin.uix.theme.presets.BerryBlushPreviewKeyboard
+import org.futo.inputmethod.latin.uix.theme.presets.TactileSlatePreviewKeyboard
 import org.futo.inputmethod.latin.uix.theme.presets.NothingLight
 import org.futo.inputmethod.latin.uix.theme.presets.NothingDark
 import org.futo.inputmethod.latin.uix.theme.presets.ClassicMaterialDark
 import org.futo.inputmethod.latin.uix.theme.presets.DynamicDarkTheme
 import org.futo.inputmethod.latin.uix.theme.presets.DynamicLightTheme
 import org.futo.inputmethod.latin.uix.theme.presets.DynamicNothing
-import org.futo.inputmethod.latin.uix.theme.presets.DynamicSystemTheme
 import org.futo.inputmethod.latin.uix.theme.presets.VoiceInputTheme
 import kotlin.math.roundToInt
 
 @Composable
 fun ThemePreview(theme: ThemeOption, isSelected: Boolean = false, overrideName: String? = null, modifier: Modifier = Modifier, onClick: () -> Unit = { }) {
-    if(theme == DynamicSystemTheme) return DynamicThemePreview(isSelected, onClick)
 
     val context = LocalContext.current
     val colors = remember { theme.obtainColors(context) }
@@ -138,6 +139,8 @@ fun ThemePreview(theme: ThemeOption, isSelected: Boolean = false, overrideName: 
                 style = Typography.labelSmall
             )
 
+
+
             // Keyboard contents
             Box(
                 modifier = Modifier
@@ -149,6 +152,12 @@ fun ThemePreview(theme: ThemeOption, isSelected: Boolean = false, overrideName: 
                     OrbitPreviewKeyboard()
                 } else if (theme.key == "OrbitChaos") {
                     ChaosPreviewKeyboard()
+                } else if (theme.key == "RetroBlocks") {
+                    RetroBlocksPreviewKeyboard()
+                } else if (theme.key == "BerryBlush") {
+                    BerryBlushPreviewKeyboard()
+                } else if (theme.key == "TactileSlate") {
+                    TactileSlatePreviewKeyboard()
                 } else {
                     // Spacebar
                     Surface(
@@ -173,46 +182,6 @@ fun ThemePreview(theme: ThemeOption, isSelected: Boolean = false, overrideName: 
                 }
             }
         }
-    }
-}
-
-// Special case to demonstrate the light and dark mode
-@Preview
-@Composable
-fun DynamicThemePreview(isSelected: Boolean = false, onClick: () -> Unit = { }) {
-    Box {
-        ThemePreview(
-            DynamicLightTheme,
-            isSelected = isSelected,
-            onClick = onClick,
-            overrideName = stringResource(DynamicSystemTheme.name),
-            modifier = Modifier.clip(GenericShape { size, _ ->
-                val path = Path().apply {
-                    moveTo(0f, 0f)
-                    lineTo(size.width * 0.66f, 0f)
-                    lineTo(size.width * 0.33f, size.height)
-                    lineTo(0f, size.height)
-                    close()
-                }
-                addPath(path)
-            })
-        )
-        ThemePreview(
-            DynamicDarkTheme,
-            isSelected = isSelected,
-            onClick = onClick,
-            overrideName = stringResource(DynamicSystemTheme.name),
-            modifier = Modifier.clip(GenericShape { size, _ ->
-                val path = Path().apply {
-                    moveTo(size.width * 0.66f, 0f)
-                    lineTo(size.width, 0f)
-                    lineTo(size.width, size.height)
-                    lineTo(size.width * 0.33f, size.height)
-                    close()
-                }
-                addPath(path)
-            })
-        )
     }
 }
 
@@ -249,6 +218,13 @@ fun ThemePicker(onSelected: (ThemeOption) -> Unit) {
     val context = LocalContext.current
 
     val currentTheme = useDataStore(THEME_KEY.key, "").value
+    val (_, setCustomAccent) = useDataStore(CustomAccentColorSetting.key, CustomAccentColorSetting.default)
+    val (_, setKeyboardBgColor) = useDataStore(KeyboardBgColorSetting.key, KeyboardBgColorSetting.default)
+    val (_, setKeyboardKeyColor) = useDataStore(KeyboardKeyColorSetting.key, KeyboardKeyColorSetting.default)
+    val (_, setKeyboardTextColor) = useDataStore(KeyboardTextColorSetting.key, KeyboardTextColorSetting.default)
+    val (_, setSpacebarColor) = useDataStore(SpacebarColorSetting.key, SpacebarColorSetting.default)
+    val (_, setSpacebarBorder) = useDataStore(SpacebarBorderSetting.key, SpacebarBorderSetting.default)
+    val (_, setSpacebarShape) = useDataStore(SpacebarShapeSetting.key, SpacebarShapeSetting.default)
 
     val isInspecting = LocalInspectionMode.current
     val availableThemeOptions = remember {
@@ -265,64 +241,55 @@ fun ThemePicker(onSelected: (ThemeOption) -> Unit) {
     }
 
 
-    val specialThemeKeys = remember { setOf("OrbitTheme", "OrbitChaos") }
-    var selectedCategory by remember { mutableStateOf(if (currentTheme in specialThemeKeys) "Special" else "Regular") }
-
-    val displayedThemes = remember(availableThemeOptions, selectedCategory) {
-        if (selectedCategory == "Special") {
-            availableThemeOptions.filter { it.first in specialThemeKeys }
-        } else {
-            availableThemeOptions.filter { it.first !in specialThemeKeys }
-        }
+    var selectedTab by remember(currentTheme) {
+        mutableStateOf(if (currentTheme in listOf("OrbitTheme", "OrbitChaos", "RetroBlocks", "BerryBlush", "TactileSlate")) "Special" else "Regular")
     }
 
-    val originalDirection = LocalLayoutDirection.current
+    val specialThemes = remember(availableThemeOptions) {
+        availableThemeOptions.filter { (key, _) -> key in listOf("OrbitTheme", "OrbitChaos", "RetroBlocks", "BerryBlush", "TactileSlate") }
+            .sortedBy { (key, _) ->
+                when (key) {
+                    "OrbitTheme" -> 0
+                    "OrbitChaos" -> 1
+                    "RetroBlocks" -> 2
+                    "BerryBlush" -> 3
+                    "TactileSlate" -> 4
+                    else -> 5
+                }
+            }
+    }
 
-    Column {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 16.dp, vertical = 8.dp)
-                .clip(RoundedCornerShape(10.dp))
-                .background(MaterialTheme.colorScheme.surfaceVariant)
-                .border(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.2f), RoundedCornerShape(10.dp))
-                .padding(4.dp),
-            horizontalArrangement = Arrangement.spacedBy(4.dp)
-        ) {
-            val isRegular = selectedCategory == "Regular"
-            Box(
-                modifier = Modifier
-                    .weight(1f)
-                    .clip(RoundedCornerShape(8.dp))
-                    .background(if (isRegular) MaterialTheme.colorScheme.primary else Color.Transparent)
-                    .clickable { selectedCategory = "Regular" }
-                    .padding(vertical = 8.dp),
-                contentAlignment = Alignment.Center
-            ) {
-                Text(
-                    text = "Regular",
-                    fontWeight = if (isRegular) FontWeight.Bold else FontWeight.Medium,
-                    fontSize = 13.sp,
-                    color = if (isRegular) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant
-                )
+    val regularThemes = remember(availableThemeOptions) {
+        availableThemeOptions.filter { (key, _) -> key !in listOf("OrbitTheme", "OrbitChaos", "RetroBlocks", "BerryBlush", "TactileSlate") }
+            .sortedBy { (key, _) ->
+                when (key) {
+                    "NothingDark" -> 0
+                    "DynamicNothing" -> 1
+                    "AMOLEDNothing" -> 2
+                    "NothingLight" -> 3
+                    else -> 100
+                }
             }
-            Box(
-                modifier = Modifier
-                    .weight(1f)
-                    .clip(RoundedCornerShape(8.dp))
-                    .background(if (!isRegular) MaterialTheme.colorScheme.primary else Color.Transparent)
-                    .clickable { selectedCategory = "Special" }
-                    .padding(vertical = 8.dp),
-                contentAlignment = Alignment.Center
-            ) {
-                Text(
-                    text = "Special",
-                    fontWeight = if (!isRegular) FontWeight.Bold else FontWeight.Medium,
-                    fontSize = 13.sp,
-                    color = if (!isRegular) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            }
-        }
+    }
+
+    val displayedThemes = when (selectedTab) {
+        "Special" -> specialThemes
+        "Regular" -> regularThemes
+        else -> emptyList()
+    }
+
+    Column(modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp)) {
+        SegmentedControl(
+            options = listOf("Regular", "Special"),
+            selectedIndex = if (selectedTab == "Special") 1 else 0,
+            onSelect = {
+                selectedTab = if (it == 1) "Special" else "Regular"
+            },
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 6.dp),
+            equalWeight = true
+        )
+
+        Spacer(modifier = Modifier.height(4.dp))
 
         CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Ltr) {
             LazyVerticalGrid(
@@ -338,87 +305,14 @@ fun ThemePicker(onSelected: (ThemeOption) -> Unit) {
                     val themeOption = displayedThemes[it].second
 
                     ThemePreview(themeOption, isSelected = themeOption.key == currentTheme) {
+                        setCustomAccent("default")
+                        setKeyboardBgColor("default")
+                        setKeyboardKeyColor("default")
+                        setKeyboardTextColor("default")
+                        setSpacebarColor("theme")
+                        setSpacebarBorder("none")
+                        setSpacebarShape("boxy")
                         onSelected(themeOption)
-                    }
-                }
-
-                item {
-                    AddCustomThemeButton {
-                        // TODO: Custom themes
-                        val toast = Toast.makeText(
-                            context,
-                            "Custom themes coming eventually",
-                            Toast.LENGTH_SHORT
-                        )
-                        toast.show()
-                    }
-                }
-
-                item(span = { GridItemSpan(maxCurrentLineSpan) }) { }
-
-                item(span = { GridItemSpan(maxCurrentLineSpan) }) {
-                    CompositionLocalProvider(LocalLayoutDirection provides originalDirection) {
-                        Column(modifier = Modifier.fillMaxWidth()) {
-                            SettingToggleDataStore(
-                                title = "Key borders",
-                                setting = KeyBordersSetting
-                            )
-                            Spacer(modifier = Modifier.height(16.dp))
-                            SettingRadio(
-                                title = "Accent Color",
-                                options = listOf("default", "red", "yellow", "blue", "white", "green", "purple", "orange"),
-                                optionNames = listOf("Theme Default", "Nothing Red", "Bauhaus Ochre", "Cobalt Blue", "Chalk White", "Emerald Green", "Violet Purple", "Warm Orange"),
-                                setting = useDataStore(
-                                    key = CustomAccentColorSetting.key,
-                                    default = CustomAccentColorSetting.default
-                                )
-                            )
-                            Spacer(modifier = Modifier.height(16.dp))
-                            SettingRadio(
-                                title = "Typing Effect",
-                                options = listOf("none", "radar_wave", "particle_burst", "constellation_web"),
-                                optionNames = listOf("None", "Radar Wave", "Particle Burst", "Constellation Web"),
-                                setting = useDataStore(
-                                    key = KeyboardTypingEffectSetting.key,
-                                    default = KeyboardTypingEffectSetting.default
-                                )
-                            )
-                            Spacer(modifier = Modifier.height(16.dp))
-                        }
-                    }
-                }
-
-                item(span = { GridItemSpan(maxCurrentLineSpan) }) {
-                    CompositionLocalProvider(LocalLayoutDirection provides originalDirection) {
-                        Column(modifier = Modifier.fillMaxWidth().padding(horizontal = 4.dp)) {
-                            Text(
-                                text = "Spacebar Customization",
-                                style = MaterialTheme.typography.titleMedium,
-                                fontWeight = FontWeight.Bold,
-                                color = MaterialTheme.colorScheme.onBackground,
-                                modifier = Modifier.padding(vertical = 8.dp)
-                            )
-                            SettingRadio(
-                                title = "Spacebar Color",
-                                options = listOf("theme", "default", "red", "blue", "yellow", "white", "dark"),
-                                optionNames = listOf("Theme Accent", "Classic / Standard", "Matte Red", "Matte Blue", "Matte Yellow", "Matte White", "Matte Dark"),
-                                setting = useDataStore(
-                                    key = SpacebarColorSetting.key,
-                                    default = SpacebarColorSetting.default
-                                )
-                            )
-                            Spacer(modifier = Modifier.height(12.dp))
-                            SettingRadio(
-                                title = "Spacebar Border",
-                                options = listOf("none", "accent", "yellow", "red", "white"),
-                                optionNames = listOf("None", "Theme Accent", "Yellow", "Red", "White"),
-                                setting = useDataStore(
-                                    key = SpacebarBorderSetting.key,
-                                    default = SpacebarBorderSetting.default
-                                )
-                            )
-                            Spacer(modifier = Modifier.height(16.dp))
-                        }
                     }
                 }
             }

@@ -3,22 +3,29 @@ package org.futo.inputmethod.latin.uix.actions
 import android.content.ClipDescription
 import android.content.ClipboardManager
 import android.content.Context
+import android.graphics.BitmapFactory
 import android.net.Uri
 import android.os.Build
+import android.util.Log
 import android.widget.Toast
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.Image
+import androidx.compose.foundation.background
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.staggeredgrid.LazyVerticalStaggeredGrid
 import androidx.compose.foundation.lazy.staggeredgrid.StaggeredGridCells
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -31,12 +38,19 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.remember
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.lifecycle.LifecycleCoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -100,9 +114,28 @@ data class ClipboardEntry(
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun ClipboardEntryView(modifier: Modifier, clipboardEntry: ClipboardEntry, onPaste: (ClipboardEntry) -> Unit, onRemove: (ClipboardEntry) -> Unit, onPin: (ClipboardEntry) -> Unit) {
+    val context = LocalContext.current
+    val imageBitmap = remember(clipboardEntry.uri) {
+        clipboardEntry.uri?.let { uri ->
+            try {
+                val fileName = uri.lastPathSegment
+                val file = if (!fileName.isNullOrEmpty()) File(context.filesDir, "clipboard_images/$fileName") else null
+                if (file != null && file.exists()) {
+                    BitmapFactory.decodeFile(file.absolutePath)?.asImageBitmap()
+                } else {
+                    context.contentResolver.openInputStream(uri)?.use { stream ->
+                        BitmapFactory.decodeStream(stream)?.asImageBitmap()
+                    }
+                }
+            } catch (e: Throwable) {
+                null
+            }
+        }
+    }
+
     Surface(
         color = MaterialTheme.colorScheme.surfaceVariant,
-        border = BorderStroke(2.dp, MaterialTheme.colorScheme.outlineVariant),
+        border = BorderStroke(1.5.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)),
         modifier = modifier
             .padding(2.dp)
             .combinedClickable(
@@ -112,20 +145,23 @@ fun ClipboardEntryView(modifier: Modifier, clipboardEntry: ClipboardEntry, onPas
                 onClick = { onPaste(clipboardEntry) },
                 onLongClick = { onPin(clipboardEntry) }
             ),
-        shape = RoundedCornerShape(8.dp),
+        shape = RoundedCornerShape(10.dp),
     ) {
         Column {
-            Row(modifier = Modifier.padding(0.dp)) {
+            Row(
+                modifier = Modifier.padding(horizontal = 4.dp, vertical = 2.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
                 IconButton(onClick = {
                     onPin(clipboardEntry)
-                }, modifier = Modifier.size(32.dp)) {
+                }, modifier = Modifier.size(28.dp)) {
                     Icon(
                         painterResource(id = R.drawable.push_pin),
                         contentDescription = "Pin",
                         tint = if(clipboardEntry.pinned) {
-                            MaterialTheme.colorScheme.onSurfaceVariant
+                            MaterialTheme.colorScheme.primary
                         } else {
-                            MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.2f)
+                            MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.3f)
                         },
                         modifier = Modifier.size(16.dp)
                     )
@@ -133,9 +169,26 @@ fun ClipboardEntryView(modifier: Modifier, clipboardEntry: ClipboardEntry, onPas
 
                 Spacer(modifier = Modifier.weight(1.0f))
 
+                if (clipboardEntry.uri != null) {
+                    Text(
+                        text = "IMAGE",
+                        style = Typography.labelSmall,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.primary.copy(alpha = 0.85f),
+                        fontSize = 9.sp,
+                        modifier = Modifier
+                            .background(
+                                MaterialTheme.colorScheme.primary.copy(alpha = 0.12f),
+                                RoundedCornerShape(4.dp)
+                            )
+                            .padding(horizontal = 6.dp, vertical = 2.dp)
+                    )
+                    Spacer(modifier = Modifier.width(4.dp))
+                }
+
                 IconButton(onClick = {
                     onRemove(clipboardEntry)
-                }, modifier = Modifier.size(32.dp), enabled = !clipboardEntry.pinned) {
+                }, modifier = Modifier.size(28.dp), enabled = !clipboardEntry.pinned) {
                     Icon(
                         painterResource(id = R.drawable.close),
                         contentDescription = "Close",
@@ -149,17 +202,43 @@ fun ClipboardEntryView(modifier: Modifier, clipboardEntry: ClipboardEntry, onPas
                 }
             }
 
-            val text = (clipboardEntry.text ?: "").let {
-                if(it.length > 256) {
-                    it.substring(0, 256) + "..."
+            if (clipboardEntry.uri != null) {
+                if (imageBitmap != null) {
+                    Image(
+                        bitmap = imageBitmap,
+                        contentDescription = "Copied Image",
+                        contentScale = ContentScale.Crop,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .heightIn(min = 60.dp, max = 130.dp)
+                            .padding(horizontal = 6.dp, vertical = 4.dp)
+                            .clip(RoundedCornerShape(6.dp))
+                    )
                 } else {
-                    it
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(80.dp)
+                            .padding(6.dp)
+                            .background(MaterialTheme.colorScheme.surface, RoundedCornerShape(6.dp)),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text("Image", style = Typography.bodySmall)
+                    }
                 }
+            } else {
+                val text = (clipboardEntry.text ?: "").let {
+                    if(it.length > 256) {
+                        it.substring(0, 256) + "..."
+                    } else {
+                        it
+                    }
+                }
+
+                Text(text, modifier = Modifier.padding(8.dp, 2.dp), style = Typography.bodySmall)
             }
 
-            Text(text, modifier = Modifier.padding(8.dp, 2.dp), style = Typography.bodySmall)
-
-            Spacer(modifier = Modifier.height(8.dp))
+            Spacer(modifier = Modifier.height(6.dp))
         }
     }
 }
@@ -228,21 +307,63 @@ class ClipboardHistoryManager(val context: Context, val coroutineScope: Lifecycl
                         val isSensitive = clip.description?.extras?.getBoolean(
                             ClipDescription.EXTRA_IS_SENSITIVE, false) ?: false
 
-                        // TODO: Support images and other non-text media
-                        if (text != null && uri == null && !isSensitive) {
+                        if (isSensitive) return@addPrimaryClipChangedListener
+
+                        val isImage = (uri != null && mimeTypes.any { it.startsWith("image/") }) ||
+                                      (clip.description?.hasMimeType("image/*") == true && uri != null)
+
+                        if (isImage && uri != null) {
+                            coroutineScope.launch(Dispatchers.IO) {
+                                try {
+                                    val imagesDir = File(context.filesDir, "clipboard_images")
+                                    if (!imagesDir.exists()) imagesDir.mkdirs()
+
+                                    val localFile = File(imagesDir, "img_${timestamp}.png")
+                                    context.contentResolver.openInputStream(uri)?.use { input ->
+                                        localFile.outputStream().use { output ->
+                                            input.copyTo(output)
+                                        }
+                                    }
+
+                                    if (localFile.exists() && localFile.length() > 0) {
+                                        val localUri = androidx.core.content.FileProvider.getUriForFile(
+                                            context,
+                                            "${context.packageName}.fileprovider",
+                                            localFile
+                                        )
+
+                                        val imgMimeTypes = mimeTypes.filter { it.startsWith("image/") }.ifEmpty { listOf("image/png") }
+
+                                        withContext(Dispatchers.Main) {
+                                            val newEntry = ClipboardEntry(
+                                                timestamp = timestamp,
+                                                pinned = false,
+                                                text = null,
+                                                uri = localUri,
+                                                mimeTypes = imgMimeTypes
+                                            )
+                                            clipboardHistory.add(newEntry)
+                                            saveClipboard()
+                                        }
+                                    }
+                                } catch (e: Throwable) {
+                                    Log.e("ClipboardHistory", "Failed to cache copied image", e)
+                                }
+                            }
+                        } else if (text != null && text.isNotBlank()) {
                             val isAlreadyPinned = clipboardHistory.firstOrNull {
-                                ((it.text != null && it.text == text) || (it.uri != null && it.uri == uri)) && it.pinned
+                                (it.text != null && it.text == text) && it.pinned
                             }?.pinned ?: false
 
                             clipboardHistory.removeAll {
-                                (it.text != null && it.text == text) || (it.uri != null && it.uri == uri)
+                                it.text != null && it.text == text
                             }
 
                             val newEntry = ClipboardEntry(
                                 timestamp = timestamp,
                                 pinned = isAlreadyPinned,
                                 text = text,
-                                uri = uri,
+                                uri = null,
                                 mimeTypes = mimeTypes
                             )
                             clipboardHistory.add(newEntry)
@@ -257,13 +378,24 @@ class ClipboardHistoryManager(val context: Context, val coroutineScope: Lifecycl
         }
     }
 
+    private fun deleteImageFile(entry: ClipboardEntry) {
+        if (entry.uri != null) {
+            try {
+                val fileName = entry.uri.lastPathSegment
+                if (!fileName.isNullOrEmpty()) {
+                    val file = File(context.filesDir, "clipboard_images/$fileName")
+                    if (file.exists()) file.delete()
+                }
+            } catch (_: Throwable) {}
+        }
+    }
+
     suspend fun pruneOldItems() = withContext(Dispatchers.Main) {
         val maxDays = 3L
         val minimumTimestamp = System.currentTimeMillis() - (maxDays * 24L * 60L * 60L * 1000L)
-        clipboardHistory.removeAll {
-            (!it.pinned) && (it.timestamp < minimumTimestamp)
-        }
-
+        val expired = clipboardHistory.filter { (!it.pinned) && (it.timestamp < minimumTimestamp) }
+        expired.forEach { deleteImageFile(it) }
+        clipboardHistory.removeAll(expired.toSet())
 
         val maxItems = 25
         val numUnpinnedItems = clipboardHistory.filter { !it.pinned }.size
@@ -273,7 +405,8 @@ class ClipboardHistoryManager(val context: Context, val coroutineScope: Lifecycl
             for(i in 0 until numItemsToRemove) {
                 val idx = clipboardHistory.indexOfFirst { !it.pinned }
                 if(idx == -1) break
-                clipboardHistory.removeAt(idx)
+                val item = clipboardHistory.removeAt(idx)
+                deleteImageFile(item)
             }
         }
     }
@@ -361,6 +494,7 @@ class ClipboardHistoryManager(val context: Context, val coroutineScope: Lifecycl
                 e.printStackTrace()
             }
         }
+        deleteImageFile(item)
         clipboardHistory.remove(item)
         saveClipboard()
     }
@@ -494,7 +628,7 @@ val ClipboardHistoryAction = Action(
                         }
                     }
                 } else {
-                    val entries = clipboardHistoryManager.clipboardHistory.toList().asReversed()
+                    val entries = clipboardHistoryManager.clipboardHistory.sortedWith(compareByDescending<ClipboardEntry> { it.pinned }.thenByDescending { it.timestamp })
                     LazyVerticalStaggeredGrid(
                         modifier = Modifier.fillMaxWidth(),
                         columns = StaggeredGridCells.Adaptive(180.dp),

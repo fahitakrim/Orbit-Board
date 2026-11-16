@@ -55,23 +55,14 @@ fun OrbitBoardHeader(
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.SpaceBetween
     ) {
-        Column {
-            Text(
-                text = "Orbit Board",
-                fontFamily = Doto,
-                fontWeight = FontWeight.Bold,
-                fontSize = 24.sp,
-                letterSpacing = 1.sp,
-                color = Color.White
-            )
-            Spacer(modifier = Modifier.height(2.dp))
-            Text(
-                text = "Simply bangla",
-                fontFamily = Inter,
-                fontSize = 13.sp,
-                color = Color(0xFF8E8E93)
-            )
-        }
+        Text(
+            text = "Orbit Board",
+            fontFamily = Doto,
+            fontWeight = FontWeight.Bold,
+            fontSize = 24.sp,
+            letterSpacing = 1.sp,
+            color = Color.White
+        )
 
         Row(
             verticalAlignment = Alignment.CenterVertically,

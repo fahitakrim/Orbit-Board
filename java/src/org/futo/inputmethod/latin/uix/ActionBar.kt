@@ -313,10 +313,27 @@ val ORDER_OF_SUGGESTIONS = listOf(1, 0, 2)
 
 @Composable
 fun RowScope.SuggestionItems(words: SuggestedWords, onClick: (i: Int) -> Unit, onLongClick: (i: Int) -> Unit) {
+    if (words.mInputStyle == SuggestedWords.INPUT_STYLE_BEGINNING_OF_SENTENCE_PREDICTION) {
+        val topDragModifier = LocalFloatingDragModifier.current
+        Spacer(
+            modifier = Modifier
+                .weight(1.0f)
+                .fillMaxHeight()
+                .then(topDragModifier)
+        )
+        return
+    }
+
     val maxSuggestions = min(ORDER_OF_SUGGESTIONS.size, words.size())
 
     if(maxSuggestions == 0) {
-        Spacer(modifier = Modifier.weight(1.0f))
+        val topDragModifier = LocalFloatingDragModifier.current
+        Spacer(
+            modifier = Modifier
+                .weight(1.0f)
+                .fillMaxHeight()
+                .then(topDragModifier)
+        )
         return
     }
 
@@ -370,7 +387,7 @@ fun RowScope.SuggestionItems(words: SuggestedWords, onClick: (i: Int) -> Unit, o
         for(i in 0 until words.size()) {
             val info = words.getInfo(i)
             if(info.mKindAndFlags == KIND_EMOJI_SUGGESTION && i > 2) {
-                suggestionOrder[0] = i
+                suggestionOrder[2] = i
             }
         }
     } catch(_: IndexOutOfBoundsException) {
@@ -378,19 +395,53 @@ fun RowScope.SuggestionItems(words: SuggestedWords, onClick: (i: Int) -> Unit, o
     }
 
 
-    for (i in 0 until maxSuggestions) {
-        val targetIdx = suggestionOrder.getOrNull(i) ?: continue
-        if (targetIdx !in 0 until words.size()) continue
+    val seenWords = HashSet<String>()
+    val resolvedIndices = mutableListOf<Int>()
+
+    for (targetIdx in suggestionOrder) {
+        if (targetIdx in 0 until words.size()) {
+            val word = words.getWord(targetIdx)?.toString()
+            if (word != null && !seenWords.contains(word)) {
+                seenWords.add(word)
+                resolvedIndices.add(targetIdx)
+            }
+        }
+    }
+
+    if (resolvedIndices.size < maxSuggestions) {
+        for (candIdx in 0 until words.size()) {
+            if (resolvedIndices.size >= maxSuggestions) break
+            val word = words.getWord(candIdx)?.toString()
+            if (word != null && !seenWords.contains(word)) {
+                seenWords.add(word)
+                resolvedIndices.add(candIdx)
+            }
+        }
+    }
+
+    if (resolvedIndices.isEmpty()) {
+        val topDragModifier = LocalFloatingDragModifier.current
+        Spacer(
+            modifier = Modifier
+                .weight(1.0f)
+                .fillMaxHeight()
+                .then(topDragModifier)
+        )
+        return
+    }
+
+    for (i in 0 until resolvedIndices.size) {
+        val targetIdx = resolvedIndices[i]
 
         SuggestionItem(
             words,
             targetIdx,
-            isPrimary = i == (maxSuggestions / 2),
+            isPrimary = i == (resolvedIndices.size / 2),
             onClick = { onClick(targetIdx) },
             onLongClick = { onLongClick(targetIdx) }
         )
 
-        if (i < maxSuggestions - 1) SuggestionSeparator()
+        if (i < resolvedIndices.size - 1) SuggestionSeparator()
     }
 }
 
@@ -501,19 +552,19 @@ fun ActionItems(onSelect: (Action) -> Unit, onLongSelect: (Action) -> Unit) {
     }
 
     val bgCol = if(!LocalInspectionMode.current) {
-        Color(LocalThemeProvider.current.keyColor)
+        Color(LocalThemeProvider.current.primaryKeyboardColor)
     } else {
-        MaterialTheme.colorScheme.surfaceVariant
+        MaterialTheme.colorScheme.surface
     }
 
-    val gradientColor = if(bgCol.alpha > 0.5) {
-        bgCol.copy(alpha = 0.9f)
+    val gradientColor = if(bgCol.alpha > 0.1f) {
+        bgCol
     } else {
-        MaterialTheme.colorScheme.surface.copy(alpha = 0.9f)
+        MaterialTheme.colorScheme.surface
     }
 
-    val drawLeftGradient = lazyListState.firstVisibleItemIndex > 0
-    val drawRightGradient = lazyListState.layoutInfo.visibleItemsInfo.isNotEmpty() && actionItems.isNotEmpty() && (lazyListState.layoutInfo.visibleItemsInfo.lastOrNull()?.key != actionItems.lastOrNull()?.name)
+    val drawLeftGradient = lazyListState.canScrollBackward
+    val drawRightGradient = lazyListState.canScrollForward
 
     Box {
         LazyRow(state = lazyListState) {
@@ -532,14 +583,14 @@ fun ActionItems(onSelect: (Action) -> Unit, onLongSelect: (Action) -> Unit) {
         if(drawLeftGradient) {
             Canvas(modifier = Modifier
                 .fillMaxHeight()
-                .width(72.dp)
+                .width(36.dp)
                 .align(Alignment.CenterStart)) {
                 drawRect(
                     Brush.linearGradient(
                         0.0f to gradientColor,
-                        1.0f to Color.Transparent,
+                        1.0f to gradientColor.copy(alpha = 0.0f),
                         start = Offset.Zero,
-                        end = Offset(Float.POSITIVE_INFINITY, 0.0f)
+                        end = Offset(size.width, 0.0f)
                     )
                 )
             }
@@ -548,14 +599,14 @@ fun ActionItems(onSelect: (Action) -> Unit, onLongSelect: (Action) -> Unit) {
         if(drawRightGradient) {
             Canvas(modifier = Modifier
                 .fillMaxHeight()
-                .width(72.dp)
+                .width(36.dp)
                 .align(Alignment.CenterEnd)) {
                 drawRect(
                     Brush.linearGradient(
-                        0.0f to Color.Transparent,
+                        0.0f to gradientColor.copy(alpha = 0.0f),
                         1.0f to gradientColor,
                         start = Offset.Zero,
-                        end = Offset(Float.POSITIVE_INFINITY, 0.0f)
+                        end = Offset(size.width, 0.0f)
                     )
                 )
             }
@@ -572,7 +623,7 @@ fun ExpandActionsButton(isActionsOpen: Boolean, onClick: () -> Unit) {
         MaterialTheme.colorScheme.surfaceVariant
     }
 
-    val actionsContent = MaterialTheme.colorScheme.onSurface
+    val actionsContent = contentColorFor(backgroundColor = bgCol)
 
     val circleRadius = with(LocalDensity.current) {
         16.dp.toPx()
@@ -782,6 +833,7 @@ fun ActionBar(
     val livePartialText = voiceInputManager?.livePartialText?.value
 
     val actionBarHeight = 40.dp
+    val kbBgColor = Color(LocalThemeProvider.current.primaryKeyboardColor)
 
     Column {
         ActionSep()
@@ -789,7 +841,7 @@ fun ActionBar(
         Surface(
             modifier = Modifier
                 .fillMaxWidth()
-                .height(actionBarHeight), color = MaterialTheme.colorScheme.background
+                .height(actionBarHeight), color = kbBgColor
         ) {
             Row {
                 ExpandActionsButton(isActionsExpanded) {
@@ -840,7 +892,13 @@ fun ActionBar(
                                 }
                             })
                     } else {
-                        Spacer(modifier = Modifier.weight(1.0f))
+                        val topDragModifier = LocalFloatingDragModifier.current
+                        Spacer(
+                            modifier = Modifier
+                                .weight(1.0f)
+                                .fillMaxHeight()
+                                .then(topDragModifier)
+                        )
                     }
 
                     PinnedActionItems(onActionActivated, onActionAltActivated)
@@ -854,7 +912,7 @@ fun ActionBar(
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(actionBarHeight),
-                color = MaterialTheme.colorScheme.background
+                color = kbBgColor
             ) {
                 Box(
                     modifier = Modifier
@@ -875,15 +933,20 @@ fun ActionWindowBar(
     onBack: () -> Unit,
     onExpand: () -> Unit
 ) {
+    val kbBgColor = Color(LocalThemeProvider.current.primaryKeyboardColor)
+
     Column {
         ActionSep()
         Surface(
             modifier = Modifier
                 .fillMaxWidth()
-                .height(40.dp), color = MaterialTheme.colorScheme.background
+                .height(44.dp), color = kbBgColor
         )
         {
-            Row {
+            Row(
+                modifier = Modifier.fillMaxSize(),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
                 IconButton(onClick = onBack) {
                     Icon(
                         painter = painterResource(id = R.drawable.arrow_left_26),
@@ -915,12 +978,14 @@ fun CollapsibleSuggestionsBar(
     words: SuggestedWords?,
     suggestionStripListener: SuggestionStripView.Listener,
 ) {
+    val kbBgColor = Color(LocalThemeProvider.current.primaryKeyboardColor)
+
     Column {
         ActionSep()
         Surface(
             modifier = Modifier
                 .fillMaxWidth()
-                .height(40.dp), color = MaterialTheme.colorScheme.background
+                .height(40.dp), color = kbBgColor
         )
         {
             Row {

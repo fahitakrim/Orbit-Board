@@ -227,7 +227,7 @@ public class JatiyoAndProbhatLayoutsTest {
         Document doc = parseXml("rows_symbols_bengali.xml");
         NodeList keys = doc.getElementsByTagName("Key");
         boolean hasEqualsInMoreKeys = false;
-        boolean hasDariOnRow4 = false;
+        boolean hasPeriodOnRow4WithDari = false;
 
         for (int i = 0; i < keys.getLength(); i++) {
             Element el = (Element) keys.item(i);
@@ -237,13 +237,14 @@ public class JatiyoAndProbhatLayoutsTest {
             if ("+".equals(spec) && moreKeys != null && moreKeys.contains("=")) {
                 hasEqualsInMoreKeys = true;
             }
-            if (("\u0964".equals(spec) || "&#x0964;".equals(spec)) && "functional".equals(el.getAttribute("latin:backgroundType"))) {
-                hasDariOnRow4 = true;
+            if (".".equals(spec) && "functional".equals(el.getAttribute("latin:backgroundType"))
+                    && moreKeys != null && (moreKeys.contains("\u0964") || moreKeys.contains("&#x0964;"))) {
+                hasPeriodOnRow4WithDari = true;
             }
         }
 
         assertTrue("Symbols layout + key must have = in moreKeys", hasEqualsInMoreKeys);
-        assertTrue("Symbols layout bottom functional key must have Dari (।)", hasDariOnRow4);
+        assertTrue("Symbols layout bottom functional key must have Dot (.) with Dari in moreKeys", hasPeriodOnRow4WithDari);
     }
 
     @Test

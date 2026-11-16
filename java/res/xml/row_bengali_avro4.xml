@@ -29,7 +29,7 @@
         </switch>
         <Key
             latin:keySpec="&#x0964;"
-            latin:moreKeys=".,&#x0964;,?,!,!noPanelAutoMoreKey!"
+            latin:moreKeys=".,&#x0964;,?,!"
             latin:keyLabelFlags="hasPopupHint"
             latin:keyWidth="10%p"
             latin:backgroundType="functional" />

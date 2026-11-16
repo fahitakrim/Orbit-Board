@@ -33,6 +33,8 @@ val AllActionsMap = mapOf(
     "copy" to CopyAction,
     "select_all" to SelectAllAction,
     "number_pad" to NumberPadAction,
+    "one_handed" to OneHandedAction,
+    "floating" to FloatingAction,
     "more" to MoreActionsAction
 )
 
@@ -236,7 +238,7 @@ fun String.toActionList(): List<Action> = split(",").mapNotNull { AllActionsMap[
 val DefaultActionSettings = mapOf(
     ActionCategory.ActionKey to listOf(EmojiAction),
     ActionCategory.PinnedKey to listOf(SwitchLanguageAction, VoiceInputAction),
-    ActionCategory.Favorites to listOf(UndoAction, RedoAction, TextEditAction, NumberPadAction, ClipboardHistoryAction, ThemeAction, TranslateAction),
+    ActionCategory.Favorites to listOf(UndoAction, RedoAction, TextEditAction, NumberPadAction, ClipboardHistoryAction, ThemeAction, TranslateAction, OneHandedAction),
     ActionCategory.More to listOf(), // Remaining actions get populated automatically by ensureWellFormed
     ActionCategory.Disabled to listOf(MemoryDebugAction)
 )
@@ -283,8 +285,16 @@ fun Context.migrateActionsSettingsIfNeeded() {
     try {
         val currentFavs: String = getSettingBlocking(FavoriteActions)
         val favList = currentFavs.toActionList().toMutableList()
+        var favListChanged = false
         if (!favList.contains(NumberPadAction)) {
             favList.add(NumberPadAction)
+            favListChanged = true
+        }
+        if (!favList.contains(OneHandedAction)) {
+            favList.add(OneHandedAction)
+            favListChanged = true
+        }
+        if (favListChanged) {
             setSettingBlocking(FavoriteActions.key, favList.serializeActionListToString())
         }
 
@@ -297,6 +307,12 @@ fun Context.migrateActionsSettingsIfNeeded() {
             map[ActionCategory.More] = (map[ActionCategory.More] ?: listOf<Action>()).filter { it != NumberPadAction }
             map[ActionCategory.Disabled] = (map[ActionCategory.Disabled] ?: listOf<Action>()).filter { it != NumberPadAction }
             favs.add(NumberPadAction)
+            mapChanged = true
+        }
+        if (!favs.contains(OneHandedAction)) {
+            map[ActionCategory.More] = (map[ActionCategory.More] ?: listOf<Action>()).filter { it != OneHandedAction }
+            map[ActionCategory.Disabled] = (map[ActionCategory.Disabled] ?: listOf<Action>()).filter { it != OneHandedAction }
+            favs.add(OneHandedAction)
             mapChanged = true
         }
         if (mapChanged) {

@@ -7,6 +7,9 @@ import org.futo.inputmethod.latin.uix.theme.presets.AMOLEDDarkPurple
 import org.futo.inputmethod.latin.uix.theme.presets.AMOLEDNothing
 import org.futo.inputmethod.latin.uix.theme.presets.OrbitTheme
 import org.futo.inputmethod.latin.uix.theme.presets.ChaosTheme
+import org.futo.inputmethod.latin.uix.theme.presets.RetroBlocksTheme
+import org.futo.inputmethod.latin.uix.theme.presets.BerryBlushTheme
+import org.futo.inputmethod.latin.uix.theme.presets.TactileSlateTheme
 import org.futo.inputmethod.latin.uix.theme.presets.NothingLight
 import org.futo.inputmethod.latin.uix.theme.presets.NothingDark
 import org.futo.inputmethod.latin.uix.theme.presets.ClassicMaterialDark
@@ -17,7 +20,6 @@ import org.futo.inputmethod.latin.uix.theme.presets.DeepSeaLight
 import org.futo.inputmethod.latin.uix.theme.presets.DynamicDarkTheme
 import org.futo.inputmethod.latin.uix.theme.presets.DynamicLightTheme
 import org.futo.inputmethod.latin.uix.theme.presets.DynamicNothing
-import org.futo.inputmethod.latin.uix.theme.presets.DynamicSystemTheme
 import org.futo.inputmethod.latin.uix.theme.presets.Emerald
 import org.futo.inputmethod.latin.uix.theme.presets.Snowfall
 import org.futo.inputmethod.latin.uix.theme.presets.SteelGray
@@ -34,30 +36,37 @@ data class ThemeOption(
 
 val ThemeOptions = mapOf(
     OrbitTheme.key to OrbitTheme,
-    VoiceInputTheme.key to VoiceInputTheme,
-
+    ChaosTheme.key to ChaosTheme,
+    NothingDark.key to NothingDark,
+    RetroBlocksTheme.key to RetroBlocksTheme,
+    BerryBlushTheme.key to BerryBlushTheme,
+    TactileSlateTheme.key to TactileSlateTheme,
     DynamicNothing.key to DynamicNothing,
-    DynamicSystemTheme.key to DynamicSystemTheme,
-    DynamicDarkTheme.key to DynamicDarkTheme,
-    DynamicLightTheme.key to DynamicLightTheme,
+    AMOLEDNothing.key to AMOLEDNothing,
+    NothingLight.key to NothingLight,
+    AMOLEDDarkPurple.key to AMOLEDDarkPurple,
 
     ClassicMaterialDark.key to ClassicMaterialDark,
     ClassicMaterialLight.key to ClassicMaterialLight,
-    AMOLEDDarkPurple.key to AMOLEDDarkPurple,
-    AMOLEDNothing.key to AMOLEDNothing,
-    NothingLight.key to NothingLight,
-    NothingDark.key to NothingDark,
 
+    Emerald.key to Emerald,
+    CottonCandy.key to CottonCandy,
     Sunflower.key to Sunflower,
     Snowfall.key to Snowfall,
     SteelGray.key to SteelGray,
-    Emerald.key to Emerald,
-    CottonCandy.key to CottonCandy,
 
-    DeepSeaLight.key to DeepSeaLight,
     DeepSeaDark.key to DeepSeaDark,
+    DeepSeaLight.key to DeepSeaLight,
 
-    ChaosTheme.key to ChaosTheme
+    DynamicDarkTheme.key to DynamicDarkTheme,
+    DynamicLightTheme.key to DynamicLightTheme,
+
+    "DynamicSystem" to DynamicNothing,
+    "DynamicSystemTheme" to DynamicNothing,
+    "DynamicDarkTheme" to DynamicDarkTheme,
+    "DynamicLightTheme" to DynamicLightTheme,
+
+    VoiceInputTheme.key to VoiceInputTheme
 )
 
 val ThemeOptionKeys = ThemeOptions.keys

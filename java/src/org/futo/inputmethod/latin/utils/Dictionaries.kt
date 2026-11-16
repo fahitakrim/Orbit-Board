@@ -8,13 +8,7 @@ object Dictionaries {
     private val dictionaries = mapOf(
         "" to R.raw.main,
         "bn" to R.raw.main_bn,
-        "de" to R.raw.main_de,
-        "en" to R.raw.main_en,
-        "es" to R.raw.main_es,
-        "fr" to R.raw.main_fr,
-        "it" to R.raw.main_it,
-        "pt_br" to R.raw.main_pt_br,
-        "ru" to R.raw.main_ru
+        "en" to R.raw.main_en
     )
 
     @RawRes

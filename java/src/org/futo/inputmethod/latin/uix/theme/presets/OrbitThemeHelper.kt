@@ -286,6 +286,9 @@ object OrbitThemeHelper {
     }
 
     fun getKeyTextColor(key: Key): Int {
+        if (key.code == Constants.CODE_SPACE) {
+            return customSpacebarTextColor ?: Color.WHITE
+        }
         val base = getKeyBaseColor(key)
         return if (base == COLOR_WHITE || base == COLOR_YELLOW) COLOR_TEXT_DARK else Color.WHITE
     }

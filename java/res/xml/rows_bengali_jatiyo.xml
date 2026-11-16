@@ -51,25 +51,25 @@
             </case>
             <default>
                 <!-- q: ঙ (hint ং, more ১,1) -->
-                <Key latin:keySpec="&#x0999;" latin:keyHintLabel="&#x0982;" latin:moreKeys="&#x0982;,!noPanelAutoMoreKey!,&#x09E7;,1" />
+                <Key latin:keySpec="&#x0999;" latin:keyHintLabel="&#x0982;" latin:moreKeys="&#x0982;,&#x09E7;,1" />
                 <!-- w: য (hint য়, more ২,2, ্য) -->
-                <Key latin:keySpec="&#x09AF;" latin:keyHintLabel="&#x09DF;" latin:moreKeys="&#x09DF;,&#x09CD;&#x09AF;,!noPanelAutoMoreKey!,&#x09E8;,2" />
+                <Key latin:keySpec="&#x09AF;" latin:keyHintLabel="&#x09DF;" latin:moreKeys="&#x09DF;,&#x09CD;&#x09AF;,&#x09E8;,2" />
                 <!-- e: ড (hint ঢ, more ৩,3) -->
-                <Key latin:keySpec="&#x09A1;" latin:keyHintLabel="&#x09A2;" latin:moreKeys="&#x09A2;,!noPanelAutoMoreKey!,&#x09E9;,3" />
+                <Key latin:keySpec="&#x09A1;" latin:keyHintLabel="&#x09A2;" latin:moreKeys="&#x09A2;,&#x09E9;,3" />
                 <!-- r: প (hint ফ, more ৪,4) -->
-                <Key latin:keySpec="&#x09AA;" latin:keyHintLabel="&#x09AB;" latin:moreKeys="&#x09AB;,!noPanelAutoMoreKey!,&#x09EA;,4" />
+                <Key latin:keySpec="&#x09AA;" latin:keyHintLabel="&#x09AB;" latin:moreKeys="&#x09AB;,&#x09EA;,4" />
                 <!-- t: ট (hint ঠ, more ৫,5) -->
-                <Key latin:keySpec="&#x099F;" latin:keyHintLabel="&#x09A0;" latin:moreKeys="&#x09A0;,!noPanelAutoMoreKey!,&#x09EB;,5" />
+                <Key latin:keySpec="&#x099F;" latin:keyHintLabel="&#x09A0;" latin:moreKeys="&#x09A0;,&#x09EB;,5" />
                 <!-- y: চ (hint ছ, more ৬,6) -->
-                <Key latin:keySpec="&#x099A;" latin:keyHintLabel="&#x099B;" latin:moreKeys="&#x099B;,!noPanelAutoMoreKey!,&#x09EC;,6" />
+                <Key latin:keySpec="&#x099A;" latin:keyHintLabel="&#x099B;" latin:moreKeys="&#x099B;,&#x09EC;,6" />
                 <!-- u: জ (hint ঝ, more ৭,7) -->
-                <Key latin:keySpec="&#x099C;" latin:keyHintLabel="&#x099D;" latin:moreKeys="&#x099D;,!noPanelAutoMoreKey!,&#x09ED;,7" />
+                <Key latin:keySpec="&#x099C;" latin:keyHintLabel="&#x099D;" latin:moreKeys="&#x099D;,&#x09ED;,7" />
                 <!-- i: হ (hint ঞ, more ৮,8) -->
-                <Key latin:keySpec="&#x09B9;" latin:keyHintLabel="&#x099E;" latin:moreKeys="&#x099E;,!noPanelAutoMoreKey!,&#x09EE;,8" />
+                <Key latin:keySpec="&#x09B9;" latin:keyHintLabel="&#x099E;" latin:moreKeys="&#x099E;,&#x09EE;,8" />
                 <!-- o: গ (hint ঘ, more ৯,9) -->
-                <Key latin:keySpec="&#x0997;" latin:keyHintLabel="&#x0998;" latin:moreKeys="&#x0998;,!noPanelAutoMoreKey!,&#x09EF;,9" />
+                <Key latin:keySpec="&#x0997;" latin:keyHintLabel="&#x0998;" latin:moreKeys="&#x0998;,&#x09EF;,9" />
                 <!-- p: ড় (hint ঢ়, more ০,0) -->
-                <Key latin:keySpec="&#x09DC;" latin:keyHintLabel="&#x09DD;" latin:moreKeys="&#x09DD;,!noPanelAutoMoreKey!,&#x09E6;,0" />
+                <Key latin:keySpec="&#x09DC;" latin:keyHintLabel="&#x09DD;" latin:moreKeys="&#x09DD;,&#x09E6;,0" />
             </default>
         </switch>
     </Row>
@@ -83,11 +83,11 @@
                 <!-- a: র্ (রেফ) -->
                 <Key latin:keySpec="&#x09B0;&#x09CD;" latin:keyXPos="5%p" />
                 <!-- s: ূ (hint ঊ) -->
-                <Key latin:keySpec="&#x09C2;" latin:keyHintLabel="&#x098A;" latin:moreKeys="&#x098A;,!noPanelAutoMoreKey!" />
+                <Key latin:keySpec="&#x09C2;" latin:keyHintLabel="&#x098A;" latin:moreKeys="&#x098A;" />
                 <!-- d: ী (hint ঈ) -->
-                <Key latin:keySpec="&#x09C0;" latin:keyHintLabel="&#x0988;" latin:moreKeys="&#x0988;,!noPanelAutoMoreKey!" />
+                <Key latin:keySpec="&#x09C0;" latin:keyHintLabel="&#x0988;" latin:moreKeys="&#x0988;" />
                 <!-- f: অ -->
-                <Key latin:keySpec="&#x0985;" latin:moreKeys="&#x0986;,!noPanelAutoMoreKey!" />
+                <Key latin:keySpec="&#x0985;" latin:moreKeys="&#x0986;" />
                 <!-- g: ঁ (চন্দ্রবিন্দু) -->
                 <Key latin:keySpec="&#x0981;" />
                 <!-- h: ভ -->
@@ -95,29 +95,29 @@
                 <!-- j: খ -->
                 <Key latin:keySpec="&#x0996;" />
                 <!-- k: থ (hint ৎ) -->
-                <Key latin:keySpec="&#x09A5;" latin:keyHintLabel="&#x09CE;" latin:moreKeys="&#x09CE;,!noPanelAutoMoreKey!" />
+                <Key latin:keySpec="&#x09A5;" latin:keyHintLabel="&#x09CE;" latin:moreKeys="&#x09CE;" />
                 <!-- l: ধ (hint ঃ) -->
-                <Key latin:keySpec="&#x09A7;" latin:keyHintLabel="&#x0983;" latin:moreKeys="&#x0983;,!noPanelAutoMoreKey!" />
+                <Key latin:keySpec="&#x09A7;" latin:keyHintLabel="&#x0983;" latin:moreKeys="&#x0983;" />
             </case>
             <default>
                 <!-- a: ৃ (hint র্ রেফ, more ঋ) -->
-                <Key latin:keySpec="&#x09C3;" latin:keyXPos="5%p" latin:keyHintLabel="&#x09B0;&#x09CD;" latin:moreKeys="&#x098B;,!noPanelAutoMoreKey!" />
+                <Key latin:keySpec="&#x09C3;" latin:keyXPos="5%p" latin:keyHintLabel="&#x09B0;&#x09CD;" latin:moreKeys="&#x098B;" />
                 <!-- s: ু (hint ূ, more উ) -->
-                <Key latin:keySpec="&#x09C1;" latin:keyHintLabel="&#x09C2;" latin:moreKeys="&#x09C2;,&#x0989;,!noPanelAutoMoreKey!" />
+                <Key latin:keySpec="&#x09C1;" latin:keyHintLabel="&#x09C2;" latin:moreKeys="&#x09C2;,&#x0989;" />
                 <!-- d: ি (hint ী, more ই) -->
-                <Key latin:keySpec="&#x09BF;" latin:keyHintLabel="&#x09C0;" latin:moreKeys="&#x09C0;,&#x0987;,!noPanelAutoMoreKey!" />
+                <Key latin:keySpec="&#x09BF;" latin:keyHintLabel="&#x09C0;" latin:moreKeys="&#x09C0;,&#x0987;" />
                 <!-- f: া (hint অ, more আ) -->
-                <Key latin:keySpec="&#x09BE;" latin:keyHintLabel="&#x0985;" latin:moreKeys="&#x0985;,&#x0986;,!noPanelAutoMoreKey!" />
+                <Key latin:keySpec="&#x09BE;" latin:keyHintLabel="&#x0985;" latin:moreKeys="&#x0985;,&#x0986;" />
                 <!-- g: ্ (হসন্ত, hint ঁ চন্দ্রবিন্দু, more ় নুকতা, zwnj, zwj) -->
                 <Key latin:keySpec="&#x09CD;" latin:keyHintLabel="&#x0981;" latin:moreKeys="&#x0981;,&#x09BC;,&#x200C;,&#x200D;" />
                 <!-- h: ব (hint ভ) -->
-                <Key latin:keySpec="&#x09AC;" latin:keyHintLabel="&#x09AD;" latin:moreKeys="&#x09AD;,!noPanelAutoMoreKey!" />
+                <Key latin:keySpec="&#x09AC;" latin:keyHintLabel="&#x09AD;" latin:moreKeys="&#x09AD;" />
                 <!-- j: ক (hint খ) -->
-                <Key latin:keySpec="&#x0995;" latin:keyHintLabel="&#x0996;" latin:moreKeys="&#x0996;,!noPanelAutoMoreKey!" />
+                <Key latin:keySpec="&#x0995;" latin:keyHintLabel="&#x0996;" latin:moreKeys="&#x0996;" />
                 <!-- k: ত (hint থ, more ৎ) -->
-                <Key latin:keySpec="&#x09A4;" latin:keyHintLabel="&#x09A5;" latin:moreKeys="&#x09A5;,&#x09CE;,!noPanelAutoMoreKey!" />
+                <Key latin:keySpec="&#x09A4;" latin:keyHintLabel="&#x09A5;" latin:moreKeys="&#x09A5;,&#x09CE;" />
                 <!-- l: দ (hint ধ, more ঃ) -->
-                <Key latin:keySpec="&#x09A6;" latin:keyHintLabel="&#x09A7;" latin:moreKeys="&#x09A7;,&#x0983;,!noPanelAutoMoreKey!" />
+                <Key latin:keySpec="&#x09A6;" latin:keyHintLabel="&#x09A7;" latin:moreKeys="&#x09A7;,&#x0983;" />
             </default>
         </switch>
     </Row>
@@ -133,11 +133,11 @@
         <switch>
             <case latin:keyboardLayoutSetElement="alphabetManualShifted|alphabetShiftLocked|alphabetShiftLockShifted">
                 <!-- z: ্য (য-ফলা, hint র্য) -->
-                <Key latin:keySpec="&#x09CD;&#x09AF;" latin:keyHintLabel="&#x09B0;&#x200D;&#x09CD;&#x09AF;" latin:moreKeys="&#x09B0;&#x200D;&#x09CD;&#x09AF;,!noPanelAutoMoreKey!" />
+                <Key latin:keySpec="&#x09CD;&#x09AF;" latin:keyHintLabel="&#x09B0;&#x200D;&#x09CD;&#x09AF;" latin:moreKeys="&#x09B0;&#x200D;&#x09CD;&#x09AF;" />
                 <!-- x: ৌ (ঔ-কার, hint ঔ) -->
-                <Key latin:keySpec="&#x09CC;" latin:keyHintLabel="&#x0994;" latin:moreKeys="&#x0994;,!noPanelAutoMoreKey!" />
+                <Key latin:keySpec="&#x09CC;" latin:keyHintLabel="&#x0994;" latin:moreKeys="&#x0994;" />
                 <!-- c: ৈ (ঐ-কার, hint ঐ) -->
-                <Key latin:keySpec="&#x09C8;" latin:keyHintLabel="&#x0990;" latin:moreKeys="&#x0990;,!noPanelAutoMoreKey!" />
+                <Key latin:keySpec="&#x09C8;" latin:keyHintLabel="&#x0990;" latin:moreKeys="&#x0990;" />
                 <!-- v: ল -->
                 <Key latin:keySpec="&#x09B2;" />
                 <!-- b: ণ -->
@@ -149,19 +149,19 @@
             </case>
             <default>
                 <!-- z: ্র (র-ফলা, hint ্য য-ফলা, more র্য) -->
-                <Key latin:keySpec="&#x09CD;&#x09B0;" latin:keyHintLabel="&#x09CD;&#x09AF;" latin:moreKeys="&#x09CD;&#x09AF;,&#x09B0;&#x200D;&#x09CD;&#x09AF;,!noPanelAutoMoreKey!" />
+                <Key latin:keySpec="&#x09CD;&#x09B0;" latin:keyHintLabel="&#x09CD;&#x09AF;" latin:moreKeys="&#x09CD;&#x09AF;,&#x09B0;&#x200D;&#x09CD;&#x09AF;" />
                 <!-- x: ো (ও-কার, hint ৌ ঔ-কার, more ঔ, ও) -->
-                <Key latin:keySpec="&#x09CB;" latin:keyHintLabel="&#x09CC;" latin:moreKeys="&#x09CC;,&#x0993;,&#x0994;,!noPanelAutoMoreKey!" />
+                <Key latin:keySpec="&#x09CB;" latin:keyHintLabel="&#x09CC;" latin:moreKeys="&#x09CC;,&#x0993;,&#x0994;" />
                 <!-- c: ে (এ-কার, hint ৈ ঐ-কার, more ঐ, এ) -->
-                <Key latin:keySpec="&#x09C7;" latin:keyHintLabel="&#x09C8;" latin:moreKeys="&#x09C8;,&#x098F;,&#x0990;,!noPanelAutoMoreKey!" />
+                <Key latin:keySpec="&#x09C7;" latin:keyHintLabel="&#x09C8;" latin:moreKeys="&#x09C8;,&#x098F;,&#x0990;" />
                 <!-- v: র (hint ল, more ল, ৱ, ৰ, র্য) -->
-                <Key latin:keySpec="&#x09B0;" latin:keyHintLabel="&#x09B2;" latin:moreKeys="&#x09B2;,&#x09F1;,&#x09F0;,&#x09B0;&#x200D;&#x09CD;&#x09AF;,!noPanelAutoMoreKey!" />
+                <Key latin:keySpec="&#x09B0;" latin:keyHintLabel="&#x09B2;" latin:moreKeys="&#x09B2;,&#x09F1;,&#x09F0;,&#x09B0;&#x200D;&#x09CD;&#x09AF;" />
                 <!-- b: ন (hint ণ) -->
-                <Key latin:keySpec="&#x09A8;" latin:keyHintLabel="&#x09A3;" latin:moreKeys="&#x09A3;,!noPanelAutoMoreKey!" />
+                <Key latin:keySpec="&#x09A8;" latin:keyHintLabel="&#x09A3;" latin:moreKeys="&#x09A3;" />
                 <!-- n: স (hint ষ, more শ) -->
-                <Key latin:keySpec="&#x09B8;" latin:keyHintLabel="&#x09B7;" latin:moreKeys="&#x09B7;,&#x09B6;,!noPanelAutoMoreKey!" />
+                <Key latin:keySpec="&#x09B8;" latin:keyHintLabel="&#x09B7;" latin:moreKeys="&#x09B7;,&#x09B6;" />
                 <!-- m: ম (hint শ) -->
-                <Key latin:keySpec="&#x09AE;" latin:keyHintLabel="&#x09B6;" latin:moreKeys="&#x09B6;,!noPanelAutoMoreKey!" />
+                <Key latin:keySpec="&#x09AE;" latin:keyHintLabel="&#x09B6;" latin:moreKeys="&#x09B6;" />
             </default>
         </switch>
         <Key
@@ -183,7 +183,7 @@
                     latin:keyWidth="10%p" />
                 <Key
                     latin:keySpec=","
-                    latin:moreKeys="&apos;,&quot;,;,:,!noPanelAutoMoreKey!"
+                    latin:moreKeys="&apos;,&quot;,;,:"
                     latin:keyLabelFlags="hasPopupHint"
                     latin:keyWidth="9%p"
                     latin:backgroundType="functional" />
@@ -194,7 +194,7 @@
             <default>
                 <Key
                     latin:keySpec=","
-                    latin:moreKeys="&apos;,&quot;,;,:,!noPanelAutoMoreKey!"
+                    latin:moreKeys="&apos;,&quot;,;,:"
                     latin:keyLabelFlags="hasPopupHint"
                     latin:keyWidth="12%p"
                     latin:backgroundType="functional" />
@@ -207,7 +207,7 @@
             <case latin:keyboardLayoutSetElement="alphabetManualShifted|alphabetShiftLocked|alphabetShiftLockShifted">
                 <Key
                     latin:keySpec="."
-                    latin:moreKeys=".,&#x0964;,?,!,&#x0965;,!noPanelAutoMoreKey!"
+                    latin:moreKeys=".,&#x0964;,?,!,&#x0965;"
                     latin:keyLabelFlags="hasPopupHint"
                     latin:keyWidth="10%p"
                     latin:backgroundType="functional" />
@@ -215,7 +215,7 @@
             <default>
                 <Key
                     latin:keySpec="&#x0964;"
-                    latin:moreKeys=".,&#x0964;,?,!,&#x0965;,!noPanelAutoMoreKey!"
+                    latin:moreKeys=".,&#x0964;,?,!,&#x0965;"
                     latin:keyLabelFlags="hasPopupHint"
                     latin:keyWidth="10%p"
                     latin:backgroundType="functional" />

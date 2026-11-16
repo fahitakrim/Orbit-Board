@@ -23,18 +23,28 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.SelectAll
+import androidx.compose.material.icons.rounded.ChevronRight
+import androidx.compose.material.icons.rounded.Language
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Switch
 import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawBehind
+import android.view.HapticFeedbackConstants
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
@@ -73,7 +83,10 @@ data class LayoutCardItem(
     val nativeScript: String,
     val sampleText: String,
     val description: String,
-    val subtypeString: String
+    val subtypeString: String,
+    val activeBackgroundColor: Color = Color(0xFF221316),
+    val activeBorderColor: Color = Color(0xFFE5252A),
+    val accentColor: Color = Color(0xFFE5252A)
 )
 
 @Composable
@@ -84,17 +97,39 @@ fun LayoutGridCard(
     onToggle: (Boolean) -> Unit,
     modifier: Modifier = Modifier
 ) {
+    val view = LocalView.current
+    val cardBackground = if (isActive) item.activeBackgroundColor else Color(0xFF161618)
+    val cardBorder = if (isActive) item.activeBorderColor.copy(alpha = 0.70f) else item.accentColor.copy(alpha = 0.25f)
+
+    val shapeColor = item.accentColor.copy(alpha = if (isActive) 0.08f else 0.04f)
     Box(
         modifier = modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(16.dp))
-            .background(if (isActive) Color(0xFF1E1416) else CardBackground)
+            .background(cardBackground)
+            .drawBehind {
+                drawCircle(
+                    color = shapeColor,
+                    radius = size.width * 0.45f,
+                    center = androidx.compose.ui.geometry.Offset(size.width * 0.95f, size.height * 0.95f),
+                    style = androidx.compose.ui.graphics.drawscope.Stroke(width = 1.5f * density)
+                )
+                drawCircle(
+                    color = shapeColor.copy(alpha = shapeColor.alpha * 0.5f),
+                    radius = size.width * 0.25f,
+                    center = androidx.compose.ui.geometry.Offset(size.width * 0.95f, size.height * 0.95f),
+                    style = androidx.compose.ui.graphics.drawscope.Stroke(width = 1.0f * density)
+                )
+            }
             .border(
                 width = 1.dp,
-                color = if (isActive) NothingRed.copy(alpha = 0.5f) else BorderColor,
+                color = cardBorder,
                 shape = RoundedCornerShape(16.dp)
             )
             .clickable {
+                try {
+                    view.performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP)
+                } catch (_: Exception) {}
                 onToggle(!isActive)
             }
             .padding(14.dp)
@@ -115,27 +150,37 @@ fun LayoutGridCard(
                     color = Color.White
                 )
 
-                if (isActive) {
-                    Box(
-                        modifier = Modifier
-                            .size(7.dp)
-                            .clip(CircleShape)
-                            .background(NothingRed)
-                    )
-                } else {
-                    Spacer(modifier = Modifier.size(7.dp))
-                }
+                // Layout status indicator dot with distinct identity accent
+                Box(
+                    modifier = Modifier
+                        .size(8.dp)
+                        .clip(CircleShape)
+                        .background(if (isActive) item.accentColor else item.accentColor.copy(alpha = 0.25f))
+                )
             }
 
-            Spacer(modifier = Modifier.height(2.dp))
+            Spacer(modifier = Modifier.height(4.dp))
 
-            Text(
-                text = item.nativeScript,
-                fontFamily = Inter,
-                fontWeight = FontWeight.Medium,
-                fontSize = 12.sp,
-                color = if (isActive) NothingRed else TextSecondary
-            )
+            // Layout identity badge chip displaying distinct accent styling
+            Box(
+                modifier = Modifier
+                    .clip(RoundedCornerShape(6.dp))
+                    .background(if (isActive) item.accentColor.copy(alpha = 0.18f) else item.accentColor.copy(alpha = 0.08f))
+                    .border(
+                        width = 1.dp,
+                        color = if (isActive) item.accentColor.copy(alpha = 0.45f) else item.accentColor.copy(alpha = 0.20f),
+                        shape = RoundedCornerShape(6.dp)
+                    )
+                    .padding(horizontal = 7.dp, vertical = 2.dp)
+            ) {
+                Text(
+                    text = item.nativeScript,
+                    fontFamily = Inter,
+                    fontWeight = FontWeight.SemiBold,
+                    fontSize = 11.5.sp,
+                    color = if (isActive) item.accentColor else item.accentColor.copy(alpha = 0.85f)
+                )
+            }
 
             Spacer(modifier = Modifier.height(10.dp))
 
@@ -175,13 +220,9 @@ fun MySpaceScreen(
     val jatiyoSubtype = "bn_BD:KeyboardLayoutSet=bengali_jatiyo:"
     val jatiyoClassicSubtype = "bn_BD:KeyboardLayoutSet=bengali_jatiyo_classic:"
     val probhatSubtype = "bn_BD:KeyboardLayoutSet=bengali_probhat:"
+    val arabicSubtype = "ar:KeyboardLayoutSet=arabic:"
 
-    // Typing & Behavior toggles
-    val (autoCorrection, setAutoCorrection) = useSharedPrefsBool(Settings.PREF_AUTO_CORRECTION, false)
-    val (actionBarShown, setActionBarShown) = useDataStore(ActionBarDisplayedSetting)
-    val (isNumberRowActive, setNumberRowActive) = useSharedPrefsBool(Settings.PREF_ENABLE_NUMBER_ROW, false)
-    val (isPinSpacebarActive, setPinSpacebarActive) = useSharedPrefsBool(Settings.PREF_PIN_KEYBOARD_NAME_ON_SPACEBAR, true)
-    val (isShowEmojiKeyActive, setShowEmojiKeyActive) = useSharedPrefsBool(Settings.PREF_SHOW_EMOJI_KEY, true)
+    var showMaxLimitAlert by remember { mutableStateOf(false) }
 
     val layoutList = listOf(
         LayoutCardItem(
@@ -190,7 +231,10 @@ fun MySpaceScreen(
             nativeScript = "বাংলা",
             sampleText = "অ আ ক খ",
             description = "Alphabetical typing",
-            subtypeString = akkhorSubtype
+            subtypeString = akkhorSubtype,
+            activeBackgroundColor = Color(0xFF221316),
+            activeBorderColor = Color(0xFFE5252A),
+            accentColor = Color(0xFFE5252A)
         ),
         LayoutCardItem(
             id = "avro",
@@ -198,7 +242,10 @@ fun MySpaceScreen(
             nativeScript = "অভ্র",
             sampleText = "ami • আমি",
             description = "Phonetic typing",
-            subtypeString = avroSubtype
+            subtypeString = avroSubtype,
+            activeBackgroundColor = Color(0xFF241B12),
+            activeBorderColor = Color(0xFFE2B438),
+            accentColor = Color(0xFFE2B438)
         ),
         LayoutCardItem(
             id = "jatiyo",
@@ -206,7 +253,10 @@ fun MySpaceScreen(
             nativeScript = "জাতীয়",
             sampleText = "অ আ ক খ",
             description = "National standard",
-            subtypeString = jatiyoSubtype
+            subtypeString = jatiyoSubtype,
+            activeBackgroundColor = Color(0xFF132220),
+            activeBorderColor = Color(0xFF38B2AC),
+            accentColor = Color(0xFF38B2AC)
         ),
         LayoutCardItem(
             id = "probhat",
@@ -214,7 +264,10 @@ fun MySpaceScreen(
             nativeScript = "প্রভাত",
             sampleText = "ami • আমি",
             description = "Probhat layout",
-            subtypeString = probhatSubtype
+            subtypeString = probhatSubtype,
+            activeBackgroundColor = Color(0xFF1B1626),
+            activeBorderColor = Color(0xFFA855F7),
+            accentColor = Color(0xFFA855F7)
         ),
         LayoutCardItem(
             id = "jatiyo_classic",
@@ -222,31 +275,47 @@ fun MySpaceScreen(
             nativeScript = "জাতীয় ক্লাসিক",
             sampleText = "অ আ ক খ",
             description = "Original traditional national layout",
-            subtypeString = jatiyoClassicSubtype
+            subtypeString = jatiyoClassicSubtype,
+            activeBackgroundColor = Color(0xFF132220),
+            activeBorderColor = Color(0xFF38B2AC),
+            accentColor = Color(0xFF38B2AC)
+        ),
+        LayoutCardItem(
+            id = "arabic",
+            title = "Arabic",
+            nativeScript = "العربية",
+            sampleText = "أ ب ت ث",
+            description = "Standard Arabic layout",
+            subtypeString = arabicSubtype,
+            activeBackgroundColor = Color(0xFF132219),
+            activeBorderColor = Color(0xFF10B981),
+            accentColor = Color(0xFF10B981)
         )
     )
 
-    val bengaliSubtypeStrings = remember { layoutList.map { it.subtypeString }.toSet() }
-    val activeCount = currentSubtypes.count { it in bengaliSubtypeStrings }
+    val supportedSubtypeStrings = remember { layoutList.map { it.subtypeString }.toSet() }
+    val activeCount = currentSubtypes.count { it in supportedSubtypeStrings }
 
     fun toggleSubtype(subtypeStr: String, enabled: Boolean) {
         if (enabled) {
             if (activeCount >= 3) {
-                Toast.makeText(context, "Maximum 3 Bengali keyboards can be selected", Toast.LENGTH_SHORT).show()
+                showMaxLimitAlert = true
                 return
             }
             val newSubtypes = currentSubtypes + subtypeStr
             context.setSettingBlocking(SubtypesSetting.key, newSubtypes)
         } else {
-            if (activeCount <= 1) {
-                Toast.makeText(context, "At least 1 Bengali keyboard must remain active", Toast.LENGTH_SHORT).show()
-                return
+            // Zero selection allowed: English-only typing works cleanly
+            var newSubtypes = currentSubtypes.filter { it != subtypeStr && it != subtypeStr.replace("::", ":") }.toSet()
+            if (newSubtypes.isEmpty()) {
+                val englishSubtype = "en_US:KeyboardLayoutSet=qwerty:"
+                newSubtypes = setOf(englishSubtype)
             }
-            val newSubtypes = currentSubtypes - subtypeStr
             context.setSettingBlocking(SubtypesSetting.key, newSubtypes)
             if (context.getSettingBlocking(ActiveSubtype) == subtypeStr) {
-                val fallback = newSubtypes.firstOrNull { it in bengaliSubtypeStrings }
-                    ?: newSubtypes.firstOrNull() ?: ""
+                val fallback = newSubtypes.firstOrNull { it in supportedSubtypeStrings }
+                    ?: newSubtypes.firstOrNull { it.startsWith("en") }
+                    ?: newSubtypes.firstOrNull() ?: "en_US:KeyboardLayoutSet=qwerty:"
                 context.setSettingBlocking(ActiveSubtype.key, fallback)
             }
         }
@@ -256,13 +325,45 @@ fun MySpaceScreen(
         Subtypes.addDefaultSubtypesIfNecessary(context)
     }
 
+    if (showMaxLimitAlert) {
+        AlertDialog(
+            onDismissRequest = { showMaxLimitAlert = false },
+            title = {
+                Text(
+                    text = "LIMIT REACHED",
+                    fontFamily = Doto,
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 17.sp,
+                    letterSpacing = 1.sp,
+                    color = Color.White
+                )
+            },
+            text = {
+                Text(
+                    text = "Maximum 3 active layouts allowed. Please deselect one to enable another.",
+                    fontFamily = Inter,
+                    fontSize = 13.5.sp,
+                    color = Color(0xFFC8C8CC),
+                    lineHeight = 19.sp
+                )
+            },
+            confirmButton = {
+                TextButton(onClick = { showMaxLimitAlert = false }) {
+                    Text("GOT IT", color = NothingRed, fontWeight = FontWeight.Bold, fontFamily = Inter, fontSize = 13.sp)
+                }
+            },
+            containerColor = Color(0xFF18181C),
+            shape = RoundedCornerShape(16.dp)
+        )
+    }
+
     Column(
         modifier = modifier
             .fillMaxSize()
             .background(BackgroundColor)
             .verticalScroll(scrollState)
             .navigationBarsPadding()
-            .padding(bottom = 84.dp)
+            .padding(bottom = 160.dp)
     ) {
         Spacer(modifier = Modifier.height(10.dp))
 
@@ -283,15 +384,8 @@ fun MySpaceScreen(
                 .fillMaxWidth()
                 .padding(horizontal = 20.dp, vertical = 4.dp),
             verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.SpaceBetween
+            horizontalArrangement = Arrangement.End
         ) {
-            Text(
-                text = "Pick up to 3 to cycle between",
-                fontFamily = Inter,
-                fontSize = 12.sp,
-                color = TextSecondary
-            )
-
             // Layout Counter Pill: [ — — —  X/3 ]
             Box(
                 modifier = Modifier
@@ -327,7 +421,7 @@ fun MySpaceScreen(
 
         Spacer(modifier = Modifier.height(8.dp))
 
-        // 3. Layout Cards Grid (2x2 + 5th item)
+        // 3. Layout Cards Grid (2x3 Grid)
         Column(
             modifier = Modifier
                 .fillMaxWidth()
@@ -344,7 +438,7 @@ fun MySpaceScreen(
                 LayoutGridCard(
                     item = banglaItem,
                     isActive = isBanglaActive,
-                    canToggle = if (isBanglaActive) activeCount > 1 else activeCount < 3,
+                    canToggle = true,
                     onToggle = { enabled -> toggleSubtype(banglaItem.subtypeString, enabled) },
                     modifier = Modifier.weight(1f)
                 )
@@ -354,7 +448,7 @@ fun MySpaceScreen(
                 LayoutGridCard(
                     item = avroItem,
                     isActive = isAvroActive,
-                    canToggle = if (isAvroActive) activeCount > 1 else activeCount < 3,
+                    canToggle = true,
                     onToggle = { enabled -> toggleSubtype(avroItem.subtypeString, enabled) },
                     modifier = Modifier.weight(1f)
                 )
@@ -370,7 +464,7 @@ fun MySpaceScreen(
                 LayoutGridCard(
                     item = jatiyoItem,
                     isActive = isJatiyoActive,
-                    canToggle = if (isJatiyoActive) activeCount > 1 else activeCount < 3,
+                    canToggle = true,
                     onToggle = { enabled -> toggleSubtype(jatiyoItem.subtypeString, enabled) },
                     modifier = Modifier.weight(1f)
                 )
@@ -380,109 +474,104 @@ fun MySpaceScreen(
                 LayoutGridCard(
                     item = probhatItem,
                     isActive = isProbhatActive,
-                    canToggle = if (isProbhatActive) activeCount > 1 else activeCount < 3,
+                    canToggle = true,
                     onToggle = { enabled -> toggleSubtype(probhatItem.subtypeString, enabled) },
                     modifier = Modifier.weight(1f)
                 )
             }
 
-            // Row 3 (Jatiyo Classic Full Width)
-            val classicItem = layoutList[4]
-            val isClassicActive = currentSubtypes.contains(classicItem.subtypeString)
-            LayoutGridCard(
-                item = classicItem,
-                isActive = isClassicActive,
-                canToggle = if (isClassicActive) activeCount > 1 else activeCount < 3,
-                onToggle = { enabled -> toggleSubtype(classicItem.subtypeString, enabled) }
-            )
-        }
-
-        Spacer(modifier = Modifier.height(18.dp))
-
-        // 4. Section Header: Typing Behavior
-        SectionHeader(
-            title = "Typing Behavior",
-            modifier = Modifier.padding(horizontal = 16.dp)
-        )
-
-        NeuCard(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 16.dp),
-            contentPadding = 4.dp
-        ) {
-            ToggleSettingRow(
-                title = "Auto-correction",
-                subtitle = "Spacebar commits suggested corrections (off for raw phonetic)",
-                checked = autoCorrection,
-                onCheckedChange = { setAutoCorrection(it) }
-            )
-            Box(Modifier.fillMaxWidth().height(1.dp).background(DividerColor))
-
-            ToggleSettingRow(
-                title = "Suggestion row",
-                subtitle = "Suggests and quickly acts above the keys",
-                checked = actionBarShown,
-                onCheckedChange = { setActionBarShown(it) }
-            )
-            Box(Modifier.fillMaxWidth().height(1.dp).background(DividerColor))
-
-            ToggleSettingRow(
-                title = "Number row",
-                subtitle = "Dedicated digits 0–9 above the letters",
-                checked = isNumberRowActive,
-                onCheckedChange = { setNumberRowActive(it) }
-            )
-            Box(Modifier.fillMaxWidth().height(1.dp).background(DividerColor))
-
-            ToggleSettingRow(
-                title = "Layout name on spacebar",
-                subtitle = if (isPinSpacebarActive) "Always show active layout name" else "Show briefly when switching",
-                checked = isPinSpacebarActive,
-                onCheckedChange = { setPinSpacebarActive(it) }
-            )
-            Box(Modifier.fillMaxWidth().height(1.dp).background(DividerColor))
-
-            ToggleSettingRow(
-                title = "Show emoji key",
-                subtitle = "Show dedicated emoji key in the bottom row",
-                checked = isShowEmojiKeyActive,
-                onCheckedChange = { setShowEmojiKeyActive(it) }
-            )
-        }
-
-        Spacer(modifier = Modifier.height(16.dp))
-
-        // 5. Quick Tip Box
-        NeuCard(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 16.dp),
-            contentPadding = 14.dp
-        ) {
+            // Row 3 (Jatiyo Classic & Arabic)
             Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(12.dp)
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(10.dp)
             ) {
-                Box(
-                    modifier = Modifier
-                        .size(8.dp)
-                        .clip(CircleShape)
-                        .background(NothingRed)
+                val classicItem = layoutList[4]
+                val isClassicActive = currentSubtypes.contains(classicItem.subtypeString)
+                LayoutGridCard(
+                    item = classicItem,
+                    isActive = isClassicActive,
+                    canToggle = true,
+                    onToggle = { enabled -> toggleSubtype(classicItem.subtypeString, enabled) },
+                    modifier = Modifier.weight(1f)
                 )
-                Text(
-                    text = "Swipe horizontally on spacebar or tap the globe key to quickly cycle through your active keyboards.",
-                    fontFamily = Inter,
-                    fontSize = 12.sp,
-                    lineHeight = 17.sp,
-                    color = TextSecondary
+
+                val arabicItem = layoutList[5]
+                val isArabicActive = currentSubtypes.contains(arabicItem.subtypeString)
+                LayoutGridCard(
+                    item = arabicItem,
+                    isActive = isArabicActive,
+                    canToggle = true,
+                    onToggle = { enabled -> toggleSubtype(arabicItem.subtypeString, enabled) },
+                    modifier = Modifier.weight(1f)
                 )
             }
         }
 
-        Spacer(modifier = Modifier.height(18.dp))
+        Spacer(modifier = Modifier.height(14.dp))
 
-        // 6. Try Typing Action Capsule
+        // 4. Languages & Subtypes Navigation Capsule
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp)
+        ) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(14.dp))
+                    .background(Color(0xFF141416))
+                    .border(1.dp, BorderColor, RoundedCornerShape(14.dp))
+                    .clickable { navController.navigate("languages") }
+                    .padding(horizontal = 16.dp, vertical = 12.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .size(36.dp)
+                            .clip(RoundedCornerShape(10.dp))
+                            .background(SurfaceVariant),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            imageVector = Icons.Rounded.Language,
+                            contentDescription = null,
+                            tint = Color.White,
+                            modifier = Modifier.size(20.dp)
+                        )
+                    }
+                    Column {
+                        Text(
+                            text = "Languages & Subtypes",
+                            fontFamily = Inter,
+                            fontWeight = FontWeight.SemiBold,
+                            fontSize = 14.sp,
+                            color = Color.White
+                        )
+                        Text(
+                            text = "Manage all installed languages & input methods",
+                            fontFamily = Inter,
+                            fontSize = 11.sp,
+                            color = TextSecondary
+                        )
+                    }
+                }
+                Icon(
+                    imageVector = Icons.Rounded.ChevronRight,
+                    contentDescription = null,
+                    tint = TextSecondary,
+                    modifier = Modifier.size(20.dp)
+                )
+            }
+        }
+
+        Spacer(modifier = Modifier.height(14.dp))
+
+        // 5. Try Typing Action Capsule
         Box(
             modifier = Modifier
                 .fillMaxWidth()
@@ -518,6 +607,6 @@ fun MySpaceScreen(
             }
         }
 
-        Spacer(modifier = Modifier.height(24.dp))
+        Spacer(modifier = Modifier.height(110.dp))
     }
 }

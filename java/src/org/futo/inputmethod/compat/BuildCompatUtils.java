@@ -23,7 +23,7 @@ public final class BuildCompatUtils {
         // This utility class is not publicly instantiable.
     }
 
-    private static final boolean IS_RELEASE_BUILD = Build.VERSION.CODENAME.equals("REL");
+    private static final boolean IS_RELEASE_BUILD = "REL".equals(Build.VERSION.CODENAME);
 
     /**
      * The "effective" API version.

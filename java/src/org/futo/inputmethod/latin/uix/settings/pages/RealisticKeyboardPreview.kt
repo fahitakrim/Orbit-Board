@@ -1,6 +1,5 @@
 package org.futo.inputmethod.latin.uix.settings.pages
 
-import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
@@ -12,11 +11,8 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.ArrowForward
 import androidx.compose.material.icons.filled.Backspace
 import androidx.compose.material.icons.filled.KeyboardArrowUp
@@ -25,46 +21,38 @@ import androidx.compose.material.icons.filled.SentimentSatisfied
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.graphics.toArgb
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.compose.ui.platform.LocalContext
-import androidx.compose.foundation.gestures.detectTapGestures
-import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.setValue
-import androidx.compose.runtime.withFrameNanos
-import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
-import androidx.compose.ui.graphics.nativeCanvas
-import androidx.compose.ui.input.pointer.pointerInput
-import org.futo.inputmethod.keyboard.internal.KeyboardTapAnimationManager
-import org.futo.inputmethod.keyboard.internal.TapAnimationType
-import androidx.compose.runtime.remember
-import androidx.compose.ui.graphics.toArgb
 import androidx.core.graphics.ColorUtils
 import org.futo.inputmethod.latin.uix.adjustColorBrightnessForContrast
-import org.futo.inputmethod.latin.uix.theme.Doto
-import org.futo.inputmethod.latin.uix.theme.Inter
-import org.futo.inputmethod.latin.uix.theme.Qurova
 import org.futo.inputmethod.latin.uix.theme.Agency
-import org.futo.inputmethod.latin.uix.theme.NothingRed
-import org.futo.inputmethod.latin.uix.theme.ThemeOptions
 import org.futo.inputmethod.latin.uix.theme.DarkColorScheme
+import org.futo.inputmethod.latin.uix.theme.Inter
+import org.futo.inputmethod.latin.uix.theme.Ndot
+import org.futo.inputmethod.latin.uix.theme.NothingRed
+import org.futo.inputmethod.latin.uix.theme.Qurova
+import org.futo.inputmethod.latin.uix.theme.ThemeOptions
+import org.futo.inputmethod.latin.uix.theme.presets.BerryBlushThemeHelper
 import org.futo.inputmethod.latin.uix.theme.presets.NothingDark
+import org.futo.inputmethod.latin.uix.theme.presets.RetroBlocksThemeHelper
+import org.futo.inputmethod.latin.uix.theme.presets.TactileSlateThemeHelper
 
 @Composable
 fun RealisticKeyboardPreview(
     currentTheme: String,
-    spacebarColor: Color,
-    spacebarBorder: Color?,
+    spacebarColor: Color = Color.Unspecified,
+    spacebarBorder: Color? = null,
     spacebarShape: String = "boxy",
     spacebarTextColor: Color? = null,
     hasKeyBorders: Boolean = true,
@@ -76,36 +64,37 @@ fun RealisticKeyboardPreview(
     keyHintColor: String = "subtle",
     customAccentColor: String = "default",
     keyboardFont: String = "nothing",
+    keyboardBgColor: String = "default",
+    keyboardKeyColor: String = "default",
+    keyboardTextColor: String = "default",
     typingEffect: String = "none",
+    laserColor: String = "neon",
     activeLayoutName: String = "English",
     heightMultiplier: Float = 1.0f,
     bottomOffset: Float = 0f,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    spacebarColorKey: String? = null,
+    spacebarBorderKey: String? = null,
+    spacebarTextColorKey: String? = null
 ) {
     val context = LocalContext.current
-    val tapAnimationManager = remember { KeyboardTapAnimationManager() }
-    var animFrame by remember { mutableStateOf(0L) }
-    var activeTrigger by remember { mutableStateOf(0) }
 
-    LaunchedEffect(activeTrigger) {
-        if (activeTrigger > 0) {
-            while (tapAnimationManager.hasActiveEffects()) {
-                withFrameNanos { time ->
-                    animFrame = time
-                }
-            }
-        }
-    }
     val isOrbitTheme = currentTheme == "OrbitTheme"
     val isChaosTheme = currentTheme == "OrbitChaos"
     val isRadarTheme = currentTheme == "NothingRadarWave" || currentTheme == "GlyphRadarPulse"
     val isBurstTheme = currentTheme == "MicroGlyphSpark" || currentTheme == "DotParticleBurst"
-    val activeFont: FontFamily = when (keyboardFont) {
-        "normal" -> Inter
-        "qurova" -> Qurova
-        "agency" -> Agency
-        else -> Doto
+    val isRetroBlocksTheme = currentTheme == "retro_blocks" || currentTheme == "RetroBlocks"
+    val isBerryBlushTheme = currentTheme == "berry_blush" || currentTheme == "BerryBlush"
+    val isTactileSlateTheme = currentTheme == "tactile_slate" || currentTheme == "TactileSlate"
+    val isBamboosaTheme = currentTheme == "bamboosa" || currentTheme == "Bamboosa"
+
+    val activeFont: FontFamily = when {
+        keyboardFont == "normal" -> Inter
+        keyboardFont == "qurova" -> Qurova
+        keyboardFont == "agency" -> Agency
+        else -> Ndot // Authentic Nothing Dot Font!
     }
+
     val customAccentOverride: Color? = when (customAccentColor) {
         "red" -> Color(0xFFD71921)
         "yellow" -> Color(0xFFE2B438)
@@ -116,11 +105,12 @@ fun RealisticKeyboardPreview(
         "orange" -> Color(0xFFFF7A00)
         else -> null
     }
+
     val themeOption = ThemeOptions[currentTheme] ?: ThemeOptions["NothingDark"] ?: NothingDark
     val rawColors = remember(currentTheme, context) {
         try {
             themeOption.obtainColors(context)
-        } catch (e: Exception) {
+        } catch (_: Throwable) {
             DarkColorScheme
         }
     }
@@ -135,33 +125,46 @@ fun RealisticKeyboardPreview(
         }
     }
 
-    val containerBg = if (isChaosTheme) {
-        Color(0xFF000000)
-    } else if (isOrbitTheme || isRadarTheme || isBurstTheme) {
-        Color(0xFF0C0C0E)
-    } else {
-        colors.background
+    fun parseColorHex(str: String, fallback: Color): Color {
+        return try {
+            if (str.startsWith("#")) Color(android.graphics.Color.parseColor(str))
+            else fallback
+        } catch (_: Throwable) {
+            fallback
+        }
     }
 
-    val defaultKeyBg = if (isChaosTheme) {
-        Color.Transparent
-    } else if (!hasKeyBorders) {
-        Color.Transparent
-    } else if (isRadarTheme) {
-        Color(0xFF1C1D21)
-    } else if (isBurstTheme) {
-        Color(0xFF16171B)
-    } else if (isOrbitTheme) {
-        Color(0xFF1C1D20)
-    } else if (colors.surface != colors.background) {
-        colors.surface
-    } else if (colors.surfaceVariant != colors.surface) {
-        colors.surfaceVariant
-    } else {
-        Color(adjustColorBrightnessForContrast(colors.background.toArgb(), colors.background.toArgb(), 1.5f))
+    val containerBg = when {
+        keyboardBgColor != "default" -> parseColorHex(keyboardBgColor, colors.background)
+        isChaosTheme -> Color(0xFF000000)
+        isRetroBlocksTheme -> Color(RetroBlocksThemeHelper.COLOR_BLACK)
+        isBerryBlushTheme -> Color(BerryBlushThemeHelper.COLOR_BACKGROUND)
+        isTactileSlateTheme -> Color(TactileSlateThemeHelper.COLOR_CHASSIS)
+        isOrbitTheme || isRadarTheme || isBurstTheme -> Color(0xFF141416)
+        else -> colors.background
     }
 
-    val defaultTextCol = if (isOrbitTheme || isRadarTheme || isBurstTheme) Color.White else colors.onSurface
+    val defaultKeyBg = when {
+        keyboardKeyColor != "default" -> parseColorHex(keyboardKeyColor, colors.surface)
+        isTactileSlateTheme -> Color(TactileSlateThemeHelper.COLOR_WHITE_KEY)
+        isRetroBlocksTheme -> Color(RetroBlocksThemeHelper.COLOR_CHARCOAL)
+        isBerryBlushTheme -> Color(BerryBlushThemeHelper.BLUSH_PINK)
+        isChaosTheme -> Color.Transparent
+        isRadarTheme -> Color(0xFF1C1D21)
+        isBurstTheme -> Color(0xFF16171B)
+        isOrbitTheme -> Color(0xFF1C1D20)
+        colors.surface != colors.background -> colors.surface
+        colors.surfaceVariant != colors.surface -> colors.surfaceVariant
+        else -> Color(adjustColorBrightnessForContrast(colors.background.toArgb(), colors.background.toArgb(), 1.5f))
+    }
+
+    val defaultTextCol = when {
+        keyboardTextColor != "default" -> parseColorHex(keyboardTextColor, Color.White)
+        isTactileSlateTheme -> Color(TactileSlateThemeHelper.COLOR_TEXT_DARK)
+        isBerryBlushTheme -> Color(BerryBlushThemeHelper.DARK_INK)
+        isOrbitTheme || isRadarTheme || isBurstTheme || isRetroBlocksTheme -> Color.White
+        else -> colors.onSurface
+    }
 
     val isThemeDark = ColorUtils.calculateLuminance(containerBg.toArgb()) < 0.5
     val hintCol = when (keyHintColor) {
@@ -174,21 +177,74 @@ fun RealisticKeyboardPreview(
         else -> if (isChaosTheme) Color(0xBBE2B438) else if (isThemeDark) Color(0xFF8E8E93) else Color(0xFF72727A)
     }
 
-    val subtleKeyBorder = if (isChaosTheme) {
-        null
-    } else if (hasKeyBorders) {
-        if (isRadarTheme) {
-            Color(0xFF28282E)
-        } else if (isBurstTheme) {
-            Color(0xFF27282F)
-        } else if (isOrbitTheme) {
-            Color(0xFF28282E)
-        } else {
-            colors.outline.copy(alpha = if (isThemeDark) 0.35f else 0.45f)
+    val subtleKeyBorder = when {
+        isChaosTheme -> null
+        hasKeyBorders -> {
+            when {
+                isRadarTheme -> Color(0xFF28282E)
+                isBurstTheme -> Color(0xFF27282F)
+                isOrbitTheme -> Color(0xFF28282E)
+                isTactileSlateTheme -> Color(0x33000000)
+                isBerryBlushTheme -> Color(0x225E1D35)
+                isRetroBlocksTheme -> Color(0x22FFFFFF)
+                else -> colors.outline.copy(alpha = if (isThemeDark) 0.35f else 0.45f)
+            }
         }
-    } else null
+        else -> null
+    }
 
     fun getThemeKeyColors(keyChar: String, isAction: Boolean = false): Pair<Color, Color> {
+        if (isRetroBlocksTheme) {
+            val key = keyChar.lowercase()
+            return when {
+                key == "backspace" -> Pair(Color(RetroBlocksThemeHelper.COLOR_RED), Color.White)
+                key == "spacebar" -> Pair(Color(RetroBlocksThemeHelper.COLOR_BLACK), Color.White)
+                key in listOf("o", "g", "x") -> Pair(Color(RetroBlocksThemeHelper.COLOR_YELLOW), Color(RetroBlocksThemeHelper.COLOR_TEXT_DARK))
+                key in listOf("q", "t", "j", "m", "shift", "?123", "enter") -> Pair(Color(RetroBlocksThemeHelper.COLOR_OLIVE), Color(RetroBlocksThemeHelper.COLOR_TEXT_LIGHT))
+                key in listOf("w", "y", "d", "k", "v", "b", "emoji", ".", "period_right") -> Pair(Color(RetroBlocksThemeHelper.COLOR_FOREST), Color(RetroBlocksThemeHelper.COLOR_TEXT_LIGHT))
+                key in listOf("e", "i", "p", "f", "l", "z", "n", ",", "period_left") -> Pair(Color(RetroBlocksThemeHelper.COLOR_CHARCOAL), Color(RetroBlocksThemeHelper.COLOR_TEXT_LIGHT))
+                key in listOf("r", "u", "a", "h", "c") -> Pair(Color(RetroBlocksThemeHelper.COLOR_CREAM), Color(RetroBlocksThemeHelper.COLOR_TEXT_DARK))
+                else -> Pair(Color(RetroBlocksThemeHelper.COLOR_CHARCOAL), Color(RetroBlocksThemeHelper.COLOR_TEXT_LIGHT))
+            }
+        }
+
+        if (isBerryBlushTheme) {
+            val key = keyChar.lowercase()
+            return when {
+                key == "backspace" -> Pair(Color(BerryBlushThemeHelper.HOT_PINK), Color.White)
+                key == "enter" -> Pair(Color(BerryBlushThemeHelper.BERRY_ROSE), Color.White)
+                key in listOf("?123", "emoji") -> Pair(Color(BerryBlushThemeHelper.LAVENDER), Color(BerryBlushThemeHelper.DARK_INK))
+                key in listOf("shift", "comma", "period_left") -> Pair(Color(BerryBlushThemeHelper.ROSE_MAUVE), Color.White)
+                key in listOf("q", "t", "u", "o", "f", "h", "v") -> Pair(Color(BerryBlushThemeHelper.BLUSH_PINK), Color(BerryBlushThemeHelper.DARK_INK))
+                key in listOf("w", "r", "i", "p", "d", "j", "l", "b") -> Pair(Color(BerryBlushThemeHelper.BUBBLEGUM_PINK), Color(BerryBlushThemeHelper.DARK_INK))
+                key in listOf("e", "y", "s", "g", "k", "c", "m") -> Pair(Color(BerryBlushThemeHelper.LAVENDER), Color(BerryBlushThemeHelper.DARK_INK))
+                key in listOf("a", "z", "x", "n") -> Pair(Color(BerryBlushThemeHelper.WARM_CREAM), Color(BerryBlushThemeHelper.DARK_INK))
+                else -> Pair(Color(BerryBlushThemeHelper.BLUSH_PINK), Color(BerryBlushThemeHelper.DARK_INK))
+            }
+        }
+
+        if (isTactileSlateTheme) {
+            val key = keyChar.lowercase()
+            return when {
+                key == "backspace" -> Pair(Color(TactileSlateThemeHelper.COLOR_RED_BACKSPACE), Color.White)
+                key in listOf("shift", "?123", "emoji", "enter") -> Pair(Color(TactileSlateThemeHelper.COLOR_MODIFIER), Color.White)
+                else -> Pair(Color(TactileSlateThemeHelper.COLOR_WHITE_KEY), Color(TactileSlateThemeHelper.COLOR_TEXT_DARK))
+            }
+        }
+
+        if (isBamboosaTheme) {
+            val yellow = Color(0xFFFED700)
+            val olive = Color(0xFF8D9938)
+            val darkGreen = Color(0xFF2C3E2D)
+            val textCol = Color.White
+            val key = keyChar.lowercase()
+            return when {
+                key == "enter" -> Pair(yellow, Color(0xFF1C1D20))
+                key in listOf("shift", "?123", "backspace") -> Pair(olive, textCol)
+                else -> Pair(darkGreen, textCol)
+            }
+        }
+
         if (isChaosTheme) {
             val yellow = Color(0xFFE2B438)
             val blue = Color(0xFF3B72BA)
@@ -267,7 +323,6 @@ fun RealisticKeyboardPreview(
             }
         }
 
-        // Dynamic theme styling for Cotton Candy, Emerald, Nothing, etc.
         if (keyChar == "enter") {
             return Pair(colors.primary, colors.onPrimary)
         }
@@ -338,141 +393,85 @@ fun RealisticKeyboardPreview(
     val numKeyHeightDp = (36 * safeHeightMultiplier).dp
     val actionRowHeightDp = (36 * safeHeightMultiplier).dp
 
+    val shape = RoundedCornerShape(14.dp)
+
+    // Pure Non-Interactive Visual Preview Card (zero touch, zero focus stealing, zero side effects)
     Box(
         modifier = modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(16.dp))
+            .clip(shape)
             .background(containerBg)
-            .border(1.dp, Color(0xFF232326), RoundedCornerShape(16.dp))
-            .pointerInput(typingEffect) {
-                detectTapGestures { offset ->
-                    val animType = when (typingEffect) {
-                        "radar_wave" -> TapAnimationType.RADAR_WAVE
-                        "particle_burst" -> TapAnimationType.PARTICLE_BURST
-                        "constellation_web" -> TapAnimationType.CONSTELLATION_WEB
-                        else -> TapAnimationType.NONE
-                    }
-                    if (animType != TapAnimationType.NONE) {
-                        tapAnimationManager.spawnAnimation(animType, offset.x, offset.y)
-                        activeTrigger++
-                    }
-                }
-            }
+            .border(1.dp, Color.White.copy(alpha = 0.12f), shape)
     ) {
-        // Animation layer rendered UNDER the keys (behind borders & key tops)
-        Canvas(
-            modifier = Modifier.matchParentSize()
-        ) {
-            val _f = animFrame
-            drawIntoCanvas { composeCanvas ->
-                tapAnimationManager.draw(composeCanvas.nativeCanvas)
-            }
-        }
-
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 8.dp, vertical = 10.dp),
-            verticalArrangement = Arrangement.spacedBy(5.dp)
+                .padding(horizontal = 6.dp, vertical = 6.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            // 1. Suggestion / Action Bar
+            // SUGGESTION / ACTION ROW
             if (showSuggestionRow) {
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
                         .height(actionRowHeightDp)
-                        .padding(horizontal = 4.dp),
+                        .padding(horizontal = 4.dp, vertical = 2.dp),
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.SpaceBetween
                 ) {
-                    // Back / Collapse button
-                    Box(
-                        modifier = Modifier
-                            .size(26.dp)
-                            .clip(CircleShape)
-                            .background(if (isOrbitTheme) Color.White else if (isThemeDark) Color(0xFF282830) else Color(0xFFE0E0E6)),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.ArrowBack,
-                            contentDescription = null,
-                            tint = if (isOrbitTheme) Color(0xFF1C1D20) else colors.onBackground,
-                            modifier = Modifier.size(15.dp)
+                    val actTint = if (isBerryBlushTheme) Color(BerryBlushThemeHelper.DARK_INK) else colors.onSurface.copy(alpha = 0.6f)
+                    Icon(
+                        imageVector = Icons.Default.KeyboardArrowUp,
+                        contentDescription = "Expand",
+                        tint = actTint,
+                        modifier = Modifier.size(18.dp)
+                    )
+                    Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+                        Text(
+                            text = "Orbit",
+                            fontFamily = activeFont,
+                            fontSize = 13.sp,
+                            fontWeight = FontWeight.Normal,
+                            color = actTint
+                        )
+                        Text(
+                            text = "Board",
+                            fontFamily = activeFont,
+                            fontSize = 13.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = colors.primary
+                        )
+                        Text(
+                            text = "Preview",
+                            fontFamily = activeFont,
+                            fontSize = 13.sp,
+                            fontWeight = FontWeight.Normal,
+                            color = actTint
                         )
                     }
-
-                    // Suggestions: Suggest | Suggest | Suggest
-                    Row(
-                        modifier = Modifier.weight(1f),
-                        horizontalArrangement = Arrangement.Center,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        val suggestTextCol = if (isOrbitTheme) Color(0xFFE5E5EA) else colors.onBackground
-                        val dividerCol = if (isOrbitTheme) Color(0xFF383840) else colors.outline.copy(alpha = 0.33f)
-                        Text(
-                            text = "Suggest",
-                            fontFamily = activeFont,
-                            fontWeight = FontWeight.Medium,
-                            fontSize = 12.sp,
-                            color = suggestTextCol
-                        )
-                        Spacer(modifier = Modifier.width(10.dp))
-                        Box(
-                            modifier = Modifier
-                                .width(1.dp)
-                                .height(14.dp)
-                                .background(dividerCol)
-                        )
-                        Spacer(modifier = Modifier.width(10.dp))
-                        Text(
-                            text = "Suggest",
-                            fontFamily = activeFont,
-                            fontWeight = FontWeight.Medium,
-                            fontSize = 12.sp,
-                            color = suggestTextCol
-                        )
-                        Spacer(modifier = Modifier.width(10.dp))
-                        Box(
-                            modifier = Modifier
-                                .width(1.dp)
-                                .height(14.dp)
-                                .background(dividerCol)
-                        )
-                        Spacer(modifier = Modifier.width(10.dp))
-                        Text(
-                            text = "Suggest",
-                            fontFamily = activeFont,
-                            fontWeight = FontWeight.Medium,
-                            fontSize = 12.sp,
-                            color = suggestTextCol
-                        )
-                    }
-
-                    // Action Icon (Globe)
                     Icon(
                         imageVector = Icons.Default.Language,
-                        contentDescription = null,
-                        tint = if (isOrbitTheme) Color(0xFF8E8E93) else colors.onBackground.copy(alpha = 0.7f),
+                        contentDescription = "Language",
+                        tint = actTint,
                         modifier = Modifier.size(18.dp)
                     )
                 }
-
-                Spacer(modifier = Modifier.height(2.dp))
+                Spacer(modifier = Modifier.height(3.dp))
             }
 
-            // 2. Number Row (Optional)
+            // NUMBER ROW (OPTIONAL)
             if (showNumberRow) {
+                val numRow = listOf("1", "2", "3", "4", "5", "6", "7", "8", "9", "0")
                 Row(
                     modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(3.dp)
+                    horizontalArrangement = Arrangement.spacedBy(4.dp)
                 ) {
-                    val digits = if (isChaosTheme) listOf("1", "2", "3", "4", "5", "9", "7", "8", "6", "0") else listOf("1", "2", "3", "4", "5", "6", "7", "8", "9", "0")
-                    digits.forEach { digit ->
+                    numRow.forEach { digit ->
                         val (bg, txt) = getThemeKeyColors(digit)
                         KeyTile(
                             text = digit,
                             hint = null,
-                            font = Inter,
+                            font = activeFont,
                             bgColor = bg,
                             textColor = txt,
                             hintColor = hintCol,
@@ -484,22 +483,21 @@ fun RealisticKeyboardPreview(
                         )
                     }
                 }
+                Spacer(modifier = Modifier.height(4.dp))
             }
 
-            // 3. Row 1: q w e r t y u i o p
+            // ROW 1: Q W E R T Y U I O P
+            val row1Keys = listOf("q", "w", "e", "r", "t", "y", "u", "i", "o", "p")
+            val row1Hints = if (showKeyHints && !showNumberRow) listOf("1", "2", "3", "4", "5", "6", "7", "8", "9", "0") else List(10) { null }
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(3.dp)
+                horizontalArrangement = Arrangement.spacedBy(4.dp)
             ) {
-                val row1Keys = listOf(
-                    "q" to "1", "w" to "2", "e" to "3", "r" to "4", "t" to "5",
-                    "y" to "6", "u" to "7", "i" to "8", "o" to "9", "p" to "0"
-                )
-                row1Keys.forEach { (char, digit) ->
+                row1Keys.forEachIndexed { index, char ->
                     val (bg, txt) = getThemeKeyColors(char)
                     KeyTile(
                         text = char,
-                        hint = if (showKeyHints) digit else null,
+                        hint = row1Hints.getOrNull(index),
                         font = activeFont,
                         bgColor = bg,
                         textColor = txt,
@@ -513,21 +511,22 @@ fun RealisticKeyboardPreview(
                 }
             }
 
-            // 4. Row 2: a s d f g h j k l (Indented)
+            Spacer(modifier = Modifier.height(4.dp))
+
+            // ROW 2: A S D F G H J K L
+            val row2Keys = listOf("a", "s", "d", "f", "g", "h", "j", "k", "l")
+            val row2Hints = if (showKeyHints) listOf("@", "#", "$", "%", "&", "-", "+", "(", ")") else List(9) { null }
             Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(3.dp)
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 14.dp),
+                horizontalArrangement = Arrangement.spacedBy(4.dp)
             ) {
-                Spacer(modifier = Modifier.weight(0.5f))
-                val row2Keys = listOf(
-                    "a" to "@", "s" to "#", "d" to "&", "f" to "*", "g" to "-",
-                    "h" to "!", "j" to "?", "k" to "(", "l" to ")"
-                )
-                row2Keys.forEach { (char, symbol) ->
+                row2Keys.forEachIndexed { index, char ->
                     val (bg, txt) = getThemeKeyColors(char)
                     KeyTile(
                         text = char,
-                        hint = if (showKeyHints) symbol else null,
+                        hint = row2Hints.getOrNull(index),
                         font = activeFont,
                         bgColor = bg,
                         textColor = txt,
@@ -539,24 +538,27 @@ fun RealisticKeyboardPreview(
                         hintAlignment = getHintAlignment(char)
                     )
                 }
-                Spacer(modifier = Modifier.weight(0.5f))
             }
 
-            // 5. Row 3: Shift, z x c v b n m, Backspace
+            Spacer(modifier = Modifier.height(4.dp))
+
+            // ROW 3: SHIFT, Z X C V B N M, BACKSPACE
+            val row3Keys = listOf("z", "x", "c", "v", "b", "n", "m")
+            val row3Hints = if (showKeyHints) listOf("*", "\"", "'", ":", ";", "!", "?") else List(7) { null }
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(3.dp),
+                horizontalArrangement = Arrangement.spacedBy(4.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                // Shift key
-                val (shiftBg, shiftTxt) = getThemeKeyColors("shift", isAction = true)
+                // Shift Key
+                val (shiftBg, shiftTxt) = getThemeKeyColors("shift")
                 KeyTileIcon(
                     icon = {
                         Icon(
                             imageVector = Icons.Default.KeyboardArrowUp,
                             contentDescription = "Shift",
                             tint = shiftTxt,
-                            modifier = Modifier.size(18.dp)
+                            modifier = Modifier.size(19.dp)
                         )
                     },
                     bgColor = shiftBg,
@@ -565,16 +567,11 @@ fun RealisticKeyboardPreview(
                     modifier = Modifier.weight(1.35f)
                 )
 
-                // z x c v b n m
-                val row3Keys = listOf(
-                    "z" to "\"", "x" to "'", "c" to ":", "v" to ";", "b" to "/",
-                    "n" to ",", "m" to "?"
-                )
-                row3Keys.forEach { (char, symbol) ->
+                row3Keys.forEachIndexed { index, char ->
                     val (bg, txt) = getThemeKeyColors(char)
                     KeyTile(
                         text = char,
-                        hint = if (showKeyHints) symbol else null,
+                        hint = row3Hints.getOrNull(index),
                         font = activeFont,
                         bgColor = bg,
                         textColor = txt,
@@ -587,32 +584,34 @@ fun RealisticKeyboardPreview(
                     )
                 }
 
-                // Backspace key
-                val (backspaceBg, backspaceTxt) = getThemeKeyColors("backspace", isAction = true)
+                // Backspace Key
+                val (backBg, backTxt) = getThemeKeyColors("backspace")
                 KeyTileIcon(
                     icon = {
                         Icon(
                             imageVector = Icons.Default.Backspace,
                             contentDescription = "Backspace",
-                            tint = backspaceTxt,
-                            modifier = Modifier.size(16.dp)
+                            tint = backTxt,
+                            modifier = Modifier.size(19.dp)
                         )
                     },
-                    bgColor = backspaceBg,
+                    bgColor = backBg,
                     borderColor = subtleKeyBorder,
                     height = keyHeightDp,
                     modifier = Modifier.weight(1.35f)
                 )
             }
 
-            // 6. Row 4: ?123, emoji, period, Spacebar, period, Enter
+            Spacer(modifier = Modifier.height(4.dp))
+
+            // ROW 4: ?123, EMOJI/COMMA, SPACEBAR, PERIOD, ENTER
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(3.dp),
+                horizontalArrangement = Arrangement.spacedBy(4.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                // ?123 key
-                val (symBg, symTxt) = getThemeKeyColors("?123", isAction = true)
+                // ?123 Key
+                val (symBg, symTxt) = getThemeKeyColors("?123")
                 KeyTile(
                     text = "?123",
                     hint = null,
@@ -625,82 +624,75 @@ fun RealisticKeyboardPreview(
                     modifier = Modifier.weight(1.35f)
                 )
 
-                // Emoji / Comma key
-                if (showEmojiKey) {
-                    val (emojiBg, emojiTxt) = getThemeKeyColors("emoji", isAction = true)
-                    KeyTileIcon(
-                        icon = {
-                            Column(
-                                horizontalAlignment = Alignment.CenterHorizontally,
-                                verticalArrangement = Arrangement.Center
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Default.SentimentSatisfied,
-                                    contentDescription = "Emoji",
-                                    tint = if (isOrbitTheme) emojiTxt else colors.primary,
-                                    modifier = Modifier.size(14.dp)
-                                )
-                                Text(
-                                    text = ",",
-                                    fontFamily = activeFont,
-                                    fontSize = 11.sp,
-                                    color = if (isOrbitTheme) emojiTxt else colors.onSurface,
-                                    lineHeight = 11.sp
-                                )
-                            }
-                        },
-                        bgColor = emojiBg,
-                        borderColor = subtleKeyBorder,
-                        height = keyHeightDp,
-                        modifier = Modifier.weight(1.0f)
-                    )
-                }
-
-                // Left Period Key
-                val (periodLeftBg, periodLeftTxt) = getThemeKeyColors("period_left")
-                KeyTile(
-                    text = ".",
-                    hint = null,
-                    font = activeFont,
-                    bgColor = periodLeftBg,
-                    textColor = periodLeftTxt,
-                    hintColor = hintCol,
+                // Emoji or Comma
+                val (fnBg, fnTxt) = getThemeKeyColors(if (showEmojiKey) "emoji" else "comma")
+                KeyTileIcon(
+                    icon = {
+                        if (showEmojiKey) {
+                            Icon(
+                                imageVector = Icons.Default.SentimentSatisfied,
+                                contentDescription = "Emoji",
+                                tint = fnTxt,
+                                modifier = Modifier.size(18.dp)
+                            )
+                        } else {
+                            Text(
+                                text = ",",
+                                fontFamily = activeFont,
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 16.sp,
+                                color = fnTxt
+                            )
+                        }
+                    },
+                    bgColor = fnBg,
                     borderColor = subtleKeyBorder,
                     height = keyHeightDp,
-                    modifier = Modifier.weight(0.85f)
+                    modifier = Modifier.weight(0.9f)
                 )
 
-                // Spacebar Key
-                val spacebarWeight = if (showEmojiKey) 3.8f else 4.8f
-                val spaceBorderColor = spacebarBorder ?: subtleKeyBorder
-                val spaceRadius = if (spacebarShape == "roundy") (keyHeightDp / 2f) else 7.dp
+                // Spacebar
+                val defaultSpaceBg = when {
+                    isBerryBlushTheme -> Color(BerryBlushThemeHelper.BLUSH_PINK)
+                    isRetroBlocksTheme -> Color(RetroBlocksThemeHelper.COLOR_BLACK)
+                    isTactileSlateTheme -> Color(TactileSlateThemeHelper.COLOR_WHITE_KEY)
+                    isChaosTheme -> Color(0xFF141416)
+                    isOrbitTheme -> Color(0xFFE2B438)
+                    else -> colors.surface
+                }
+                val finalSpaceBg = if (spacebarColor != Color.Unspecified) spacebarColor else defaultSpaceBg
+                val subtleSpaceBorder = when {
+                    isChaosTheme -> Color.White.copy(alpha = 0.2f)
+                    spacebarBorder != null -> spacebarBorder
+                    isRetroBlocksTheme -> Color(RetroBlocksThemeHelper.COLOR_YELLOW)
+                    isTactileSlateTheme -> Color(0x33000000)
+                    isBerryBlushTheme -> Color(BerryBlushThemeHelper.BOW_FILL)
+                    else -> subtleKeyBorder
+                }
+                val spaceRadius = if (spacebarShape == "roundy") 24.dp else 7.dp
 
                 Box(
                     modifier = Modifier
-                        .weight(spacebarWeight)
+                        .weight(4.4f)
                         .height(keyHeightDp)
                         .clip(RoundedCornerShape(spaceRadius))
-                        .background(spacebarColor)
+                        .background(finalSpaceBg)
                         .then(
-                            if (spaceBorderColor != null) {
-                                Modifier.border(
-                                    if (spacebarBorder != null) 1.5.dp else 1.dp,
-                                    spaceBorderColor,
-                                    RoundedCornerShape(spaceRadius)
-                                )
+                            if (subtleSpaceBorder != null) {
+                                Modifier.border(1.dp, subtleSpaceBorder, RoundedCornerShape(spaceRadius))
                             } else Modifier
                         ),
                     contentAlignment = Alignment.Center
                 ) {
                     if (pinLayoutNameOnSpacebar) {
-                        val spaceTextColor = spacebarTextColor ?: if (isChaosTheme) {
-                            Color(0xFFE2B438)
-                        } else if (isOrbitTheme) {
-                            Color(0xFFE2B438)
-                        } else if (ColorUtils.calculateLuminance(spacebarColor.toArgb()) > 0.5) {
-                            Color(0xFF1C1D20)
-                        } else {
-                            Color.White
+                        val spaceTextColor = when {
+                            spacebarTextColor != null && spacebarTextColor != Color.Unspecified -> spacebarTextColor
+                            isBerryBlushTheme -> Color(BerryBlushThemeHelper.DARK_INK)
+                            isRetroBlocksTheme -> Color(RetroBlocksThemeHelper.COLOR_YELLOW)
+                            isTactileSlateTheme -> Color(TactileSlateThemeHelper.COLOR_TEXT_DARK)
+                            isChaosTheme || isOrbitTheme -> Color(0xFFE2B438)
+                            ColorUtils.calculateLuminance(finalSpaceBg.toArgb()) > 0.5 -> Color(0xFF1C1D20)
+                            else -> Color.White
                         }
                         Text(
                             text = activeLayoutName,
@@ -712,7 +704,7 @@ fun RealisticKeyboardPreview(
                     }
                 }
 
-                // Right Period Key
+                // Period Key
                 val (periodRightBg, periodRightTxt) = getThemeKeyColors("period_right")
                 KeyTile(
                     text = ".",
@@ -794,11 +786,10 @@ private fun KeyTile(
                 modifier = padModifier
             )
         }
-        val isDigit = text.isNotEmpty() && text.all { it in '0'..'9' || it in '\u09E6'..'\u09EF' }
         Text(
             text = text,
-            fontFamily = if (isDigit) Inter else font,
-            fontWeight = FontWeight.Medium,
+            fontFamily = font,
+            fontWeight = FontWeight.Normal,
             fontSize = if (text.length > 2) 12.sp else 16.sp,
             color = textColor,
             modifier = if (rotation != 0f) Modifier.graphicsLayer(rotationZ = rotation) else Modifier

@@ -167,7 +167,7 @@ public class AvroAdversarialVerificationTest {
         assertEquals("কেমন!", mParser.toBangla("kemon!"));
         assertEquals("বাংলা.", mParser.toBangla("bangla."));
         assertEquals("ধন্যবাদ,", mParser.toBangla("dhonyobad,"));
-        assertEquals("কথা:কাজ", mParser.toBangla("kotha:kaj"));
+        assertEquals("কথাঃকাজ", mParser.toBangla("kotha:kaj"));
     }
 
     @Test
@@ -242,7 +242,7 @@ public class AvroAdversarialVerificationTest {
     @Test
     public void testCandidateListInvariants() {
         String[] testWords = {
-                "ami", "bangla", "kemon", "shundor", "sundor", "bhalobasha",
+                "ami", "bangla", "kemon", "kolom", "sundor", "akash",
                 "dosh", "probhat", "tumi", "dhonyobad", "amar", "desh"
         };
 

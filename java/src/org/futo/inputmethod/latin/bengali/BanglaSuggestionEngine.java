@@ -1,16 +1,35 @@
 package org.futo.inputmethod.latin.bengali;
 
-import org.futo.inputmethod.latin.DictionaryFacilitator;
+import android.content.Context;
+import android.util.Log;
 
+import org.futo.inputmethod.latin.DictionaryFacilitator;
+import org.futo.inputmethod.latin.common.FileUtils;
+import org.json.JSONObject;
+
+import java.io.BufferedReader;
+import java.io.BufferedWriter;
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileOutputStream;
+import java.io.InputStreamReader;
+import java.io.OutputStreamWriter;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.Iterator;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
 /**
  * Intelligent Bangla Suggestion & Phonetic Completion Engine.
@@ -21,8 +40,740 @@ import java.util.Set;
  * 3. Borno RemoveConsecutiveKarSigns: eliminates broken dotted circles by transforming consecutive kar signs into full vowels.
  * 4. High-accuracy phonetic normalization (v <-> bh, s <-> sh, verb inflection trailing o/O).
  * 5. Integration with DictionaryFacilitator (main_bn.dict) for authentic Bengali word ranking.
+ * 6. Dynamic Word Learning & Avro Transliteration Memory (like Ridmik & Gboard).
  */
 public final class BanglaSuggestionEngine {
+
+    private static final String TAG = "BanglaSuggestionEngine";
+
+    /**
+     * Data structure representing a learned transliteration entry.
+     */
+    public static final class TransliterationEntry {
+        public final String chosenBengali;
+        public int count;
+        public long lastUsedTimestamp;
+
+        public TransliterationEntry(final String chosenBengali, final int count, final long lastUsedTimestamp) {
+            this.chosenBengali = chosenBengali;
+            this.count = count;
+            this.lastUsedTimestamp = lastUsedTimestamp;
+        }
+
+        public synchronized int getCount() {
+            return count;
+        }
+
+        public synchronized long getLastUsedTimestamp() {
+            return lastUsedTimestamp;
+        }
+
+        public synchronized void incrementCount() {
+            count++;
+            lastUsedTimestamp = System.currentTimeMillis();
+        }
+    }
+
+    /**
+     * Data structure representing a dynamic learned bigram (next-word) entry.
+     */
+    public static final class BigramEntry {
+        public final String nextWord;
+        public int count;
+        public long lastUsedTimestamp;
+
+        public BigramEntry(final String nextWord, final int count, final long lastUsedTimestamp) {
+            this.nextWord = nextWord;
+            this.count = count;
+            this.lastUsedTimestamp = lastUsedTimestamp;
+        }
+
+        public synchronized int getCount() {
+            return count;
+        }
+
+        public synchronized long getLastUsedTimestamp() {
+            return lastUsedTimestamp;
+        }
+
+        public synchronized void incrementCount() {
+            count++;
+            lastUsedTimestamp = System.currentTimeMillis();
+        }
+    }
+
+    private static final ConcurrentHashMap<String, ConcurrentHashMap<String, TransliterationEntry>> sLearnedDictionary =
+            new ConcurrentHashMap<>();
+    private static final ConcurrentHashMap<String, ConcurrentHashMap<String, BigramEntry>> sLearnedBigrams =
+            new ConcurrentHashMap<>();
+    private static volatile File sStorageFile = null;
+    private static volatile File sBigramStorageFile = null;
+    private static final Object sFileLock = new Object();
+    private static final ExecutorService sIoExecutor = Executors.newSingleThreadExecutor();
+
+    /**
+     * Initializes the user transliteration dictionary with application context.
+     */
+    public static void init(final Context context) {
+        if (context == null) return;
+        try {
+            final Context appCtx = context.getApplicationContext();
+            final Context effectiveContext = (appCtx != null) ? appCtx : context;
+            final File dir = effectiveContext.getFilesDir();
+            if (dir == null) return;
+            synchronized (sFileLock) {
+                if (sStorageFile == null) {
+                    sStorageFile = new File(dir, "user_avro_dictionary.json");
+                    sBigramStorageFile = new File(dir, "user_avro_bigrams.json");
+                    sIoExecutor.execute(() -> {
+                        synchronized (sFileLock) {
+                            loadFromFileLocked();
+                            loadBigramsFromFileLocked();
+                        }
+                    });
+                }
+            }
+        } catch (final Throwable ignored) {
+        }
+    }
+
+    /**
+     * Sets custom storage file (used in production or unit tests).
+     */
+    public static void setStorageFile(final File file) {
+        synchronized (sFileLock) {
+            sStorageFile = file;
+            if (file != null && file.getParentFile() != null) {
+                sBigramStorageFile = new File(file.getParentFile(), "user_avro_bigrams.json");
+            }
+            loadFromFileLocked();
+            loadBigramsFromFileLocked();
+        }
+    }
+
+    public static void setBigramStorageFile(final File file) {
+        synchronized (sFileLock) {
+            sBigramStorageFile = file;
+            loadBigramsFromFileLocked();
+        }
+    }
+
+    public static File getStorageFile() {
+        return sStorageFile;
+    }
+
+    public static File getBigramStorageFile() {
+        return sBigramStorageFile;
+    }
+
+    /**
+     * Checks whether the string contains at least one Bengali Unicode character (\u0980-\u09FF).
+     */
+    public static boolean containsBengaliCharacters(final String s) {
+        if (s == null) return false;
+        for (int i = 0; i < s.length(); i++) {
+            final char c = s.charAt(i);
+            if (c >= 0x0980 && c <= 0x09FF) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /**
+     * Learns an Avro transliteration mapping rawLatin -> chosenBengali (or loanword/English selection).
+     * Increments usage count and updates last used timestamp.
+     */
+    public static void learnWord(final String rawLatin, final String chosenBengali) {
+        if (rawLatin == null || chosenBengali == null) return;
+        final String trimmedLatin = rawLatin.trim();
+        final String trimmedBengali = chosenBengali.trim();
+        if (trimmedLatin.isEmpty() || trimmedBengali.isEmpty()) return;
+
+        // Raw input must be phonetic Latin or Banglish input (not raw Bengali text)
+        if (containsBengaliCharacters(trimmedLatin)) return;
+
+        final String key = trimmedLatin.toLowerCase(Locale.ROOT);
+        final ConcurrentHashMap<String, TransliterationEntry> wordMap =
+                sLearnedDictionary.computeIfAbsent(key, k -> new ConcurrentHashMap<>());
+
+        wordMap.compute(trimmedBengali, (bengali, existingEntry) -> {
+            if (existingEntry != null) {
+                existingEntry.incrementCount();
+                return existingEntry;
+            } else {
+                return new TransliterationEntry(bengali, 1, System.currentTimeMillis());
+            }
+        });
+
+        scheduleAsyncSave();
+    }
+
+    /**
+     * Records a dynamic bigram transition (prevWord -> nextWord).
+     */
+    public static void recordBigram(final String prevWord, final String nextWord) {
+        if (prevWord == null || nextWord == null) return;
+        final String prev = prevWord.trim();
+        final String next = nextWord.trim();
+        if (prev.isEmpty() || next.isEmpty()) return;
+
+        // If Latin/loanword, normalize key to lowercase for seamless case-insensitive retrieval
+        final String key = containsBengaliCharacters(prev) ? prev : prev.toLowerCase(Locale.ROOT);
+        final ConcurrentHashMap<String, BigramEntry> wordMap =
+                sLearnedBigrams.computeIfAbsent(key, k -> new ConcurrentHashMap<>());
+
+        wordMap.compute(next, (w, existingEntry) -> {
+            if (existingEntry != null) {
+                existingEntry.incrementCount();
+                return existingEntry;
+            } else {
+                return new BigramEntry(w, 1, System.currentTimeMillis());
+            }
+        });
+
+        scheduleAsyncSave();
+    }
+
+    /**
+     * Returns learned next-word bigram predictions for prevWord, sorted by frequency descending,
+     * then by recency descending.
+     */
+    public static List<String> getLearnedBigramPredictions(final String prevWord) {
+        if (prevWord == null || prevWord.isEmpty()) return Collections.emptyList();
+        final String prev = prevWord.trim();
+        final String key = containsBengaliCharacters(prev) ? prev : prev.toLowerCase(Locale.ROOT);
+        ConcurrentHashMap<String, BigramEntry> wordMap = sLearnedBigrams.get(key);
+        if ((wordMap == null || wordMap.isEmpty()) && !key.equals(prev)) {
+            wordMap = sLearnedBigrams.get(prev);
+        }
+        if (wordMap == null || wordMap.isEmpty()) return Collections.emptyList();
+
+        final List<BigramEntry> list = new ArrayList<>(wordMap.values());
+        Collections.sort(list, (o1, o2) -> {
+            if (o1.count != o2.count) {
+                return Integer.compare(o2.count, o1.count);
+            }
+            return Long.compare(o2.lastUsedTimestamp, o1.lastUsedTimestamp);
+        });
+
+        final List<String> result = new ArrayList<>(list.size());
+        for (BigramEntry e : list) {
+            result.add(e.nextWord);
+        }
+        return result;
+    }
+
+    /**
+     * Decrements the count of chosenBengali for rawLatin, or forgets it if count reaches 0.
+     */
+    public static boolean unlearnWord(final String rawLatin, final String chosenBengali) {
+        if (rawLatin == null || chosenBengali == null) return false;
+        final String key = rawLatin.trim().toLowerCase(Locale.ROOT);
+        final ConcurrentHashMap<String, TransliterationEntry> wordMap = sLearnedDictionary.get(key);
+        if (wordMap == null) return false;
+
+        final boolean[] updated = new boolean[1];
+        wordMap.computeIfPresent(chosenBengali.trim(), (bengali, entry) -> {
+            entry.count--;
+            updated[0] = true;
+            if (entry.count <= 0) {
+                return null;
+            }
+            return entry;
+        });
+
+        if (wordMap.isEmpty()) {
+            sLearnedDictionary.remove(key, wordMap);
+        }
+        if (updated[0]) {
+            scheduleAsyncSave();
+        }
+        return updated[0];
+    }
+
+    public static boolean unlearnWord(final String rawLatin) {
+        return forgetWord(rawLatin);
+    }
+
+    /**
+     * Completely removes chosenBengali for rawLatin from learned dictionary.
+     */
+    public static boolean forgetWord(final String rawLatin, final String chosenBengali) {
+        if (rawLatin == null || chosenBengali == null) return false;
+        final String key = rawLatin.trim().toLowerCase(Locale.ROOT);
+        final ConcurrentHashMap<String, TransliterationEntry> wordMap = sLearnedDictionary.get(key);
+        if (wordMap == null) return false;
+
+        final boolean removed = wordMap.remove(chosenBengali.trim()) != null;
+        if (wordMap.isEmpty()) {
+            sLearnedDictionary.remove(key, wordMap);
+        }
+        if (removed) {
+            scheduleAsyncSave();
+        }
+        return removed;
+    }
+
+    /**
+     * Completely removes all learned mappings for rawLatin.
+     */
+    public static boolean forgetWord(final String rawLatin) {
+        if (rawLatin == null) return false;
+        final String key = rawLatin.trim().toLowerCase(Locale.ROOT);
+        final boolean removed = sLearnedDictionary.remove(key) != null;
+        if (removed) {
+            scheduleAsyncSave();
+        }
+        return removed;
+    }
+
+    /**
+     * Clears all learned words and bigrams in memory and storage.
+     */
+    public static void clearLearnedWords() {
+        sLearnedDictionary.clear();
+        sLearnedBigrams.clear();
+        flushSynchronously();
+    }
+
+    /**
+     * Clears in-memory dictionary cache without writing to disk (useful for testing reload).
+     */
+    public static void clearMemoryOnlyForTest() {
+        sLearnedDictionary.clear();
+        sLearnedBigrams.clear();
+    }
+
+    /**
+     * Returns the highest frequency learned word entry for rawLatin, or null if none.
+     */
+    public static TransliterationEntry getTopLearnedWord(final String rawLatin) {
+        if (rawLatin == null || rawLatin.isEmpty()) return null;
+        final String key = rawLatin.trim().toLowerCase(Locale.ROOT);
+        final ConcurrentHashMap<String, TransliterationEntry> wordMap = sLearnedDictionary.get(key);
+        if (wordMap == null || wordMap.isEmpty()) return null;
+
+        TransliterationEntry best = null;
+        for (TransliterationEntry entry : wordMap.values()) {
+            if (best == null) {
+                best = entry;
+            } else if (entry.count > best.count) {
+                best = entry;
+            } else if (entry.count == best.count && entry.lastUsedTimestamp > best.lastUsedTimestamp) {
+                best = entry;
+            }
+        }
+        return best;
+    }
+
+    /**
+     * Returns learned Bengali candidates for rawLatin, sorted by frequency count descending,
+     * then by recency descending. Supports prefix matching when key length >= 2.
+     */
+    public static List<String> getLearnedCandidates(final String rawLatin) {
+        if (rawLatin == null || rawLatin.isEmpty()) return Collections.emptyList();
+        final String key = rawLatin.trim().toLowerCase(Locale.ROOT);
+        final LinkedHashSet<String> resultSet = new LinkedHashSet<>();
+
+        // 1. Exact key match
+        final ConcurrentHashMap<String, TransliterationEntry> wordMap = sLearnedDictionary.get(key);
+        if (wordMap != null && !wordMap.isEmpty()) {
+            final List<TransliterationEntry> list = new ArrayList<>(wordMap.values());
+            Collections.sort(list, (o1, o2) -> {
+                if (o1.count != o2.count) {
+                    return Integer.compare(o2.count, o1.count);
+                }
+                return Long.compare(o2.lastUsedTimestamp, o1.lastUsedTimestamp);
+            });
+            for (TransliterationEntry e : list) {
+                resultSet.add(e.chosenBengali);
+            }
+        }
+
+        // 2. Prefix matching for keys starting with rawLatin (prefix length >= 2)
+        if (key.length() >= 2) {
+            final List<TransliterationEntry> prefixMatches = new ArrayList<>();
+            for (Map.Entry<String, ConcurrentHashMap<String, TransliterationEntry>> entry : sLearnedDictionary.entrySet()) {
+                final String k = entry.getKey();
+                if (!k.equals(key) && k.startsWith(key)) {
+                    prefixMatches.addAll(entry.getValue().values());
+                }
+            }
+            if (!prefixMatches.isEmpty()) {
+                Collections.sort(prefixMatches, (o1, o2) -> {
+                    if (o1.count != o2.count) {
+                        return Integer.compare(o2.count, o1.count);
+                    }
+                    return Long.compare(o2.lastUsedTimestamp, o1.lastUsedTimestamp);
+                });
+                for (TransliterationEntry e : prefixMatches) {
+                    resultSet.add(e.chosenBengali);
+                }
+            }
+        }
+
+        return new ArrayList<>(resultSet);
+    }
+
+    public static String serializeToJson() {
+        final StringBuilder sb = new StringBuilder();
+        sb.append("{\n");
+        boolean firstKey = true;
+        for (Map.Entry<String, ConcurrentHashMap<String, TransliterationEntry>> e : sLearnedDictionary.entrySet()) {
+            if (!firstKey) sb.append(",\n");
+            firstKey = false;
+            sb.append("  \"").append(escapeJson(e.getKey())).append("\": {\n");
+            boolean firstWord = true;
+            for (Map.Entry<String, TransliterationEntry> we : e.getValue().entrySet()) {
+                if (!firstWord) sb.append(",\n");
+                firstWord = false;
+                final TransliterationEntry te = we.getValue();
+                sb.append("    \"").append(escapeJson(we.getKey())).append("\": {");
+                sb.append("\"count\":").append(te.count).append(",");
+                sb.append("\"timestamp\":").append(te.lastUsedTimestamp);
+                sb.append("}");
+            }
+            sb.append("\n  }");
+        }
+        sb.append("\n}\n");
+        return sb.toString();
+    }
+
+    public static String serializeBigramsToJson() {
+        final StringBuilder sb = new StringBuilder();
+        sb.append("{\n");
+        boolean firstKey = true;
+        for (Map.Entry<String, ConcurrentHashMap<String, BigramEntry>> e : sLearnedBigrams.entrySet()) {
+            if (!firstKey) sb.append(",\n");
+            firstKey = false;
+            sb.append("  \"").append(escapeJson(e.getKey())).append("\": {\n");
+            boolean firstWord = true;
+            for (Map.Entry<String, BigramEntry> we : e.getValue().entrySet()) {
+                if (!firstWord) sb.append(",\n");
+                firstWord = false;
+                final BigramEntry te = we.getValue();
+                sb.append("    \"").append(escapeJson(we.getKey())).append("\": {");
+                sb.append("\"count\":").append(te.count).append(",");
+                sb.append("\"timestamp\":").append(te.lastUsedTimestamp);
+                sb.append("}");
+            }
+            sb.append("\n  }");
+        }
+        sb.append("\n}\n");
+        return sb.toString();
+    }
+
+    private static String escapeJson(final String s) {
+        if (s == null) return "";
+        final StringBuilder sb = new StringBuilder();
+        for (int i = 0; i < s.length(); i++) {
+            char c = s.charAt(i);
+            if (c == '"') sb.append("\\\"");
+            else if (c == '\\') sb.append("\\\\");
+            else if (c == '\b') sb.append("\\b");
+            else if (c == '\f') sb.append("\\f");
+            else if (c == '\n') sb.append("\\n");
+            else if (c == '\r') sb.append("\\r");
+            else if (c == '\t') sb.append("\\t");
+            else sb.append(c);
+        }
+        return sb.toString();
+    }
+
+    public static void deserializeFromJson(final String json) {
+        if (json == null || json.trim().isEmpty()) return;
+        try {
+            int i = 0;
+            final int len = json.length();
+            String currentLatin = null;
+            String currentBengali = null;
+            int currentCount = 1;
+            long currentTimestamp = 0;
+            int depth = 0;
+
+            while (i < len) {
+                char c = json.charAt(i);
+                if (c == '{') {
+                    depth++;
+                    i++;
+                } else if (c == '}') {
+                    if (depth == 3 && currentLatin != null && currentBengali != null) {
+                        ConcurrentHashMap<String, TransliterationEntry> wordMap = sLearnedDictionary.get(currentLatin);
+                        if (wordMap == null) {
+                            wordMap = new ConcurrentHashMap<>();
+                            sLearnedDictionary.put(currentLatin, wordMap);
+                        }
+                        wordMap.put(currentBengali, new TransliterationEntry(currentBengali, currentCount, currentTimestamp));
+                        currentBengali = null;
+                        currentCount = 1;
+                        currentTimestamp = 0;
+                    } else if (depth == 2) {
+                        currentLatin = null;
+                    }
+                    depth--;
+                    i++;
+                } else if (c == '"') {
+                    i++;
+                    final StringBuilder sb = new StringBuilder();
+                    while (i < len) {
+                        char sc = json.charAt(i);
+                        if (sc == '\\' && i + 1 < len) {
+                            i++;
+                            char esc = json.charAt(i);
+                            if (esc == 'n') sb.append('\n');
+                            else if (esc == 't') sb.append('\t');
+                            else if (esc == 'r') sb.append('\r');
+                            else if (esc == 'u' && i + 4 < len) {
+                                String hex = json.substring(i + 1, i + 5);
+                                sb.append((char) Integer.parseInt(hex, 16));
+                                i += 4;
+                            } else sb.append(esc);
+                        } else if (sc == '"') {
+                            i++;
+                            break;
+                        } else {
+                            sb.append(sc);
+                        }
+                        i++;
+                    }
+                    final String str = sb.toString();
+                    while (i < len && (Character.isWhitespace(json.charAt(i)) || json.charAt(i) == ':')) {
+                        i++;
+                    }
+                    if (depth == 1) {
+                        currentLatin = str;
+                    } else if (depth == 2) {
+                        currentBengali = str;
+                        currentCount = 1;
+                        currentTimestamp = System.currentTimeMillis();
+                    } else if (depth == 3) {
+                        if ("count".equals(str)) {
+                            final StringBuilder num = new StringBuilder();
+                            while (i < len && (Character.isDigit(json.charAt(i)) || json.charAt(i) == '-')) {
+                                num.append(json.charAt(i++));
+                            }
+                            if (num.length() > 0) currentCount = Integer.parseInt(num.toString());
+                        } else if ("timestamp".equals(str)) {
+                            final StringBuilder num = new StringBuilder();
+                            while (i < len && (Character.isDigit(json.charAt(i)) || json.charAt(i) == '-')) {
+                                num.append(json.charAt(i++));
+                            }
+                            if (num.length() > 0) currentTimestamp = Long.parseLong(num.toString());
+                        }
+                    }
+                } else {
+                    i++;
+                }
+            }
+        } catch (final Throwable t) {
+            Log.e(TAG, "Failed to parse json", t);
+        }
+    }
+
+    public static void deserializeBigramsFromJson(final String json) {
+        if (json == null || json.trim().isEmpty()) return;
+        try {
+            int i = 0;
+            final int len = json.length();
+            String currentPrev = null;
+            String currentNext = null;
+            int currentCount = 1;
+            long currentTimestamp = 0;
+            int depth = 0;
+
+            while (i < len) {
+                char c = json.charAt(i);
+                if (c == '{') {
+                    depth++;
+                    i++;
+                } else if (c == '}') {
+                    if (depth == 3 && currentPrev != null && currentNext != null) {
+                        ConcurrentHashMap<String, BigramEntry> wordMap = sLearnedBigrams.get(currentPrev);
+                        if (wordMap == null) {
+                            wordMap = new ConcurrentHashMap<>();
+                            sLearnedBigrams.put(currentPrev, wordMap);
+                        }
+                        wordMap.put(currentNext, new BigramEntry(currentNext, currentCount, currentTimestamp));
+                        currentNext = null;
+                        currentCount = 1;
+                        currentTimestamp = 0;
+                    } else if (depth == 2) {
+                        currentPrev = null;
+                    }
+                    depth--;
+                    i++;
+                } else if (c == '"') {
+                    i++;
+                    final StringBuilder sb = new StringBuilder();
+                    while (i < len) {
+                        char sc = json.charAt(i);
+                        if (sc == '\\' && i + 1 < len) {
+                            i++;
+                            char esc = json.charAt(i);
+                            if (esc == 'n') sb.append('\n');
+                            else if (esc == 't') sb.append('\t');
+                            else if (esc == 'r') sb.append('\r');
+                            else if (esc == 'u' && i + 4 < len) {
+                                String hex = json.substring(i + 1, i + 5);
+                                sb.append((char) Integer.parseInt(hex, 16));
+                                i += 4;
+                            } else sb.append(esc);
+                        } else if (sc == '"') {
+                            i++;
+                            break;
+                        } else {
+                            sb.append(sc);
+                        }
+                        i++;
+                    }
+                    final String str = sb.toString();
+                    while (i < len && (Character.isWhitespace(json.charAt(i)) || json.charAt(i) == ':')) {
+                        i++;
+                    }
+                    if (depth == 1) {
+                        currentPrev = str;
+                    } else if (depth == 2) {
+                        currentNext = str;
+                        currentCount = 1;
+                        currentTimestamp = System.currentTimeMillis();
+                    } else if (depth == 3) {
+                        if ("count".equals(str)) {
+                            final StringBuilder num = new StringBuilder();
+                            while (i < len && (Character.isDigit(json.charAt(i)) || json.charAt(i) == '-')) {
+                                num.append(json.charAt(i++));
+                            }
+                            if (num.length() > 0) currentCount = Integer.parseInt(num.toString());
+                        } else if ("timestamp".equals(str)) {
+                            final StringBuilder num = new StringBuilder();
+                            while (i < len && (Character.isDigit(json.charAt(i)) || json.charAt(i) == '-')) {
+                                num.append(json.charAt(i++));
+                            }
+                            if (num.length() > 0) currentTimestamp = Long.parseLong(num.toString());
+                        }
+                    }
+                } else {
+                    i++;
+                }
+            }
+        } catch (final Throwable t) {
+            Log.e(TAG, "Failed to parse bigram json", t);
+        }
+    }
+
+    private static void loadFromFileLocked() {
+        if (sStorageFile == null || !sStorageFile.exists()) return;
+        try (final FileInputStream fis = new FileInputStream(sStorageFile);
+             final InputStreamReader isr = new InputStreamReader(fis, StandardCharsets.UTF_8);
+             final BufferedReader reader = new BufferedReader(isr)) {
+            final StringBuilder sb = new StringBuilder();
+            String line;
+            while ((line = reader.readLine()) != null) {
+                sb.append(line).append('\n');
+            }
+            deserializeFromJson(sb.toString());
+        } catch (final Throwable t) {
+            Log.e(TAG, "Failed to load user avro dictionary", t);
+        }
+    }
+
+    private static void loadBigramsFromFileLocked() {
+        if (sBigramStorageFile == null || !sBigramStorageFile.exists()) return;
+        try (final FileInputStream fis = new FileInputStream(sBigramStorageFile);
+             final InputStreamReader isr = new InputStreamReader(fis, StandardCharsets.UTF_8);
+             final BufferedReader reader = new BufferedReader(isr)) {
+            final StringBuilder sb = new StringBuilder();
+            String line;
+            while ((line = reader.readLine()) != null) {
+                sb.append(line).append('\n');
+            }
+            deserializeBigramsFromJson(sb.toString());
+        } catch (final Throwable t) {
+            Log.e(TAG, "Failed to load user avro bigrams", t);
+        }
+    }
+
+    private static final java.util.concurrent.atomic.AtomicBoolean sSaveScheduled =
+            new java.util.concurrent.atomic.AtomicBoolean(false);
+
+    /**
+     * Synchronously persists learned dictionary and bigrams to storage files with atomic replace.
+     */
+    public static void flushSynchronously() {
+        synchronized (sFileLock) {
+            if (sStorageFile != null) {
+                try {
+                    final String json = serializeToJson();
+                    final File tempFile = new File(sStorageFile.getAbsolutePath() + ".tmp");
+                    final File parent = tempFile.getParentFile();
+                    if (parent != null && !parent.exists()) {
+                        parent.mkdirs();
+                    }
+                    try (final FileOutputStream fos = new FileOutputStream(tempFile);
+                         final OutputStreamWriter osw = new OutputStreamWriter(fos, StandardCharsets.UTF_8);
+                         final BufferedWriter writer = new BufferedWriter(osw)) {
+                        writer.write(json);
+                        writer.flush();
+                        try {
+                            fos.getFD().sync();
+                        } catch (final Throwable ignored) {
+                        }
+                    }
+                    if (!tempFile.renameTo(sStorageFile)) {
+                        if (sStorageFile.exists()) {
+                            sStorageFile.delete();
+                        }
+                        tempFile.renameTo(sStorageFile);
+                    }
+                } catch (final Throwable t) {
+                    Log.e(TAG, "Failed to flush user avro dictionary", t);
+                }
+            }
+
+            if (sBigramStorageFile != null) {
+                try {
+                    final String json = serializeBigramsToJson();
+                    final File tempFile = new File(sBigramStorageFile.getAbsolutePath() + ".tmp");
+                    final File parent = tempFile.getParentFile();
+                    if (parent != null && !parent.exists()) {
+                        parent.mkdirs();
+                    }
+                    try (final FileOutputStream fos = new FileOutputStream(tempFile);
+                         final OutputStreamWriter osw = new OutputStreamWriter(fos, StandardCharsets.UTF_8);
+                         final BufferedWriter writer = new BufferedWriter(osw)) {
+                        writer.write(json);
+                        writer.flush();
+                        try {
+                            fos.getFD().sync();
+                        } catch (final Throwable ignored) {
+                        }
+                    }
+                    if (!tempFile.renameTo(sBigramStorageFile)) {
+                        if (sBigramStorageFile.exists()) {
+                            sBigramStorageFile.delete();
+                        }
+                        tempFile.renameTo(sBigramStorageFile);
+                    }
+                } catch (final Throwable t) {
+                    Log.e(TAG, "Failed to flush user avro bigrams", t);
+                }
+            }
+        }
+    }
+
+    private static void scheduleAsyncSave() {
+        if (sSaveScheduled.compareAndSet(false, true)) {
+            sIoExecutor.execute(() -> {
+                try {
+                    Thread.sleep(150);
+                } catch (final InterruptedException ignored) {
+                } finally {
+                    sSaveScheduled.set(false);
+                    flushSynchronously();
+                }
+            });
+        }
+    }
 
         private static final Map<String, String> EMOJI_MAP = new HashMap<>();
     public static String getEmojiForWord(final String word) {
@@ -32,6 +783,7 @@ public final class BanglaSuggestionEngine {
 
     private static final Map<String, String[]> BANGLISH_ALIASES = new HashMap<>();
     private static final Set<String> SHORTHAND_ABBREVIATIONS = new HashSet<>();
+    private static final Map<String, String[]> CURATED_CHAT_SUGGESTIONS = new HashMap<>(256);
 
     static {
         // Bengali & Banglish to Emoji
@@ -64,17 +816,17 @@ public final class BanglaSuggestionEngine {
         }
 
         // Avro zero-shift conjuncts (যুক্তবর্ণ) & Visarga (বিসর্গ) words
-        addAlias("dukkho", "দুঃখ", "দুঃখী");
-        addAlias("dukho", "দুঃখ", "দুঃখী");
-        addAlias("dukhi", "দুঃখী", "দুঃখ");
-        addAlias("du:khi", "দুঃখী", "দুঃখ");
-        addAlias("du:kho", "দুঃখ", "দুঃখী");
-        addAlias("dukkhito", "দুঃখিত");
-        addAlias("dukhito", "দুঃখিত");
-        addAlias("prosno", "প্রশ্ন");
+        addShorthand("dukkho", "দুঃখ", "দুঃখী");
+        addShorthand("dukho", "দুঃখ", "দুঃখী");
+        addShorthand("dukhi", "দুঃখী", "দুঃখ");
+        addShorthand("du:khi", "দুঃখী", "দুঃখ");
+        addShorthand("du:kho", "দুঃখ", "দুঃখী");
+        addShorthand("dukkhito", "দুঃখিত");
+        addShorthand("dukhito", "দুঃখিত");
+        addShorthand("prosno", "প্রশ্ন");
         addAlias("proshno", "প্রশ্ন");
         addAlias("proshnotor", "প্রশ্নোত্তর");
-        addAlias("somossa", "সমস্যা");
+        addShorthand("somossa", "সমস্যা");
         addAlias("shomossha", "সমস্যা");
         addAlias("somossha", "সমস্যা");
         addAlias("shonge", "সঙ্গে");
@@ -97,8 +849,56 @@ public final class BanglaSuggestionEngine {
         addAlias("biswas", "বিশ্বাস");
         addAlias("bisshas", "বিশ্বাস");
         addAlias("biswash", "বিশ্বাস");
-        addAlias("kkh", "ক্ষ");
-        addAlias("ksha", "ক্ষ");
+        addShorthand("bismito", "বিস্মিত");
+        addAlias("bho", "ভ");
+        addShorthand("kkh", "ক্ষ");
+        addShorthand("ksha", "ক্ষ");
+        addShorthand("gy", "জ্ঞ");
+        addShorthand("gg", "জ্ঞ");
+        addShorthand("sht", "ষ্ট", "ষ্ঠ");
+        addShorthand("cch", "চ্ছ");
+        addShorthand("ngg", "ঙ্গ");
+        addShorthand("dhdh", "দ্ধ");
+        addShorthand("ddh", "দ্ধ");
+        addShorthand("tth", "ঠ");
+        addShorthand(":", "ঃ");
+        addShorthand("::", "ঃ");
+        addShorthand("hs", "\u09CD");
+        addAlias("aitasi", "আইতাছি", "আসছি");
+        addAlias("aitachi", "আইতাছি");
+        addAlias("oitasi", "হইতাছি", "আইতাছি");
+        addAlias("jaitasi", "যাইতেছি", "যাচ্ছি");
+        addAlias("jaitachi", "যাইতেছি");
+        addAlias("kothay", "কোথায়", "কই");
+        addAlias("kemon", "কেমন");
+        addAlias("achen", "আছেন");
+        addAlias("acho", "আছো");
+        addAlias("achi", "আছি");
+        addAlias("korcho", "করছো");
+        addAlias("korchen", "করছেন");
+        addAlias("korbo", "করব", "করবো");
+        addAlias("korlam", "করলাম");
+        addAlias("kortesi", "করতেছি", "করছি");
+        addAlias("kortasi", "করতেছি");
+        addAlias("valo", "ভালো", "ভাল");
+        addAlias("bhalo", "ভালো", "ভাল");
+        addAlias("bhabte", "ভাবতে");
+        addAlias("bhabto", "ভাবতো");
+        addAlias("shobar", "সবার");
+        addAlias("sobar", "সবার");
+        addAlias("shobai", "সবাই");
+        addAlias("sobai", "সবাই");
+        addAlias("khub", "খুব");
+        addAlias("onek", "অনেক");
+        addAlias("thikase", "ঠিক আছে", "ঠিকআছে");
+        addAlias("thikache", "ঠিক আছে", "ঠিকআছে");
+        addAlias("dorkar", "দরকার");
+        addAlias("ghuma", "ঘুমা");
+        addAlias("ghumate", "ঘুমাতে");
+        addAlias("shune", "শুনে");
+        addAlias("sune", "শুনে");
+        addShorthand("HH", "ঃ");
+        addShorthand("hh", "ঃ");
         addAlias("khoma", "ক্ষমা");
         addAlias("kkhoma", "ক্ষমা");
         addAlias("kkhoti", "ক্ষতি");
@@ -191,6 +991,92 @@ public final class BanglaSuggestionEngine {
         addShorthand("khodahafez", "খোদা হাফেজ");
         addShorthand("shubhoratri", "শুভরাত্রি");
         addShorthand("shubhoshokal", "শুভসকাল");
+        addShorthand("ekhonow", "এখনও", "এখনো");
+        addShorthand("ekhono", "এখনো", "এখনও");
+        addShorthand("hoynai", "হয়নি", "হয় নাই", "হয়নাই");
+        addShorthand("ashtese", "আসতেছে", "আসছে");
+        addShorthand("astese", "আসতেছে", "আসছে");
+        addShorthand("likhe", "লিখে");
+        addShorthand("dile", "দিলে");
+        addShorthand("ghumabo", "ঘুমাবো", "ঘুমাব");
+        addShorthand("baki", "বাকি");
+
+        // High-frequency Banglish conversational verbs & pronouns (Ridmik & Gboard standard)
+        addAlias("jachhi", "যাচ্ছি");
+        addAlias("jacchi", "যাচ্ছি");
+        addAlias("jachhe", "যাচ্ছে");
+        addAlias("jacche", "যাচ্ছে");
+        addAlias("jabo", "যাব", "যাবো");
+        addAlias("jao", "যাও");
+        addAlias("jawa", "যাওয়া");
+        addAlias("jaben", "যাবেন");
+        addAlias("jabona", "যাব না");
+        addAlias("jete", "যেতে");
+        addAlias("jemon", "যেমন");
+        addAlias("jekhane", "যেখানে");
+        addAlias("jeno", "যেন");
+        addAlias("jara", "যারা");
+        addAlias("jar", "যার");
+        addAlias("jate", "যাতে");
+        addAlias("jokhon", "যখন");
+        addAlias("jeta", "যেটা");
+
+        addAlias("thik", "ঠিক", "ঠিক আছে");
+        addAlias("chai", "চাই");
+        addAlias("chaibena", "চাইবে না", "চাইবেনা");
+        addAlias("chaibo", "চাইব", "চাইবো");
+        addAlias("chao", "চাও");
+        addAlias("chan", "চান");
+        addAlias("chay", "চায়");
+        addAlias("chole", "চলে");
+        addAlias("chobi", "ছবি");
+        addAlias("cholo", "চলো", "চল");
+
+        addAlias("eita", "এইটা", "এটা");
+        addAlias("ekta", "একটা", "একটু");
+        addAlias("oita", "ওইটা", "ওটা");
+        addAlias("sheita", "সেইটা", "সেটা");
+        addAlias("konta", "কোনটা");
+        addAlias("shobta", "সবটা");
+        addAlias("sobta", "সবটা");
+
+        addAlias("koro", "করো", "কর");
+        addAlias("bolo", "বলো", "বল");
+        addAlias("dekho", "দেখো", "দেখ");
+        addAlias("raikho", "রাইখো");
+        addAlias("rekho", "রেখো");
+        addAlias("kono", "কোনো", "কোন");
+        addAlias("shathe", "সাথে");
+        addAlias("ashbo", "আসব", "আসবো");
+        addAlias("asbo", "আসব", "আসবো");
+        addAlias("aschhi", "আসছি");
+        addAlias("aschi", "আসছি");
+        addAlias("moto", "মতো", "মত");
+        addAlias("khabo", "খাবো", "খাব");
+        addAlias("avro", "অভ্র");
+        addAlias("avra", "অভ্র");
+        addAlias("ridmik", "রিদ্মিক", "রিদমিক");
+        addAlias("gboard", "জিবোর্ড");
+        addAlias("wp", "হোয়াটসঅ্যাপ");
+        addAlias("detailed", "ডিটেইলড");
+        addAlias("layout", "লেআউট");
+        addAlias("lyout", "লেআউট");
+        addAlias("permission", "পারমিশন");
+        addAlias("allow", "অ্যালাউ");
+        addAlias("issue", "ইস্যু");
+        addAlias("bareo", "বারেও");
+        addAlias("sokaler", "সকালের");
+        addAlias("age", "আগে");
+        addAlias("valo", "ভালো", "ভাল");
+        addAlias("bhalo", "ভালো", "ভাল");
+        addAlias("kisu", "কিছু");
+        addAlias("kichu", "কিছু");
+        addAlias("sobkisu", "সবকিছু");
+        addAlias("sobiksu", "সবকিছু");
+        addAlias("shobkisu", "সবকিছু");
+        addAlias("ghumai", "ঘুমাই");
+        addAlias("ghumaite", "ঘুমাতে", "ঘুমাইতে");
+        addAlias("korbe", "করবে", "করবে না");
 
         // Pronoun shorthands & full forms
         addShorthand("amdr", "আমাদের");
@@ -357,7 +1243,10 @@ public final class BanglaSuggestionEngine {
         addAlias("ashlam", "আসলাম");
         addAlias("ashechi", "এসেছি");
         addAlias("ashte", "আসতে");
-        addAlias("astesi", "আসছি", "আসতেছি");
+        addShorthand("astesi", "আসতেছে", "আসছে");
+        addShorthand("ashtesi", "আসতেছে", "আসছে");
+        addShorthand("astese", "আসতেছে", "আসছে");
+        addShorthand("ashtese", "আসতেছে", "আসছে");
         addAlias("jan", "জান");
         addAlias("jana", "জানা");
         addAlias("jani", "জানি");
@@ -447,7 +1336,7 @@ public final class BanglaSuggestionEngine {
         addShorthand("english", "ইংরেজি");
 
         // Common English loanwords used in everyday Bangladeshi conversation (Banglish transliteration)
-        addShorthand("account", "একাউন্ট", "অ্যাকাউন্ট");
+        addShorthand("account", "অ্যাকাউন্ট", "হিসাব", "account");
         addShorthand("use", "ইউজ");
         addShorthand("user", "ইউজার");
         addShorthand("post", "পোস্ট");
@@ -506,7 +1395,7 @@ public final class BanglaSuggestionEngine {
         addShorthand("money", "মানি", "টাকা");
         addShorthand("bank", "ব্যাংক");
         addShorthand("office", "অফিস");
-        addShorthand("school", "স্কুল");
+        addShorthand("school", "স্কুল", "বিদ্যালয়", "school");
         addShorthand("college", "কলেজ");
         addShorthand("varsity", "ভার্সিটি");
         addShorthand("class", "ক্লাস");
@@ -678,29 +1567,237 @@ public final class BanglaSuggestionEngine {
         addEnglishCanonical("srvc", "service");
         addEnglishCanonical("ap", "app");
         addEnglishCanonical("apks", "apk");
+        initCuratedChatSuggestions();
+    }
+
+    private static void addCuratedChat(final String input, final String[] candidates) {
+        CURATED_CHAT_SUGGESTIONS.put(input.toLowerCase(Locale.ROOT), candidates);
+    }
+
+    public static String[] getCuratedChatSuggestions(final String key) {
+        if (key == null || key.isEmpty()) return null;
+        final String lower = key.toLowerCase(Locale.ROOT);
+        String[] direct = CURATED_CHAT_SUGGESTIONS.get(lower);
+        if (direct != null) return direct;
+        final String canonical = ENGLISH_CANONICAL_MAP.get(lower);
+        if (canonical != null) {
+            String[] canon = CURATED_CHAT_SUGGESTIONS.get(canonical);
+            if (canon != null) return canon;
+        }
+        return null;
+    }
+
+    private static void initCuratedChatSuggestions() {
+        addCuratedChat("ami", new String[]{"আমি", "I"});
+        addCuratedChat("amar", new String[]{"আমার", "my"});
+        addCuratedChat("tumi", new String[]{"তুমি", "তোমাকে", "you"});
+        addCuratedChat("tomar", new String[]{"তোমার", "তোমাকে", "your"});
+        addCuratedChat("apni", new String[]{"আপনি", "আপনাকে", "you"});
+        addCuratedChat("amra", new String[]{"আমরা", "আমাদের", "we"});
+        addCuratedChat("tara", new String[]{"তারা", "তাদের", "they"});
+        addCuratedChat("ki", new String[]{"কি", "কী", "what"});
+        addCuratedChat("keno", new String[]{"কেন", "কেননা", "why"});
+        addCuratedChat("kobe", new String[]{"কবে", "কখন", "when"});
+        addCuratedChat("kothay", new String[]{"কোথায়", "where"});
+        addCuratedChat("kemon", new String[]{"কেমন", "কী রকম", "how"});
+        addCuratedChat("hoy", new String[]{"হয়", "হবে", "hoy"});
+        addCuratedChat("ache", new String[]{"আছে", "রয়েছে", "have"});
+        addCuratedChat("nei", new String[]{"নেই", "নাই", "not available"});
+        addCuratedChat("na", new String[]{"না", "নয়", "no"});
+        addCuratedChat("hya", new String[]{"হ্যাঁ", "জি", "yes"});
+        addCuratedChat("thik", new String[]{"ঠিক", "আচ্ছা", "okay"});
+        addCuratedChat("accha", new String[]{"আচ্ছা", "ঠিক আছে", "okay"});
+        addCuratedChat("valo", new String[]{"ভালো", "ভাল", "good"});
+        addCuratedChat("bhalo", new String[]{"ভালো", "ভাল", "good"});
+        addCuratedChat("kharap", new String[]{"খারাপ", "মন্দ", "bad"});
+        addCuratedChat("onek", new String[]{"অনেক", "বেশি", "many"});
+        addCuratedChat("ektu", new String[]{"একটু", "কিছুটা", "a little"});
+        addCuratedChat("beshi", new String[]{"বেশি", "অনেক", "more"});
+        addCuratedChat("kom", new String[]{"কম", "অল্প", "less"});
+        addCuratedChat("akhon", new String[]{"এখন", "এই মুহূর্তে", "now"});
+        addCuratedChat("aj", new String[]{"আজ", "আজকে", "today"});
+        addCuratedChat("kal", new String[]{"কাল", "আগামীকাল", "tomorrow"});
+        addCuratedChat("pore", new String[]{"পরে", "তারপর", "later"});
+        addCuratedChat("age", new String[]{"আগে", "পূর্বে", "before"});
+        addCuratedChat("shokal", new String[]{"সকাল", "সকালে", "morning"});
+        addCuratedChat("dupur", new String[]{"দুপুর", "দুপুরে", "afternoon"});
+        addCuratedChat("rat", new String[]{"রাত", "রাতে", "night"});
+        addCuratedChat("somoy", new String[]{"সময়", "time"});
+        addCuratedChat("bondhu", new String[]{"বন্ধু", "ফ্রেন্ড", "friend"});
+        addCuratedChat("vai", new String[]{"ভাই", "ভাইয়া", "brother"});
+        addCuratedChat("apu", new String[]{"আপু", "বোন", "sister"});
+        addCuratedChat("ma", new String[]{"মা", "আম্মু", "mother"});
+        addCuratedChat("baba", new String[]{"বাবা", "আব্বু", "father"});
+        addCuratedChat("chele", new String[]{"ছেলে", "পুত্র", "boy"});
+        addCuratedChat("meye", new String[]{"মেয়ে", "কন্যা", "girl"});
+        addCuratedChat("nam", new String[]{"নাম", "নামটা", "name"});
+        addCuratedChat("bari", new String[]{"বাড়ি", "বাসা", "home"});
+        addCuratedChat("basha", new String[]{"বাসা", "বাড়ি", "home"});
+        addCuratedChat("dhaka", new String[]{"ঢাকা", "ঢাকায়", "Dhaka"});
+        addCuratedChat("school", new String[]{"স্কুল", "বিদ্যালয়", "school"});
+        addCuratedChat("skul", new String[]{"স্কুল", "বিদ্যালয়", "school"});
+        addCuratedChat("college", new String[]{"কলেজ", "মহাবিদ্যালয়", "college"});
+        addCuratedChat("university", new String[]{"ইউনিভার্সিটি", "বিশ্ববিদ্যালয়", "university"});
+        addCuratedChat("varsity", new String[]{"ভার্সিটি", "বিশ্ববিদ্যালয়", "university"});
+        addCuratedChat("class", new String[]{"ক্লাস", "শ্রেণি", "class"});
+        addCuratedChat("teacher", new String[]{"টিচার", "শিক্ষক", "teacher"});
+        addCuratedChat("student", new String[]{"স্টুডেন্ট", "শিক্ষার্থী", "student"});
+        addCuratedChat("porashona", new String[]{"পড়াশোনা", "লেখাপড়া", "study"});
+        addCuratedChat("boi", new String[]{"বই", "বইটা", "book"});
+        addCuratedChat("exam", new String[]{"এক্সাম", "পরীক্ষা", "exam"});
+        addCuratedChat("porikkha", new String[]{"পরীক্ষা", "এক্সাম", "exam"});
+        addCuratedChat("result", new String[]{"রেজাল্ট", "ফলাফল", "result"});
+        addCuratedChat("assignment", new String[]{"অ্যাসাইনমেন্ট", "কাজ", "assignment"});
+        addCuratedChat("homework", new String[]{"হোমওয়ার্ক", "বাড়ির কাজ", "homework"});
+        addCuratedChat("office", new String[]{"অফিস", "কার্যালয়", "office"});
+        addCuratedChat("kaj", new String[]{"কাজ", "কর্ম", "work"});
+        addCuratedChat("meeting", new String[]{"মিটিং", "সভা", "meeting"});
+        addCuratedChat("client", new String[]{"ক্লায়েন্ট", "গ্রাহক", "client"});
+        addCuratedChat("customer", new String[]{"কাস্টমার", "ক্রেতা", "customer"});
+        addCuratedChat("project", new String[]{"প্রজেক্ট", "প্রকল্প", "project"});
+        addCuratedChat("task", new String[]{"টাস্ক", "কাজ", "task"});
+        addCuratedChat("deadline", new String[]{"ডেডলাইন", "শেষ সময়", "deadline"});
+        addCuratedChat("update", new String[]{"আপডেট", "হালনাগাদ", "update"});
+        addCuratedChat("report", new String[]{"রিপোর্ট", "প্রতিবেদন", "report"});
+        addCuratedChat("file", new String[]{"ফাইল", "নথি", "file"});
+        addCuratedChat("document", new String[]{"ডকুমেন্ট", "নথি", "document"});
+        addCuratedChat("account", new String[]{"অ্যাকাউন্ট", "হিসাব", "account"});
+        addCuratedChat("bank", new String[]{"ব্যাংক", "ব্যাংকিং", "bank"});
+        addCuratedChat("taka", new String[]{"টাকা", "পয়সা", "money"});
+        addCuratedChat("payment", new String[]{"পেমেন্ট", "পরিশোধ", "payment"});
+        addCuratedChat("bill", new String[]{"বিল", "হিসাব", "bill"});
+        addCuratedChat("price", new String[]{"প্রাইস", "দাম", "price"});
+        addCuratedChat("dam", new String[]{"দাম", "মূল্য", "price"});
+        addCuratedChat("order", new String[]{"অর্ডার", "ফরমাশ", "order"});
+        addCuratedChat("product", new String[]{"প্রোডাক্ট", "পণ্য", "product"});
+        addCuratedChat("shop", new String[]{"শপ", "দোকান", "shop"});
+        addCuratedChat("market", new String[]{"মার্কেট", "বাজার", "market"});
+        addCuratedChat("food", new String[]{"ফুড", "খাবার", "food"});
+        addCuratedChat("khabar", new String[]{"খাবার", "খানা", "food"});
+        addCuratedChat("pani", new String[]{"পানি", "জল", "water"});
+        addCuratedChat("cha", new String[]{"চা", "চায়ের", "tea"});
+        addCuratedChat("vat", new String[]{"ভাত", "ভাতটা", "rice"});
+        addCuratedChat("bhat", new String[]{"ভাত", "খাবার", "rice"});
+        addCuratedChat("khaoa", new String[]{"খাওয়া", "খেতে", "eat"});
+        addCuratedChat("ranna", new String[]{"রান্না", "রাঁধা", "cooking"});
+        addCuratedChat("bazar", new String[]{"বাজার", "মার্কেট", "market"});
+        addCuratedChat("restaurant", new String[]{"রেস্টুরেন্ট", "খাবারের দোকান", "restaurant"});
+        addCuratedChat("phone", new String[]{"ফোন", "মোবাইল", "phone"});
+        addCuratedChat("mobile", new String[]{"মোবাইল", "ফোন", "mobile"});
+        addCuratedChat("computer", new String[]{"কম্পিউটার", "পিসি", "computer"});
+        addCuratedChat("laptop", new String[]{"ল্যাপটপ", "কম্পিউটার", "laptop"});
+        addCuratedChat("internet", new String[]{"ইন্টারনেট", "নেট", "internet"});
+        addCuratedChat("net", new String[]{"নেট", "ইন্টারনেট", "internet"});
+        addCuratedChat("wifi", new String[]{"ওয়াইফাই", "ইন্টারনেট", "wifi"});
+        addCuratedChat("app", new String[]{"অ্যাপ", "অ্যাপ্লিকেশন", "app"});
+        addCuratedChat("software", new String[]{"সফটওয়্যার", "প্রোগ্রাম", "software"});
+        addCuratedChat("keyboard", new String[]{"কীবোর্ড", "টাইপ করার বোর্ড", "keyboard"});
+        addCuratedChat("message", new String[]{"মেসেজ", "বার্তা", "message"});
+        addCuratedChat("msg", new String[]{"মেসেজ", "বার্তা", "message"});
+        addCuratedChat("chat", new String[]{"চ্যাট", "কথোপকথন", "chat"});
+        addCuratedChat("call", new String[]{"কল", "ফোন করা", "call"});
+        addCuratedChat("video", new String[]{"ভিডিও", "চলমান ছবি", "video"});
+        addCuratedChat("photo", new String[]{"ফটো", "ছবি", "photo"});
+        addCuratedChat("pic", new String[]{"ছবি", "পিক", "picture"});
+        addCuratedChat("link", new String[]{"লিংক", "সংযোগ", "link"});
+        addCuratedChat("password", new String[]{"পাসওয়ার্ড", "গোপন সংকেত", "password"});
+        addCuratedChat("login", new String[]{"লগইন", "প্রবেশ", "login"});
+        addCuratedChat("logout", new String[]{"লগআউট", "বের হওয়া", "logout"});
+        addCuratedChat("email", new String[]{"ইমেইল", "বার্তা", "email"});
+        addCuratedChat("facebook", new String[]{"ফেসবুক", "সোশ্যাল মিডিয়া", "Facebook"});
+        addCuratedChat("whatsapp", new String[]{"হোয়াটসঅ্যাপ", "মেসেজিং অ্যাপ", "WhatsApp"});
+        addCuratedChat("youtube", new String[]{"ইউটিউব", "ভিডিও প্ল্যাটফর্ম", "YouTube"});
+        addCuratedChat("download", new String[]{"ডাউনলোড", "নামিয়ে নেওয়া", "download"});
+        addCuratedChat("upload", new String[]{"আপলোড", "জমা দেওয়া", "upload"});
+        addCuratedChat("save", new String[]{"সেভ", "সংরক্ষণ", "save"});
+        addCuratedChat("share", new String[]{"শেয়ার", "ভাগ করে নেওয়া", "share"});
+        addCuratedChat("send", new String[]{"সেন্ড", "পাঠানো", "send"});
+        addCuratedChat("reply", new String[]{"রিপ্লাই", "উত্তর", "reply"});
+        addCuratedChat("seen", new String[]{"সিন", "দেখেছে", "seen"});
+        addCuratedChat("online", new String[]{"অনলাইন", "ইন্টারনেটে সক্রিয়", "online"});
+        addCuratedChat("offline", new String[]{"অফলাইন", "ইন্টারনেট ছাড়া", "offline"});
+        addCuratedChat("sorry", new String[]{"সরি", "দুঃখিত", "sorry"});
+        addCuratedChat("thanks", new String[]{"থ্যাংকস", "ধন্যবাদ", "thanks"});
+        addCuratedChat("thankyou", new String[]{"থ্যাংক ইউ", "ধন্যবাদ", "thank you"});
+        addCuratedChat("please", new String[]{"প্লিজ", "দয়া করে", "please"});
+        addCuratedChat("welcome", new String[]{"ওয়েলকাম", "স্বাগতম", "welcome"});
+        addCuratedChat("love", new String[]{"লাভ", "ভালোবাসা", "love"});
+        addCuratedChat("miss", new String[]{"মিস", "মনে পড়া", "miss"});
+        addCuratedChat("happy", new String[]{"হ্যাপি", "খুশি", "happy"});
+        addCuratedChat("sad", new String[]{"স্যাড", "মন খারাপ", "sad"});
+        addCuratedChat("problem", new String[]{"প্রবলেম", "সমস্যা", "problem"});
+        addCuratedChat("issue", new String[]{"ইস্যু", "সমস্যা", "issue"});
+        addCuratedChat("help", new String[]{"হেল্প", "সাহায্য", "help"});
+        addCuratedChat("urgent", new String[]{"আর্জেন্ট", "জরুরি", "urgent"});
+        addCuratedChat("important", new String[]{"ইম্পর্ট্যান্ট", "গুরুত্বপূর্ণ", "important"});
+        addCuratedChat("possible", new String[]{"পসিবল", "সম্ভব", "possible"});
+        addCuratedChat("maybe", new String[]{"মেবি", "হয়তো", "maybe"});
+        addCuratedChat("sure", new String[]{"শিওর", "নিশ্চিত", "sure"});
+        addCuratedChat("confirm", new String[]{"কনফার্ম", "নিশ্চিত করা", "confirm"});
+        addCuratedChat("check", new String[]{"চেক", "যাচাই", "check"});
+        addCuratedChat("pleasecheck", new String[]{"প্লিজ চেক", "দয়া করে যাচাই করুন", "please check"});
+        addCuratedChat("complete", new String[]{"কমপ্লিট", "সম্পন্ন", "complete"});
+        addCuratedChat("start", new String[]{"স্টার্ট", "শুরু", "start"});
+        addCuratedChat("finish", new String[]{"ফিনিশ", "শেষ", "finish"});
+        addCuratedChat("ready", new String[]{"রেডি", "প্রস্তুত", "ready"});
+        addCuratedChat("wait", new String[]{"ওয়েট", "অপেক্ষা", "wait"});
+        addCuratedChat("aschi", new String[]{"আসছি", "আমি আসছি", "coming"});
+        addCuratedChat("jacchi", new String[]{"যাচ্ছি", "আমি যাচ্ছি", "going"});
+        addCuratedChat("korbo", new String[]{"করব", "আমি করব", "will do"});
+        addCuratedChat("korchi", new String[]{"করছি", "আমি করছি", "doing"});
+        addCuratedChat("hobe", new String[]{"হবে", "সম্ভব হবে", "will happen"});
+        addCuratedChat("lagbe", new String[]{"লাগবে", "প্রয়োজন হবে", "will need"});
+        addCuratedChat("chai", new String[]{"চাই", "ইচ্ছা করি", "want"});
+        addCuratedChat("parbo", new String[]{"পারব", "সক্ষম হব", "can"});
+        addCuratedChat("bujhlam", new String[]{"বুঝলাম", "বুঝেছি", "understood"});
+        addCuratedChat("bujhi", new String[]{"বুঝি", "আমি বুঝি", "understand"});
+        addCuratedChat("bolen", new String[]{"বলেন", "বলুন", "please say"});
+        addCuratedChat("bolo", new String[]{"বলো", "বল", "say"});
+        addCuratedChat("shunen", new String[]{"শুনেন", "শুনুন", "please listen"});
+        addCuratedChat("janina", new String[]{"জানিনা", "আমি জানি না", "I don't know"});
+        addCuratedChat("jani", new String[]{"জানি", "আমি জানি", "know"});
+        addCuratedChat("mone", new String[]{"মনে", "মনে হয়", "mind"});
+        addCuratedChat("hoyto", new String[]{"হয়তো", "সম্ভবত", "maybe"});
+        addCuratedChat("oboshshoi", new String[]{"অবশ্যই", "নিশ্চয়ই", "of course"});
+        addCuratedChat("kintu", new String[]{"কিন্তু", "তবে", "but"});
+        addCuratedChat("karon", new String[]{"কারণ", "কেননা", "because"});
+        addCuratedChat("tai", new String[]{"তাই", "সেজন্য", "so"});
+        addCuratedChat("tahole", new String[]{"তাহলে", "সেক্ষেত্রে", "then"});
+        addCuratedChat("jodi", new String[]{"যদি", "যদি কখনো", "if"});
+        addCuratedChat("sathe", new String[]{"সাথে", "একসাথে", "with"});
+        addCuratedChat("jonno", new String[]{"জন্য", "কারণে", "for"});
+        addCuratedChat("shob", new String[]{"সব", "সকল", "all"});
+        addCuratedChat("shobai", new String[]{"সবাই", "সকলেই", "everyone"});
+        addCuratedChat("ekta", new String[]{"একটা", "একটি", "one"});
+        addCuratedChat("duita", new String[]{"দুইটা", "দুটি", "two"});
+        addCuratedChat("proyojon", new String[]{"প্রয়োজন", "দরকার", "need"});
+        addCuratedChat("dorkar", new String[]{"দরকার", "প্রয়োজন", "need"});
+        addCuratedChat("khub", new String[]{"খুব", "অনেক", "very"});
+        addCuratedChat("sundor", new String[]{"সুন্দর", "চমৎকার", "beautiful"});
+        addCuratedChat("moja", new String[]{"মজা", "আনন্দ", "fun"});
+        addCuratedChat("allah", new String[]{"আল্লাহ", "খোদা", "Allah"});
+        addCuratedChat("inshallah", new String[]{"ইনশাআল্লাহ", "আল্লাহ চাইলে", "God willing"});
+        addCuratedChat("subhanallah", new String[]{"সুবহানাল্লাহ", "মাশাআল্লাহ", "Subhanallah"});
     }
 
     private BanglaSuggestionEngine() {}
 
     /**
-     * Borno's case normalization:
-     * In Bangla phonetic input, uppercase is only meaningful for distinct phonemes:
-     * O, I, U, D, G, J, N, R, S, T, Y, Z, H, X.
-     * Accidental capitalization from Android auto-caps (e.g. K in Kemon) is normalized to lowercase.
+     * Avro case normalization:
+     * In official Avro phonetic input, uppercase is only meaningful for distinct phonemes:
+     * O, U, D, G, J, N, R, S, T, Y, Z.
+     * Accidental capitalization from Android auto-caps (e.g. A in Ami, K in Kemon, E in Eita, H in Hobe)
+     * is normalized to lowercase.
      */
     public static String normalizeCase(final String in) {
         if (in == null || in.isEmpty()) return in;
         final StringBuilder sb = new StringBuilder(in.length());
         for (int i = 0; i < in.length(); i++) {
             char c = in.charAt(i);
-            if (c == 'a' || c == 'A' || c == 'o' || c == 'O' ||
-                c == 'i' || c == 'I' || c == 'u' || c == 'U' ||
-                c == 'd' || c == 'D' || c == 'g' || c == 'G' ||
-                c == 'j' || c == 'J' || c == 'n' || c == 'N' ||
-                c == 'r' || c == 'R' || c == 's' || c == 'S' ||
-                c == 't' || c == 'T' || c == 'y' || c == 'Y' ||
-                c == 'z' || c == 'Z' || c == 'h' || c == 'H' ||
-                c == 'x' || c == 'X') {
+            if (c == 'O' || c == 'U' || c == 'D' || c == 'G' || c == 'J' ||
+                c == 'N' || c == 'R' || c == 'S' || c == 'T' || c == 'Y' || c == 'Z' ||
+                c == 'o' || c == 'u' || c == 'd' || c == 'g' || c == 'j' ||
+                c == 'n' || c == 'r' || c == 's' || c == 't' || c == 'y' || c == 'z') {
                 sb.append(c);
             } else {
                 sb.append(Character.toLowerCase(c));
@@ -746,6 +1843,283 @@ public final class BanglaSuggestionEngine {
         }
     }
 
+    public static boolean containsDigit(final String s) {
+        if (s == null) return false;
+        for (int i = 0; i < s.length(); i++) {
+            final char c = s.charAt(i);
+            if (c >= '0' && c <= '9') {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    public static boolean isDigitsOnly(final String s) {
+        if (s == null || s.isEmpty()) return false;
+        for (int i = 0; i < s.length(); i++) {
+            final char c = s.charAt(i);
+            if (c < '0' || c > '9') {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    public static boolean isDigitsOrNumber(final String s) {
+        if (s == null || s.isEmpty()) return false;
+        boolean hasDigit = false;
+        for (int i = 0; i < s.length(); i++) {
+            final char c = s.charAt(i);
+            if (c >= '0' && c <= '9') {
+                hasDigit = true;
+            } else if (c != '.' && c != ',' && c != '%' && c != '-') {
+                return false;
+            }
+        }
+        return hasDigit;
+    }
+
+    public static String toBengaliNumerals(final String s) {
+        if (s == null) return null;
+        final StringBuilder sb = new StringBuilder();
+        for (int i = 0; i < s.length(); i++) {
+            final char c = s.charAt(i);
+            if (c >= '0' && c <= '9') {
+                sb.append((char) (c - '0' + 0x09E6));
+            } else {
+                sb.append(c);
+            }
+        }
+        return sb.toString();
+    }
+
+    public static boolean isTrailingPunctuation(final char c) {
+        return c == '.' || c == ',' || c == '?' || c == '!' || c == ';' || c == ':'
+                || c == '\u0964' /* । */ || c == '\u0965' /* ॥ */
+                || c == '\'' || c == '"' || c == '-';
+    }
+
+    private static final class PhoneticSite {
+        final int start;
+        final int end;
+        final String[] replacements;
+
+        PhoneticSite(final int start, final int end, final String[] replacements) {
+            this.start = start;
+            this.end = end;
+            this.replacements = replacements;
+        }
+    }
+
+    /**
+     * Generates candidate variants where dental/retroflex pairs (t <-> T, th <-> Th,
+     * d <-> D, dh <-> Dh, s <-> sh <-> S, n <-> N, r <-> R, v <-> bh) are permuted for
+     * initial and medial consonants.
+     */
+    public static List<String> generatePhoneticVariants(final String raw) {
+        final List<String> variants = new ArrayList<>();
+        if (raw == null || raw.length() < 2) {
+            return variants;
+        }
+
+        final List<PhoneticSite> sites = new ArrayList<>();
+        int i = 0;
+        final int len = raw.length();
+        while (i < len) {
+            final char c = raw.charAt(i);
+            final char next = (i + 1 < len) ? raw.charAt(i + 1) : 0;
+
+            // 1. Two-character clusters first
+            if ((c == 't' || c == 'T') && (next == 'h' || next == 'H')) {
+                sites.add(new PhoneticSite(i, i + 2, (c == 't') ? new String[]{"Th"} : new String[]{"th"}));
+                i += 2;
+                continue;
+            }
+            if ((c == 'd' || c == 'D') && (next == 'h' || next == 'H')) {
+                sites.add(new PhoneticSite(i, i + 2, (c == 'd') ? new String[]{"Dh"} : new String[]{"dh"}));
+                i += 2;
+                continue;
+            }
+            if ((c == 'c' || c == 'C') && (next == 'h' || next == 'H')) {
+                sites.add(new PhoneticSite(i, i + 2, new String[]{"c"}));
+                i += 2;
+                continue;
+            }
+            if ((c == 's' || c == 'S') && (next == 'h' || next == 'H')) {
+                final String[] reps = (c == 's')
+                        ? new String[]{"s", "Sh", "S"}
+                        : new String[]{"s", "sh", "S"};
+                sites.add(new PhoneticSite(i, i + 2, reps));
+                i += 2;
+                continue;
+            }
+            if ((c == 'b' || c == 'B') && (next == 'h' || next == 'H')) {
+                sites.add(new PhoneticSite(i, i + 2, new String[]{"v"}));
+                i += 2;
+                continue;
+            }
+
+            // 2. Single-character consonants
+            if (c == 't') {
+                sites.add(new PhoneticSite(i, i + 1, new String[]{"T", "TH"}));
+            } else if (c == 'T') {
+                sites.add(new PhoneticSite(i, i + 1, new String[]{"t"}));
+            } else if (c == 'd') {
+                sites.add(new PhoneticSite(i, i + 1, new String[]{"D"}));
+            } else if (c == 'D') {
+                sites.add(new PhoneticSite(i, i + 1, new String[]{"d"}));
+            } else if (c == 'c' || c == 'C') {
+                sites.add(new PhoneticSite(i, i + 1, new String[]{"ch"}));
+            } else if (c == 's') {
+                sites.add(new PhoneticSite(i, i + 1, new String[]{"sh", "Sh", "S"}));
+            } else if (c == 'S') {
+                sites.add(new PhoneticSite(i, i + 1, new String[]{"s", "sh", "Sh"}));
+            } else if (c == 'n') {
+                sites.add(new PhoneticSite(i, i + 1, new String[]{"N"}));
+            } else if (c == 'N') {
+                sites.add(new PhoneticSite(i, i + 1, new String[]{"n"}));
+            } else if (c == 'r') {
+                sites.add(new PhoneticSite(i, i + 1, new String[]{"R"}));
+            } else if (c == 'R') {
+                sites.add(new PhoneticSite(i, i + 1, new String[]{"r"}));
+            } else if (c == 'v' || c == 'V') {
+                sites.add(new PhoneticSite(i, i + 1, new String[]{"bh"}));
+            }
+            i++;
+        }
+
+        if (sites.isEmpty()) {
+            return variants;
+        }
+
+        final Set<String> uniqueVariants = new LinkedHashSet<>();
+
+        // Level 1: Single-site substitutions
+        for (final PhoneticSite site : sites) {
+            for (final String rep : site.replacements) {
+                final String variant = raw.substring(0, site.start) + rep + raw.substring(site.end);
+                if (!variant.equals(raw)) {
+                    uniqueVariants.add(variant);
+                }
+            }
+        }
+
+        // Level 2: Pairwise substitutions
+        if (sites.size() >= 2) {
+            for (int j = 0; j < sites.size() && uniqueVariants.size() < 32; j++) {
+                final PhoneticSite s1 = sites.get(j);
+                for (int k = j + 1; k < sites.size() && uniqueVariants.size() < 32; k++) {
+                    final PhoneticSite s2 = sites.get(k);
+                    for (final String r1 : s1.replacements) {
+                        for (final String r2 : s2.replacements) {
+                            final String variant = raw.substring(0, s1.start)
+                                    + r1
+                                    + raw.substring(s1.end, s2.start)
+                                    + r2
+                                    + raw.substring(s2.end);
+                            if (!variant.equals(raw)) {
+                                uniqueVariants.add(variant);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        // Level 3: Triple substitutions (for words with >= 3 ambiguous sites)
+        if (sites.size() >= 3 && uniqueVariants.size() < 32) {
+            for (int j = 0; j < sites.size() && uniqueVariants.size() < 32; j++) {
+                final PhoneticSite s1 = sites.get(j);
+                for (int k = j + 1; k < sites.size() && uniqueVariants.size() < 32; k++) {
+                    final PhoneticSite s2 = sites.get(k);
+                    for (int l = k + 1; l < sites.size() && uniqueVariants.size() < 32; l++) {
+                        final PhoneticSite s3 = sites.get(l);
+                        for (final String r1 : s1.replacements) {
+                            for (final String r2 : s2.replacements) {
+                                for (final String r3 : s3.replacements) {
+                                    final String variant = raw.substring(0, s1.start)
+                                            + r1
+                                            + raw.substring(s1.end, s2.start)
+                                            + r2
+                                            + raw.substring(s2.end, s3.start)
+                                            + r3
+                                            + raw.substring(s3.end);
+                                    if (!variant.equals(raw)) {
+                                        uniqueVariants.add(variant);
+                                    }
+                                    if (uniqueVariants.size() >= 32) break;
+                                }
+                                if (uniqueVariants.size() >= 32) break;
+                            }
+                            if (uniqueVariants.size() >= 32) break;
+                        }
+                    }
+                }
+            }
+        }
+
+        variants.addAll(uniqueVariants);
+        return variants;
+    }
+
+    private static final Map<String, String[]> COMMON_NEXT_WORDS = new HashMap<>();
+    static {
+        COMMON_NEXT_WORDS.put("আমি", new String[]{"তোমাকে", "ভালো", "যাব"});
+        COMMON_NEXT_WORDS.put("তুমি", new String[]{"কেমন", "কোথায়", "কী"});
+        COMMON_NEXT_WORDS.put("আপনি", new String[]{"কেমন", "ভালো", "কোথায়"});
+        COMMON_NEXT_WORDS.put("আমরা", new String[]{"সবাই", "যাব", "ভালো"});
+        COMMON_NEXT_WORDS.put("আমার", new String[]{"মনে", "কাছে", "ভাই"});
+        COMMON_NEXT_WORDS.put("তোমার", new String[]{"নাম", "বাসা", "খবর"});
+        COMMON_NEXT_WORDS.put("আপনার", new String[]{"নাম", "কাছে", "দোয়া"});
+        COMMON_NEXT_WORDS.put("অনেক", new String[]{"ধন্যবাদ", "সুন্দর", "ভালো"});
+        COMMON_NEXT_WORDS.put("খুব", new String[]{"ভালো", "সুন্দর", "কষ্ট"});
+        COMMON_NEXT_WORDS.put("শুভ", new String[]{"সকাল", "রাত্রি", "কামনা"});
+        COMMON_NEXT_WORDS.put("কি", new String[]{"খবর", "করছ", "অবস্থা"});
+        COMMON_NEXT_WORDS.put("কী", new String[]{"খবর", "করছ", "অবস্থা"});
+        COMMON_NEXT_WORDS.put("ভালো", new String[]{"আছো", "থাকবেন", "বাসি"});
+        COMMON_NEXT_WORDS.put("কেমন", new String[]{"আছো", "আছেন", "হবে"});
+        COMMON_NEXT_WORDS.put("ধন্যবাদ", new String[]{"ভাই", "আপনাকে", "তোমাকে"});
+        COMMON_NEXT_WORDS.put("সে", new String[]{"কী", "কোথায়", "যাবে"});
+        COMMON_NEXT_WORDS.put("এটা", new String[]{"খুব", "অনেক", "ভালো"});
+        COMMON_NEXT_WORDS.put("হ্যাঁ", new String[]{"ঠিক", "বলুন", "হবে"});
+        COMMON_NEXT_WORDS.put("ঠিক", new String[]{"আছে", "হয়েছে", "বলছেন"});
+        COMMON_NEXT_WORDS.put("কবে", new String[]{"আসবেন", "হবে", "যাবেন"});
+        COMMON_NEXT_WORDS.put("কোথায়", new String[]{"আছো", "আছেন", "যাবেন"});
+    }
+
+    public static List<String> getNextWordPredictions(final String prevWord, final DictionaryFacilitator dictFacilitator) {
+        final LinkedHashSet<String> predictions = new LinkedHashSet<>();
+        if (prevWord == null || prevWord.isEmpty()) {
+            return new ArrayList<>();
+        }
+        String cleanPrev = prevWord.trim();
+        while (cleanPrev.length() > 0 && isTrailingPunctuation(cleanPrev.charAt(cleanPrev.length() - 1))) {
+            cleanPrev = cleanPrev.substring(0, cleanPrev.length() - 1);
+        }
+
+        // 1. Dynamic learned bigram predictions (highest priority)
+        final List<String> learned = getLearnedBigramPredictions(cleanPrev);
+        if (learned != null) {
+            predictions.addAll(learned);
+        }
+
+        // 2. Curated conversational next-word associations
+        final String[] curated = COMMON_NEXT_WORDS.get(cleanPrev);
+        if (curated != null) {
+            for (final String word : curated) {
+                if (word != null && !word.isEmpty()) {
+                    predictions.add(word);
+                }
+            }
+        }
+
+        final List<String> result = new ArrayList<>(predictions);
+        while (result.size() > 5) {
+            result.remove(result.size() - 1);
+        }
+        return result;
+    }
+
     /**
      * Backward-compatible candidate generation without DictionaryFacilitator.
      */
@@ -755,7 +2129,7 @@ public final class BanglaSuggestionEngine {
 
     /**
      * Generates rich candidates using Banglish alias resolution, phonetic rules,
-     * and authentic dictionary validation.
+     * curated chat suggestions, and authentic dictionary validation.
      */
     public static List<String> getCandidates(final String raw, final RidmikParser parser,
                                              final DictionaryFacilitator dictFacilitator) {
@@ -769,29 +2143,46 @@ public final class BanglaSuggestionEngine {
         final boolean isShorthand = SHORTHAND_ABBREVIATIONS.contains(lower)
                 || (canonical != null && SHORTHAND_ABBREVIATIONS.contains(canonical));
 
-        // 1. Shorthand conversational abbreviations take primary priority
-        if (isShorthand) {
-            final String[] aliases = BANGLISH_ALIASES.get(lower);
-            if (aliases != null) {
-                for (String alias : aliases) {
+        final String[] curatedChat = getCuratedChatSuggestions(lower);
+        final String[] primaryAliases = BANGLISH_ALIASES.get(lower);
+
+        // 0. Curated Chat Suggestions take slot priority (e.g. account -> ["অ্যাকাউন্ট", "হিসাব", "account"])
+        if (curatedChat != null) {
+            for (String alias : curatedChat) {
+                if (alias != null && !alias.isEmpty()) {
+                    set.add(removeConsecutiveKarSigns(alias));
+                }
+            }
+        }
+
+        // 1. Explicit Banglish Aliases take slot 0 priority (Ridmik & Gboard standard)
+        // Whenever a curated Banglish alias exists (e.g. jabo -> যাব, thik -> ঠিক, chai -> চাই, eita -> এইটা, koro -> করো),
+        // the alias MUST take index 0 so Spacebar cleanly commits the expected conversational word.
+        if (primaryAliases != null) {
+            for (String alias : primaryAliases) {
+                if (alias != null && !alias.isEmpty()) {
+                    set.add(removeConsecutiveKarSigns(alias));
+                }
+            }
+        }
+        if (canonical != null) {
+            final String[] canonicalAliases = BANGLISH_ALIASES.get(canonical);
+            if (canonicalAliases != null) {
+                for (String alias : canonicalAliases) {
                     if (alias != null && !alias.isEmpty()) {
                         set.add(removeConsecutiveKarSigns(alias));
                     }
                 }
             }
-            if (canonical != null) {
-                final String[] canonicalAliases = BANGLISH_ALIASES.get(canonical);
-                if (canonicalAliases != null) {
-                    for (String alias : canonicalAliases) {
-                        if (alias != null && !alias.isEmpty()) {
-                            set.add(removeConsecutiveKarSigns(alias));
-                        }
-                    }
-                }
-            }
         }
 
-        // 2. Primary transliteration with Borno case normalization
+        // 2. Bengali Numeral Quick-Pick in Avro Mode
+        final String bnNumerals = containsDigit(raw) ? toBengaliNumerals(raw) : null;
+        if (bnNumerals != null && !bnNumerals.isEmpty()) {
+            set.add(bnNumerals);
+        }
+
+        // 3. Primary transliteration with Avro case normalization
         final String normalizedRaw = normalizeCase(raw);
         final String primary = removeConsecutiveKarSigns(parser.toBangla(normalizedRaw));
         if (primary != null && !primary.isEmpty()) {
@@ -803,59 +2194,30 @@ public final class BanglaSuggestionEngine {
                 set.add(rawPrimary);
             }
         }
-
-        // 3. General phonetic aliases right after primary
-        if (!isShorthand) {
-            final String[] aliases = BANGLISH_ALIASES.get(lower);
-            if (aliases != null) {
-                for (String alias : aliases) {
-                    if (alias != null && !alias.isEmpty()) {
-                        set.add(removeConsecutiveKarSigns(alias));
-                    }
-                }
+        // Smart Sentence-Start Fix: if raw begins with an uppercase letter, generate lower-first transliteration
+        if (raw.length() > 0 && Character.isUpperCase(raw.charAt(0))) {
+            final String lowerFirst = Character.toLowerCase(raw.charAt(0)) + (raw.length() > 1 ? raw.substring(1) : "");
+            final String lowerFirstPrimary = removeConsecutiveKarSigns(parser.toBangla(normalizeCase(lowerFirst)));
+            if (lowerFirstPrimary != null && !lowerFirstPrimary.isEmpty()) {
+                set.add(lowerFirstPrimary);
             }
-            if (canonical != null) {
-                final String[] canonicalAliases = BANGLISH_ALIASES.get(canonical);
-                if (canonicalAliases != null) {
-                    for (String alias : canonicalAliases) {
-                        if (alias != null && !alias.isEmpty()) {
-                            set.add(removeConsecutiveKarSigns(alias));
-                        }
-                    }
-                }
+        }
+        if (containsDigit(raw) && primary != null) {
+            final String bnNumeralsTransliterated = toBengaliNumerals(primary);
+            if (!bnNumeralsTransliterated.equals(primary) && !bnNumeralsTransliterated.equals(bnNumerals)) {
+                set.add(bnNumeralsTransliterated);
             }
         }
 
-        // 3. Trailing 'o' / 'O' variations (verbs & common adjectives, e.g. korbo -> করব, করবো)
-        if (raw.endsWith("o")) {
-            final String altO = removeConsecutiveKarSigns(parser.toBangla(raw.substring(0, raw.length() - 1) + "O"));
+        // 3. Direct phonological variations from raw
+        if (raw.contains("o")) {
+            final String altO = removeConsecutiveKarSigns(parser.toBangla(raw.replace('o', 'O')));
             if (altO != null && !altO.isEmpty()) set.add(altO);
-            if (raw.length() > 2) {
-                final String stem = removeConsecutiveKarSigns(parser.toBangla(raw.substring(0, raw.length() - 1)));
-                if (stem != null && !stem.isEmpty()) set.add(stem);
-            }
-        } else if (raw.endsWith("O")) {
-            final String alto = removeConsecutiveKarSigns(parser.toBangla(raw.substring(0, raw.length() - 1) + "o"));
-            if (alto != null && !alto.isEmpty()) set.add(alto);
-        } else if (raw.length() > 1 && !isVowel(raw.charAt(raw.length() - 1))) {
-            final String altO = removeConsecutiveKarSigns(parser.toBangla(raw + "O"));
-            if (altO != null && !altO.isEmpty()) set.add(altO);
-            final String alto = removeConsecutiveKarSigns(parser.toBangla(raw + "o"));
+        } else if (raw.contains("O")) {
+            final String alto = removeConsecutiveKarSigns(parser.toBangla(raw.replace('O', 'o')));
             if (alto != null && !alto.isEmpty()) set.add(alto);
         }
 
-        // 4. 'v' vs 'bh' (Bangladeshi typing habit: valo -> bhalo -> ভালো)
-        if (raw.contains("v")) {
-            final String altBh = removeConsecutiveKarSigns(parser.toBangla(raw.replace("v", "bh")));
-            if (altBh != null && !altBh.isEmpty()) set.add(altBh);
-            final String altBhO = removeConsecutiveKarSigns(parser.toBangla(raw.replace("v", "bh").replace('o', 'O')));
-            if (altBhO != null && !altBhO.isEmpty()) set.add(altBhO);
-        } else if (raw.contains("bh")) {
-            final String altV = removeConsecutiveKarSigns(parser.toBangla(raw.replace("bh", "v")));
-            if (altV != null && !altV.isEmpty()) set.add(altV);
-        }
-
-        // 5. 's' vs 'sh' (দাঁত-স vs তালব্য-শ)
         if (raw.contains("sh")) {
             final String sWord = raw.replace("sh", "s");
             final String alt = removeConsecutiveKarSigns(parser.toBangla(sWord));
@@ -874,17 +2236,6 @@ public final class BanglaSuggestionEngine {
             }
         }
 
-        // 6. Other consonant / vowel distinctions
-        // 'r' vs 'R' (র vs ড়)
-        if (raw.contains("r")) {
-            final String alt = removeConsecutiveKarSigns(parser.toBangla(raw.replace('r', 'R')));
-            if (alt != null && !alt.isEmpty()) set.add(alt);
-        } else if (raw.contains("R")) {
-            final String alt = removeConsecutiveKarSigns(parser.toBangla(raw.replace('R', 'r')));
-            if (alt != null && !alt.isEmpty()) set.add(alt);
-        }
-
-        // 't' vs 'T' (ত vs ট)
         if (raw.contains("t")) {
             final String alt = removeConsecutiveKarSigns(parser.toBangla(raw.replace('t', 'T')));
             if (alt != null && !alt.isEmpty()) set.add(alt);
@@ -893,7 +2244,6 @@ public final class BanglaSuggestionEngine {
             if (alt != null && !alt.isEmpty()) set.add(alt);
         }
 
-        // 'd' vs 'D' (দ vs ড)
         if (raw.contains("d")) {
             final String alt = removeConsecutiveKarSigns(parser.toBangla(raw.replace('d', 'D')));
             if (alt != null && !alt.isEmpty()) set.add(alt);
@@ -902,25 +2252,60 @@ public final class BanglaSuggestionEngine {
             if (alt != null && !alt.isEmpty()) set.add(alt);
         }
 
-        // 'z' vs 'j' (জ vs য)
-        if (raw.contains("z")) {
-            final String alt = removeConsecutiveKarSigns(parser.toBangla(raw.replace('z', 'j')));
+        if (raw.contains("v")) {
+            final String alt = removeConsecutiveKarSigns(parser.toBangla(raw.replace("v", "bh")));
             if (alt != null && !alt.isEmpty()) set.add(alt);
-        } else if (raw.contains("j")) {
-            final String alt = removeConsecutiveKarSigns(parser.toBangla(raw.replace('j', 'z')));
-            if (alt != null && !alt.isEmpty()) set.add(alt);
-        }
-
-        // 'n' vs 'N' (ন vs ণ)
-        if (raw.contains("n")) {
-            final String alt = removeConsecutiveKarSigns(parser.toBangla(raw.replace('n', 'N')));
-            if (alt != null && !alt.isEmpty()) set.add(alt);
-        } else if (raw.contains("N")) {
-            final String alt = removeConsecutiveKarSigns(parser.toBangla(raw.replace('N', 'n')));
+        } else if (raw.contains("bh")) {
+            final String alt = removeConsecutiveKarSigns(parser.toBangla(raw.replace("bh", "v")));
             if (alt != null && !alt.isEmpty()) set.add(alt);
         }
 
-        // 'i' vs 'I' (ি vs ী)
+        if (raw.contains("r")) {
+            final String alt = removeConsecutiveKarSigns(parser.toBangla(raw.replace('r', 'R')));
+            if (alt != null && !alt.isEmpty()) set.add(alt);
+        } else if (raw.contains("R")) {
+            final String alt = removeConsecutiveKarSigns(parser.toBangla(raw.replace('R', 'r')));
+            if (alt != null && !alt.isEmpty()) set.add(alt);
+        }
+
+        // 4. Systematic Fuzzy Phonetic Permutations for Soft Dental/Retroflex & Sibilants
+        // (t/T, th/Th, d/D, dh/Dh, c/ch, s/sh/S, n/N, r/R, v/bh)
+        final List<String> fuzzyVariants = generatePhoneticVariants(raw);
+        for (final String variant : fuzzyVariants) {
+            final String alt = removeConsecutiveKarSigns(parser.toBangla(variant));
+            if (alt != null && !alt.isEmpty()) {
+                set.add(alt);
+            }
+            if (variant.contains("o")) {
+                final String altO = removeConsecutiveKarSigns(parser.toBangla(variant.replace('o', 'O')));
+                if (altO != null && !altO.isEmpty()) set.add(altO);
+            }
+            if (variant.endsWith("o")) {
+                final String altO = removeConsecutiveKarSigns(parser.toBangla(variant.substring(0, variant.length() - 1) + "O"));
+                if (altO != null && !altO.isEmpty()) set.add(altO);
+            }
+        }
+
+        // 5. Trailing 'o' / 'O' variations (verbs & common adjectives, e.g. korbo -> করব, করবো)
+        if (raw.endsWith("o")) {
+            final String altO = removeConsecutiveKarSigns(parser.toBangla(raw.substring(0, raw.length() - 1) + "O"));
+            if (altO != null && !altO.isEmpty()) set.add(altO);
+            if (raw.length() > 2) {
+                final String stem = removeConsecutiveKarSigns(parser.toBangla(raw.substring(0, raw.length() - 1)));
+                if (stem != null && !stem.isEmpty()) set.add(stem);
+            }
+        } else if (raw.endsWith("O")) {
+            final String alto = removeConsecutiveKarSigns(parser.toBangla(raw.substring(0, raw.length() - 1) + "o"));
+            if (alto != null && !alto.isEmpty()) set.add(alto);
+        } else if (raw.length() > 1 && !isVowel(raw.charAt(raw.length() - 1))) {
+            final String altO = removeConsecutiveKarSigns(parser.toBangla(raw + "O"));
+            if (altO != null && !altO.isEmpty()) set.add(altO);
+            final String alto = removeConsecutiveKarSigns(parser.toBangla(raw + "o"));
+            if (alto != null && !alto.isEmpty()) set.add(alto);
+        }
+
+
+        // 6. Additional vowel distinctions (i/I, u/U, z/j)
         if (raw.contains("i")) {
             final String alt = removeConsecutiveKarSigns(parser.toBangla(raw.replace('i', 'I')));
             if (alt != null && !alt.isEmpty()) set.add(alt);
@@ -929,12 +2314,19 @@ public final class BanglaSuggestionEngine {
             if (alt != null && !alt.isEmpty()) set.add(alt);
         }
 
-        // 'u' vs 'U' (ু vs ূ)
         if (raw.contains("u")) {
             final String alt = removeConsecutiveKarSigns(parser.toBangla(raw.replace('u', 'U')));
             if (alt != null && !alt.isEmpty()) set.add(alt);
         } else if (raw.contains("U")) {
             final String alt = removeConsecutiveKarSigns(parser.toBangla(raw.replace('U', 'u')));
+            if (alt != null && !alt.isEmpty()) set.add(alt);
+        }
+
+        if (raw.contains("z")) {
+            final String alt = removeConsecutiveKarSigns(parser.toBangla(raw.replace('z', 'j')));
+            if (alt != null && !alt.isEmpty()) set.add(alt);
+        } else if (raw.contains("j")) {
+            final String alt = removeConsecutiveKarSigns(parser.toBangla(raw.replace('j', 'z')));
             if (alt != null && !alt.isEmpty()) set.add(alt);
         }
 
@@ -952,21 +2344,73 @@ public final class BanglaSuggestionEngine {
 
         // 8. Rank candidates with DictionaryFacilitator (main_bn.dict)
         final ArrayList<String> result = new ArrayList<>();
-        if (dictFacilitator != null) {
-            // First pass: add words that are verified authentic words in main_bn.dict
-            for (String cand : set) {
-                if (dictFacilitator.isValidSpellingWord(cand)) {
-                    result.add(cand);
+        String topCuratedAlias = null;
+        if (curatedChat != null && curatedChat.length > 0) {
+            for (String c : curatedChat) {
+                if (c != null && !c.isEmpty()) {
+                    final String clean = removeConsecutiveKarSigns(c);
+                    if (!result.contains(clean)) {
+                        result.add(clean);
+                    }
                 }
             }
-            // Second pass: add remaining phonetic candidates
-            for (String cand : set) {
+        } else if (isShorthand && primaryAliases != null && primaryAliases.length > 0) {
+            topCuratedAlias = removeConsecutiveKarSigns(primaryAliases[0]);
+        }
+        if (dictFacilitator != null) {
+            if (topCuratedAlias != null && set.contains(topCuratedAlias) && !result.contains(topCuratedAlias)) {
+                result.add(topCuratedAlias);
+            }
+            final List<String> validWords = new ArrayList<>();
+            final List<String> remainingWords = new ArrayList<>();
+            for (final String cand : set) {
+                if (result.contains(cand)) continue;
+                if (dictFacilitator.isValidSpellingWord(cand)) {
+                    validWords.add(cand);
+                } else {
+                    remainingWords.add(cand);
+                }
+            }
+            // Sort valid words by frequency descending in main_bn.dict
+            validWords.sort((a, b) -> Integer.compare(dictFacilitator.getFrequency(b), dictFacilitator.getFrequency(a)));
+
+            result.addAll(validWords);
+            result.addAll(remainingWords);
+        } else {
+            for (final String cand : set) {
                 if (!result.contains(cand)) {
                     result.add(cand);
                 }
             }
-        } else {
-            result.addAll(set);
+        }
+
+        // Bengali Numeral Priority for pure digits and formatted numbers (e.g. 500 -> 500 at index 0, ৫০০ at index 1)
+        final boolean isNumeral = bnNumerals != null && (isDigitsOnly(raw) || isDigitsOrNumber(raw));
+        if (isNumeral) {
+            result.remove(raw);
+            result.remove(bnNumerals);
+            result.add(0, bnNumerals);
+            result.add(0, raw);
+        }
+
+        // 9. Inject learned user transliterations for raw.toLowerCase()
+        // Top learned transliterations take index 0 priority (frequently chosen spellings/words)
+        // Guard against displacing numbers: learned words must NEVER displace numeral priority
+        final List<String> learnedCandidates = getLearnedCandidates(lower);
+        if (learnedCandidates != null && !learnedCandidates.isEmpty()) {
+            final int countToInject = Math.min(learnedCandidates.size(), 2);
+            for (int i = countToInject - 1; i >= 0; i--) {
+                final String learned = removeConsecutiveKarSigns(learnedCandidates.get(i));
+                if (learned != null && !learned.isEmpty() && !learned.equals(bnNumerals)) {
+                    result.remove(learned);
+                    if (isNumeral) {
+                        int insertIndex = Math.min(2, result.size());
+                        result.add(insertIndex, learned);
+                    } else {
+                        result.add(0, learned);
+                    }
+                }
+            }
         }
 
         // Keep maximum 5 candidates

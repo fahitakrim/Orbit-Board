@@ -116,8 +116,7 @@ public final class AudioAndHapticFeedbackManager {
         }
         try {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                int amplitude = (int) Math.min(255, Math.max(1, milliseconds * 4));
-                mVibrator.vibrate(VibrationEffect.createOneShot(Math.min(milliseconds, 150), amplitude));
+                mVibrator.vibrate(VibrationEffect.createOneShot(Math.max(10L, Math.min(milliseconds, 150L)), VibrationEffect.DEFAULT_AMPLITUDE));
             } else {
                 mVibrator.vibrate(milliseconds);
             }
@@ -199,7 +198,17 @@ public final class AudioAndHapticFeedbackManager {
                 return;
             }
         }
-        vibrate(10);
+        if (mVibrator != null) {
+            try {
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                    mVibrator.vibrate(VibrationEffect.createPredefined(VibrationEffect.EFFECT_CLICK));
+                    return;
+                }
+            } catch (final Throwable t) {
+                Log.e(TAG, "Predefined vibration failed", t);
+            }
+        }
+        vibrate(20);
     }
 
     public void onSettingsChanged(final SettingsValues settingsValues) {

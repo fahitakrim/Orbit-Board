@@ -39,11 +39,12 @@ fun NavHostController.navigateToInfo(title: String, body: String) {
 
 @Composable
 fun SettingsNavigator(
-    navController: NavHostController = rememberNavController()
+    navController: NavHostController = rememberNavController(),
+    startDestination: String = "home"
 ) {
     NavHost(
         navController = navController,
-        startDestination = "home",
+        startDestination = startDestination,
         enterTransition = {
             fadeIn(animationSpec = tween(220)) + slideIntoContainer(AnimatedContentTransitionScope.SlideDirection.Start, tween(220))
         },

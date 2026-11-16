@@ -96,9 +96,11 @@ public class SettingsValues {
 
     public final int mSpacebarMode;
     public final int mBackspaceMode;
+    public final boolean mVolumeKeyCursor;
     public final boolean mPinKeyboardNameOnSpacebar;
     public final boolean mLongPressASelectAll;
     public final boolean mVoiceInputSoundEnabled;
+    public final String mAvroSpacebarMode;
 
     // From the input box
     @Nonnull
@@ -108,7 +110,9 @@ public class SettingsValues {
     public final int mKeypressVibrationDuration;
     public final float mKeypressSoundVolume;
     public final int mKeyPreviewPopupDismissDelay;
+    public static final boolean DEFAULT_AUTO_CORRECTION = Settings.DEFAULT_AUTO_CORRECTION;
     public final boolean mAutoCorrectEnabled;
+    public final boolean mAutoCorrectionEnabled;
     public final float mAutoCorrectionThreshold;
     public final float mPlausibilityThreshold;
     public final boolean mAutoCorrectionEnabledPerUserSettings;
@@ -166,6 +170,7 @@ public class SettingsValues {
                 && inputAttributes.mIsGeneralTextInput;
         mBlockPotentiallyOffensive = Settings.readBlockPotentiallyOffensive(prefs, res);
         mAutoCorrectEnabled = Settings.readAutoCorrectEnabled(prefs, res);
+        mAutoCorrectionEnabled = mAutoCorrectEnabled;
         final String autoCorrectionThresholdRawValue = mAutoCorrectEnabled
                 ? res.getString(R.string.auto_correction_threshold_mode_index_modest)
                 : res.getString(R.string.auto_correction_threshold_mode_index_off);
@@ -179,9 +184,11 @@ public class SettingsValues {
 
         mSpacebarMode = prefs.getInt(Settings.PREF_SPACEBAR_MODE, Settings.SPACEBAR_MODE_SWIPE_LANGUAGE);
         mBackspaceMode = prefs.getInt(Settings.PREF_BACKSPACE_MODE, Settings.BACKSPACE_MODE_CHARACTERS);
+        mVolumeKeyCursor = Settings.readVolumeKeyCursor(prefs);
         mPinKeyboardNameOnSpacebar = prefs.getBoolean(Settings.PREF_PIN_KEYBOARD_NAME_ON_SPACEBAR, true);
         mLongPressASelectAll = prefs.getBoolean(Settings.PREF_LONG_PRESS_A_SELECT_ALL, false);
         mVoiceInputSoundEnabled = prefs.getBoolean(Settings.PREF_VOICE_INPUT_SOUND, true);
+        mAvroSpacebarMode = prefs.getString(Settings.PREF_AVRO_SPACEBAR_MODE, Settings.DEFAULT_AVRO_SPACEBAR_MODE);
 
         mShouldShowLxxSuggestionUi = Settings.SHOULD_SHOW_LXX_SUGGESTION_UI
                 && prefs.getBoolean(DebugSettings.PREF_SHOULD_SHOW_LXX_SUGGESTION_UI, true);
@@ -261,8 +268,13 @@ public class SettingsValues {
 
     public boolean isAutoCorrectionOn() {
         return mAutoCorrectEnabled
+                && mAutoCorrectionEnabled
                 && mAutoCorrectionEnabledPerUserSettings
                 && mAutoCorrectionThreshold <= 1.0f;
+    }
+
+    public boolean isAvroExactPhoneticSpacebar() {
+        return Settings.AVRO_SPACEBAR_MODE_EXACT_PHONETIC.equals(mAvroSpacebarMode);
     }
 
     public boolean isSuggestionsEnabledPerUserSettings() {
@@ -448,6 +460,8 @@ public class SettingsValues {
         sb.append("" + mKeyPreviewPopupDismissDelay);
         sb.append("\n   mAutoCorrectEnabled = ");
         sb.append("" + mAutoCorrectEnabled);
+        sb.append("\n   mAutoCorrectionEnabled = ");
+        sb.append("" + mAutoCorrectionEnabled);
         sb.append("\n   mAutoCorrectionThreshold = ");
         sb.append("" + mAutoCorrectionThreshold);
         sb.append("\n   mAutoCorrectionEnabledPerUserSettings = ");

@@ -15,7 +15,9 @@ import org.futo.inputmethod.latin.uix.settings.NavigationItem
 import org.futo.inputmethod.latin.uix.settings.NavigationItemStyle
 import org.futo.inputmethod.latin.uix.settings.ScreenTitle
 import org.futo.inputmethod.latin.uix.settings.ScrollableList
+import org.futo.inputmethod.latin.uix.settings.SettingRadio
 import org.futo.inputmethod.latin.uix.settings.SettingToggleSharedPrefs
+import org.futo.inputmethod.latin.uix.settings.useSharedPrefsString
 
 @Preview
 @Composable
@@ -71,5 +73,22 @@ fun PredictiveTextScreen(navController: NavHostController = rememberNavControlle
             key = Settings.PREF_BIGRAM_PREDICTIONS,
             default = booleanResource(R.bool.config_default_next_word_prediction)
         )
+
+        SettingRadio(
+            title = "Avro Spacebar Mode",
+            options = listOf(
+                Settings.AVRO_SPACEBAR_MODE_EXACT_PHONETIC,
+                Settings.AVRO_SPACEBAR_MODE_SMART_CANDIDATE
+            ),
+            optionNames = listOf(
+                "Exact Phonetic (Strict transliteration, e.g. kmn -> কম্ন)",
+                "Smart Candidate (Alias resolution, e.g. kmn -> কেমন)"
+            ),
+            setting = useSharedPrefsString(
+                key = Settings.PREF_AVRO_SPACEBAR_MODE,
+                default = Settings.DEFAULT_AVRO_SPACEBAR_MODE
+            )
+        )
     }
 }
+

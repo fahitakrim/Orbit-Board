@@ -20,7 +20,6 @@ public class KeyboardFontSettingsTest {
         assertNotEquals(0, R.font.inter);
         assertNotEquals(0, R.font.ndot);
         assertNotEquals(0, R.font.ndot_family);
-        assertNotEquals(0, R.font.orbit_dot_bangla);
     }
 
     @Test

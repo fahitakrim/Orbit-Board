@@ -151,7 +151,7 @@
     <!-- Option to enable auto correction [CHAR LIMIT=20]-->
     <string name="auto_correction">Auto-correction</string>
     <!-- Description for auto correction [CHAR LIMIT=65 (two lines) or 30 (fits on one line, preferable)] -->
-    <string name="auto_correction_summary">Spacebar and punctuation automatically correct mistyped words</string>
+    <string name="auto_correction_summary">Tap suggestions to apply; spacebar always commits what you type</string>
     <!-- Option to disable auto correction. [CHAR LIMIT=20] -->
     <string name="auto_correction_threshold_mode_off">Off</string>
     <!-- Option to suggest auto correction suggestions modestly. Auto-corrects only to a word which has small edit distance from typed word. [CHAR LIMIT=20] -->
@@ -620,4 +620,7 @@ Tip: You can download and remove dictionaries by going to &lt;b>Languages&#160;&
     <string name="layout_bengali_jatiyo">Jatiyo (&#x099C;&#x09BE;&#x09A4;&#x09C0;&#x09DF;)</string>
     <string name="layout_bengali_jatiyo_classic">Jatiyo Classic (&#x099C;&#x09BE;&#x09A4;&#x09C0;&#x09DF; &#x0995;&#x09CD;&#x09B2;&#x09BE;&#x09B8;&#x09BF;&#x0995;)</string>
     <string name="layout_bengali_probhat">Probhat (&#x09AA;&#x09CD;&#x09B0;&#x09AD;&#x09BE;&#x09A4;)</string>
+    <string name="avro_spacebar_mode_title">Avro Spacebar Mode</string>
+    <string name="avro_spacebar_mode_smart">Smart Candidate (Alias resolution, e.g. kmn &#x2192; কেমন)</string>
+    <string name="avro_spacebar_mode_exact">Exact Phonetic (Strict transliteration, e.g. kmn &#x2192; কম্ন)</string>
 </resources>

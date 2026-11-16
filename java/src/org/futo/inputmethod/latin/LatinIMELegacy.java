@@ -85,6 +85,7 @@ import org.futo.inputmethod.latin.settings.SettingsValues;
 import org.futo.inputmethod.latin.suggestions.SuggestionStripView;
 import org.futo.inputmethod.latin.suggestions.SuggestionStripViewAccessor;
 import org.futo.inputmethod.latin.touchinputconsumer.GestureConsumer;
+import org.futo.inputmethod.latin.uix.DynamicThemeProvider;
 import org.futo.inputmethod.latin.uix.actions.SwitchLanguageActionKt;
 import org.futo.inputmethod.latin.uix.settings.SettingsActivity;
 import org.futo.inputmethod.latin.utils.ApplicationUtils;
@@ -165,6 +166,11 @@ public class LatinIMELegacy implements KeyboardActionListener,
     // Working variable for {@link #startShowingInputView()} and
     // {@link #onEvaluateInputViewShown()}.
     private boolean mIsExecutingStartShowingInputView;
+    private boolean mIsStartingInputView;
+
+    public boolean isStartingInputView() {
+        return mIsStartingInputView;
+    }
 
     // Used for re-initialize keyboard layout after onConfigurationChange.
     @Nullable private Context mDisplayContext;
@@ -605,6 +611,7 @@ public class LatinIMELegacy implements KeyboardActionListener,
         ContextCompat.registerReceiver(mInputMethodService, mDictionaryDumpBroadcastReceiver, dictDumpFilter, ContextCompat.RECEIVER_NOT_EXPORTED);
 
         StatsUtils.onCreate(mSettings.getCurrent(), mRichImm);
+        org.futo.inputmethod.latin.bengali.BanglaSuggestionEngine.init(mInputMethodService);
     }
 
     // Has to be package-visible for unit tests
@@ -861,11 +868,17 @@ public class LatinIMELegacy implements KeyboardActionListener,
 
     public void updateMainKeyboardViewSettings() {
         final MainKeyboardView mainKeyboardView = mKeyboardSwitcher.getMainKeyboardView();
+        if (mainKeyboardView == null) {
+            return;
+        }
         SettingsValues currentSettingsValues = mSettings.getCurrent();
 
         mainKeyboardView.setMainDictionaryAvailability(
                 mDictionaryFacilitator.hasAtLeastOneInitializedMainDictionary());
-        mainKeyboardView.setKeyPreviewPopupEnabled(currentSettingsValues.mKeyPreviewPopupOn,
+        final DynamicThemeProvider provider = mainKeyboardView.getDrawableProvider();
+        final boolean isPopupOff = (provider != null) && ("off".equalsIgnoreCase(provider.getKeyPopupStyle())
+                || "none".equalsIgnoreCase(provider.getKeyPopupStyle()));
+        mainKeyboardView.setKeyPreviewPopupEnabled(currentSettingsValues.mKeyPreviewPopupOn && !isPopupOff,
                 currentSettingsValues.mKeyPreviewPopupDismissDelay);
         mainKeyboardView.setSlidingKeyInputPreviewEnabled(
                 currentSettingsValues.mSlidingKeyInputPreviewEnabled);
@@ -877,7 +890,9 @@ public class LatinIMELegacy implements KeyboardActionListener,
 
     @SuppressWarnings("deprecation")
     void onStartInputViewInternal(final EditorInfo editorInfo, final boolean restarting) {
-        mDictionaryFacilitator.onStartInput();
+        mIsStartingInputView = true;
+        try {
+            mDictionaryFacilitator.onStartInput();
         // Switch to the null consumer to handle cases leading to early exit below, for which we
         // also wouldn't be consuming gesture data.
         mGestureConsumer = GestureConsumer.NULL_GESTURE_CONSUMER;
@@ -1029,6 +1044,9 @@ public class LatinIMELegacy implements KeyboardActionListener,
         updateMainKeyboardViewSettings();
 
         if (TRACE) Debug.startMethodTracing("/data/trace/latinime");
+        } finally {
+            mIsStartingInputView = false;
+        }
     }
 
     public void onWindowShown() {
@@ -1163,7 +1181,9 @@ public class LatinIMELegacy implements KeyboardActionListener,
     }
 
     public void setInsets(final InputMethodService.Insets insets) {
-        mInsetsUpdater.setInsets(insets);
+        if (mInsetsUpdater != null) {
+            mInsetsUpdater.setInsets(insets);
+        }
     }
 
     public void startShowingInputView(final boolean needsToLoadKeyboard) {
@@ -1361,24 +1381,41 @@ public class LatinIMELegacy implements KeyboardActionListener,
             final android.view.inputmethod.InputConnection ic = mInputMethodService.getCurrentInputConnection();
             if (ic != null) {
                 ic.beginBatchEdit();
+                final CharSequence selected = ic.getSelectedText(0);
+                if (selected != null && selected.length() > 0) {
+                    if (cm != null) {
+                        cm.setPrimaryClip(android.content.ClipData.newPlainText("Orbit Clipboard", selected));
+                    }
+                    ic.commitText("", 1);
+                    ic.finishComposingText();
+                    ic.endBatchEdit();
+
+                    if (mInputLogic != null) {
+                        mInputLogic.finishInput();
+                        if (mInputLogic.mConnection != null) {
+                            mInputLogic.mConnection.resetCachesUponCursorMoveAndReturnSuccess(0, 0, false);
+                        }
+                    }
+                    android.widget.Toast.makeText(mInputMethodService, "Cut", android.widget.Toast.LENGTH_SHORT).show();
+                    AudioAndHapticFeedbackManager.getInstance().performHapticFeedback(
+                            mKeyboardSwitcher.getMainKeyboardView(), false);
+                    AudioAndHapticFeedbackManager.getInstance().performAudioFeedback(Constants.CODE_UNSPECIFIED);
+                    return;
+                }
+
                 ic.finishComposingText();
 
-                final CharSequence selected = ic.getSelectedText(0);
                 final CharSequence before = ic.getTextBeforeCursor(100000, 0);
                 final CharSequence after = ic.getTextAfterCursor(100000, 0);
 
                 final StringBuilder sb = new StringBuilder();
                 if (before != null) sb.append(before);
-                if (selected != null) sb.append(selected);
                 if (after != null) sb.append(after);
                 final String full = sb.toString();
 
                 if (full.length() > 0) {
                     if (cm != null) {
                         cm.setPrimaryClip(android.content.ClipData.newPlainText("Orbit Clipboard", full));
-                    }
-                    if (selected != null && selected.length() > 0) {
-                        ic.commitText("", 1);
                     }
                     ic.deleteSurroundingText(
                             before != null ? before.length() : 0,
@@ -1591,6 +1628,10 @@ public class LatinIMELegacy implements KeyboardActionListener,
     // completely replace #onCodeInput.
     public void onEvent(@Nonnull final Event event) {
         if (Constants.CODE_SHORTCUT == event.mKeyCode) {
+            if (mInputMethodService instanceof LatinIME) {
+                ((LatinIME) mInputMethodService).getUixManager().triggerSystemVoiceInput();
+                return;
+            }
             mRichImm.switchToShortcutIme(mInputMethodService);
             return;
         }

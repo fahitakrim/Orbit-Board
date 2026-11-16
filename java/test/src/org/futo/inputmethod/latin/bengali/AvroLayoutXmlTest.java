@@ -179,6 +179,12 @@ public class AvroLayoutXmlTest {
         for (int i = 0; i < keys.getLength(); i++) {
             Element el = (Element) keys.item(i);
             String spec = el.getAttribute("latin:keySpec");
+            String hintLabel = el.getAttribute("latin:keyHintLabel");
+            if (hintLabel != null && !hintLabel.isEmpty()) {
+                hintLabel = hintLabel.replace("\\", "");
+                keyHints.put(spec, hintLabel);
+                continue;
+            }
             String moreKeys = el.getAttribute("latin:moreKeys");
             String first = getFirstMoreKey(moreKeys);
             if (first != null) {

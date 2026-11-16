@@ -43,7 +43,31 @@ public class RidmikParser {
 
 		// ======================= The great for loop starts =======================
 		for (char now : charArray) {
-			
+
+
+			// Direct punctuation transliteration for Avro Phonetic
+			// ':' -> Visarga ঃ (\u0983)
+			if (now == ':') {
+				st.append("\u0983");
+				carry = ':';
+				secondCarry = 0;
+				thirdCarry = 0;
+				jukta = false;
+				prevJukta = false;
+				continue;
+			}
+
+			// '`' or '^' -> Hasanta ্ (\u09CD)
+			if (now == '`' || now == '^') {
+				st.append("\u09CD");
+				carry = 0;
+				secondCarry = 0;
+				thirdCarry = 0;
+				jukta = true;
+				prevJukta = true;
+				continue;
+			}
+
 			// we won't parse anything other than english letters & digits
 			if (!((now >= 'a' && now <= 'z') || (now >= 'A' && now <= 'Z') || (now >= '0' && now <= '9'))) {
 				st.append(now);
@@ -58,6 +82,86 @@ public class RidmikParser {
 				thirdCarry = 0;
 				jukta = false;
 				prevJukta = false;
+				continue;
+			}
+
+			// zero-shift: chh or cch -> চ্ছ
+			if ((now == 'h' || now == 'H') && (secondCarry == 'c' || secondCarry == 'C') && (carry == 'h' || carry == 'H')) {
+				deleteTail(st, 1);
+				st.append("\u099A\u09CD\u099B");
+				carry = 'h';
+				secondCarry = 'c';
+				jukta = true;
+				prevJukta = true;
+				continue;
+			}
+
+			// zero-shift: HH or hh -> Visarga ঃ only when not part of consonant cluster like chh
+			if (now == 'H' || now == 'h') {
+				if ((carry == 'H' || carry == 'h') && (secondCarry == 0 || isVowel(secondCarry))) {
+					deleteTail(st, 1);
+					st.append("\u0983");
+					carry = ':';
+					secondCarry = 0;
+					thirdCarry = 0;
+					jukta = false;
+					prevJukta = false;
+					continue;
+				}
+			}
+
+			// zero-shift: ngg -> ঙ্গ
+			if (now == 'g' && st.length() > 0 && st.charAt(st.length() - 1) == '\u0982') {
+				deleteTail(st, 1);
+				st.append("\u0999\u09CD\u0997");
+				carry = 'g';
+				secondCarry = 'g';
+				jukta = true;
+				prevJukta = true;
+				continue;
+			}
+
+			// zero-shift: sht -> ষ্ট
+			if ((now == 't' || now == 'T') && secondCarry == 's' && carry == 'h') {
+				deleteTail(st, 1);
+				st.append("\u09B7\u09CD\u099F");
+				carry = 't';
+				secondCarry = 'S';
+				jukta = true;
+				prevJukta = true;
+				continue;
+			}
+
+			// zero-shift: cch -> চ্ছ
+			if (now == 'h' && secondCarry == 'c' && carry == 'c') {
+				deleteTail(st, 3);
+				st.append("\u099A\u09CD\u099B");
+				carry = 'h';
+				secondCarry = 'c';
+				jukta = true;
+				prevJukta = true;
+				continue;
+			}
+
+			// zero-shift: tth -> ঠ
+			if (now == 'h' && secondCarry == 't' && carry == 't') {
+				deleteTail(st, 3);
+				st.append("\u09A0");
+				carry = 'h';
+				secondCarry = 't';
+				jukta = false;
+				prevJukta = false;
+				continue;
+			}
+
+			// zero-shift: dhdh / ddh -> দ্ধ
+			if (now == 'h' && ((secondCarry == 'd' && carry == 'd') || (thirdCarry == 'd' && secondCarry == 'h' && carry == 'd'))) {
+				deleteTail(st, 3);
+				st.append("\u09A6\u09CD\u09A7");
+				carry = 'h';
+				secondCarry = 'd';
+				jukta = true;
+				prevJukta = true;
 				continue;
 			}
 			
@@ -133,8 +237,8 @@ public class RidmikParser {
 						now = 'z';
 				}
 				
-				// handle gg as in gyan, second carry not n, to skip onushar/unga
-				if (carry == 'g' && now == 'g' && secondCarry != 'N' && secondCarry != 'n') {
+				// handle gg and gy as in gyan, second carry not n, to skip onushar/unga
+				if (carry == 'g' && (now == 'g' || now == 'z') && secondCarry != 'N' && secondCarry != 'n') {
 					deleteTail(st, 1);
 					st.append("\u099C\u09CD\u099E");
 					prevJukta = jukta;

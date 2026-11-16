@@ -29,6 +29,7 @@ import android.view.KeyEvent;
 import android.view.inputmethod.CorrectionInfo;
 import android.view.inputmethod.EditorInfo;
 
+import org.futo.inputmethod.annotations.UsedForTesting;
 import org.futo.inputmethod.compat.SuggestionSpanUtils;
 import org.futo.inputmethod.event.Event;
 import org.futo.inputmethod.event.InputTransaction;
@@ -128,6 +129,20 @@ public final class InputLogic {
         if (mAvroActiveOverrideForTest != null) {
             return mAvroActiveOverrideForTest;
         }
+        try {
+            final RichInputMethodManager imm = RichInputMethodManager.getInstance();
+            if (imm != null) {
+                final RichInputMethodSubtype subtype = imm.getCurrentSubtype();
+                if (subtype != null) {
+                    final String lang = subtype.getLocale() != null ? subtype.getLocale().getLanguage() : "";
+                    final String layoutName = subtype.getKeyboardLayoutSetName();
+                    if ("bn".equals(lang) && "bengali_avro".equals(layoutName)) {
+                        return true;
+                    }
+                }
+            }
+        } catch (final Throwable ignored) {
+        }
         if (mLatinIMELegacy != null && mLatinIMELegacy.mKeyboardSwitcher != null) {
             final Keyboard keyboard = mLatinIMELegacy.mKeyboardSwitcher.getKeyboard();
             if (keyboard != null && keyboard.mId != null && keyboard.mId.mSubtype != null) {
@@ -136,19 +151,19 @@ public final class InputLogic {
                 return "bn".equals(lang) && "bengali_avro".equals(layout);
             }
         }
-        final RichInputMethodManager imm = RichInputMethodManager.getInstance();
-        if (imm == null) return false;
-        final RichInputMethodSubtype subtype = imm.getCurrentSubtype();
-        if (subtype == null) return false;
-        final String lang = subtype.getLocale() != null ? subtype.getLocale().getLanguage() : "";
-        final String layoutName = subtype.getKeyboardLayoutSetName();
-        return "bn".equals(lang) && "bengali_avro".equals(layoutName);
+        return false;
     }
 
     public static boolean isAvroWordCodePoint(final int codePoint) {
         return (codePoint >= 'a' && codePoint <= 'z')
                 || (codePoint >= 'A' && codePoint <= 'Z')
-                || codePoint == '\'' || codePoint == '`';
+                || (codePoint >= '0' && codePoint <= '9')
+                || codePoint == '\'' || codePoint == '`' || codePoint == '^' || codePoint == ':'
+                || codePoint == 0x0983 // ঃ Visarga
+                || codePoint == 0x09CD // ্ Hasanta
+                || codePoint == 0x09CE // ৎ Khanda-Ta
+                || codePoint == 0x0982 // ং Anusvara
+                || codePoint == 0x0981; // ঁ Chandrabindu
     }
 
     public static java.util.List<String> getBanglaCandidates(final String raw, final RidmikParser parser) {
@@ -160,11 +175,49 @@ public final class InputLogic {
         return org.futo.inputmethod.latin.bengali.BanglaSuggestionEngine.getCandidates(raw, parser, dictFacilitator);
     }
 
+    public static java.util.List<String> getNextWordPredictions(final String prevWord,
+                                                               final org.futo.inputmethod.latin.DictionaryFacilitator dictFacilitator) {
+        return org.futo.inputmethod.latin.bengali.BanglaSuggestionEngine.getNextWordPredictions(prevWord, dictFacilitator);
+    }
+
+    public static boolean isAutoCorrectionOn(final SettingsValues settingsValues) {
+        if (settingsValues == null) return false;
+        return settingsValues.isAutoCorrectionOn();
+    }
+
+    public static boolean isAvroExactPhonetic(final SettingsValues settingsValues) {
+        if (settingsValues == null) return false;
+        return settingsValues.isAvroExactPhoneticSpacebar();
+    }
+
+    public static boolean containsDigits(final CharSequence text) {
+        if (text == null || text.length() == 0) return false;
+        final int len = text.length();
+        for (int i = 0; i < len; i++) {
+            final char c = text.charAt(i);
+            if (Character.isDigit(c) || (c >= '0' && c <= '9') || (c >= 0x09E6 && c <= 0x09EF)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
     public void startSuppressingLogic() {
         isLogicSuppressedByExternalLogic = true;
     }
     public void endSuppressingLogic() {
         isLogicSuppressedByExternalLogic = false;
+    }
+
+    @UsedForTesting
+    public InputLogic() {
+        mLatinIMELegacy = null;
+        mSuggestionStripViewAccessor = null;
+        mWordComposer = null;
+        mConnection = null;
+        mInputLogicHandler = InputLogicHandler.NULL_HANDLER;
+        mSuggest = null;
+        mDictionaryFacilitator = null;
     }
 
     /**
@@ -297,7 +350,35 @@ public final class InputLogic {
                 getActualCapsMode(settingsValues, keyboardShiftMode));
         mConnection.beginBatchEdit();
         if (mWordComposer.isComposingWord()) {
-            commitCurrentAutoCorrection(settingsValues, rawText, handler);
+            final String typedWord = mWordComposer.getTypedWord();
+            final boolean hasDigits = mWordComposer.hasDigits() || containsDigits(typedWord);
+            if (isAvroActive()) {
+                final boolean exactPhonetic = isAvroExactPhonetic(settingsValues) || hasDigits;
+                final String chosen;
+                if (!exactPhonetic) {
+                    final java.util.List<String> candidates = getBanglaCandidates(typedWord, mRidmikParser, mDictionaryFacilitator);
+                    chosen = (candidates != null && !candidates.isEmpty())
+                            ? candidates.get(0)
+                            : mRidmikParser.toBangla(typedWord);
+                } else {
+                    chosen = mRidmikParser.toBangla(typedWord);
+                }
+                if (!TextUtils.isEmpty(chosen)) {
+                    if (!TextUtils.isEmpty(typedWord)) {
+                        org.futo.inputmethod.latin.bengali.BanglaSuggestionEngine.learnWord(typedWord, chosen);
+                    }
+                    final String prevWordForBigram = getPreviousWordForContext();
+                    if (!TextUtils.isEmpty(prevWordForBigram)) {
+                        org.futo.inputmethod.latin.bengali.BanglaSuggestionEngine.recordBigram(prevWordForBigram, chosen);
+                    }
+                }
+                commitChosenWord(settingsValues, chosen,
+                        LastComposedWord.COMMIT_TYPE_USER_TYPED_WORD,
+                        rawText, -1);
+                mLastComposedWord.deactivate();
+            } else {
+                commitTyped(settingsValues, rawText);
+            }
         } else {
             resetComposingState(true /* alsoResetLastComposedWord */);
         }
@@ -389,8 +470,46 @@ public final class InputLogic {
             return inputTransaction;
         }
 
+        final boolean isComposing = mWordComposer.isComposingWord();
+        String rawTyped = (mWordComposer != null && !TextUtils.isEmpty(mWordComposer.getTypedWord()))
+                ? mWordComposer.getTypedWord()
+                : "";
+        if (TextUtils.isEmpty(rawTyped) && mSuggestedWords != null && mSuggestedWords.mTypedWordInfo != null) {
+            if (!TextUtils.isEmpty(mSuggestedWords.mTypedWordInfo.mPrevWordsContext)) {
+                rawTyped = mSuggestedWords.mTypedWordInfo.mPrevWordsContext;
+            } else if (!TextUtils.isEmpty(mSuggestedWords.mTypedWordInfo.mWord)) {
+                rawTyped = mSuggestedWords.mTypedWordInfo.mWord;
+            }
+        }
+        if (isAvroActive() && !TextUtils.isEmpty(rawTyped) && !TextUtils.isEmpty(suggestion)) {
+            org.futo.inputmethod.latin.bengali.BanglaSuggestionEngine.learnWord(rawTyped, suggestion);
+        }
+
+        if (isAvroActive() && !TextUtils.isEmpty(suggestion)) {
+            final String prevWordForBigram = getPreviousWordForContext();
+            if (!TextUtils.isEmpty(prevWordForBigram)) {
+                org.futo.inputmethod.latin.bengali.BanglaSuggestionEngine.recordBigram(prevWordForBigram, suggestion);
+            }
+        }
+
+        // Rule 5: Atomic text replacement on suggestion click
+        if (isComposing && !TextUtils.isEmpty(rawTyped)) {
+            final String displayedPrefix = isAvroActive()
+                    ? (mRidmikParser != null ? mRidmikParser.toBangla(rawTyped) : rawTyped)
+                    : rawTyped;
+            final int typedLength = displayedPrefix != null ? displayedPrefix.length() : 0;
+            if (typedLength > 0) {
+                final boolean hostHasComposing = mConnection.hasComposingText()
+                        || mConnection.checkHostHasComposingSpan(typedLength);
+                final boolean hasSelection = mConnection.hasSelection();
+                if (!hostHasComposing && !hasSelection) {
+                    mConnection.deleteSurroundingText(typedLength, 0);
+                }
+            }
+        }
+
         commitChosenWord(settingsValues, suggestion, LastComposedWord.COMMIT_TYPE_MANUAL_PICK,
-                LastComposedWord.NOT_A_SEPARATOR, suggestionInfo.isKindOf(SuggestedWordInfo.KIND_TYPED) ? 3 : 1);
+                LastComposedWord.NOT_A_SEPARATOR, suggestionInfo.isKindOf(SuggestedWordInfo.KIND_TYPED) ? 4 : 3);
         mConnection.endBatchEdit();
         // Don't allow cancellation of manual pick
         mLastComposedWord.deactivate();
@@ -585,17 +704,9 @@ public final class InputLogic {
                         Constants.EVENT_BACKSPACE);
                 resetEntireInputState(mConnection.getExpectedSelectionStart(),
                         mConnection.getExpectedSelectionEnd(), true /* clearSuggestionStrip */);
-            } else if (mWordComposer.isSingleLetter()) {
-                // We auto-correct the previous (typed, not gestured) string iff it's one character
-                // long. The reason for this is, even in the middle of gesture typing, you'll still
-                // tap one-letter words and you want them auto-corrected (typically, "i" in English
-                // should become "I"). However for any longer word, we assume that the reason for
-                // tapping probably is that the word you intend to type is not in the dictionary,
-                // so we do not attempt to correct, on the assumption that if that was a dictionary
-                // word, the user would probably have gestured instead.
-                commitCurrentAutoCorrection(settingsValues, LastComposedWord.NOT_A_SEPARATOR,
-                        handler);
             } else {
+                // When a single letter or word is composing and batch input starts, commit what the user typed
+                // so glide typing never replaces single letters.
                 commitTyped(settingsValues, LastComposedWord.NOT_A_SEPARATOR);
             }
         }
@@ -953,7 +1064,31 @@ public final class InputLogic {
             } else {
                 // Non-phonetic code point (digits, symbols, punctuation) in Avro mode
                 if (isComposingWord) {
-                    commitCurrentAutoCorrection(settingsValues, LastComposedWord.NOT_A_SEPARATOR, null);
+                    final String typedWord = mWordComposer.getTypedWord();
+                    final boolean hasDigits = mWordComposer.hasDigits() || containsDigits(typedWord);
+                    final boolean exactPhonetic = isAvroExactPhonetic(settingsValues) || hasDigits;
+                    final String chosen;
+                    if (!exactPhonetic) {
+                        final java.util.List<String> candidates = getBanglaCandidates(typedWord, mRidmikParser, mDictionaryFacilitator);
+                        chosen = (candidates != null && !candidates.isEmpty())
+                                ? candidates.get(0)
+                                : mRidmikParser.toBangla(typedWord);
+                    } else {
+                        chosen = mRidmikParser.toBangla(typedWord);
+                    }
+                    if (!TextUtils.isEmpty(chosen)) {
+                        if (!TextUtils.isEmpty(typedWord)) {
+                            org.futo.inputmethod.latin.bengali.BanglaSuggestionEngine.learnWord(typedWord, chosen);
+                        }
+                        final String prevWordForBigram = getPreviousWordForContext();
+                        if (!TextUtils.isEmpty(prevWordForBigram)) {
+                            org.futo.inputmethod.latin.bengali.BanglaSuggestionEngine.recordBigram(prevWordForBigram, chosen);
+                        }
+                    }
+                    commitChosenWord(settingsValues, chosen,
+                            LastComposedWord.COMMIT_TYPE_USER_TYPED_WORD,
+                            LastComposedWord.NOT_A_SEPARATOR, -1);
+                    mLastComposedWord.deactivate();
                     resetEntireInputState(mConnection.getExpectedSelectionStart(),
                             mConnection.getExpectedSelectionEnd(), true /* clearSuggestionStrip */);
                 }
@@ -1044,35 +1179,43 @@ public final class InputLogic {
         }
         // isComposingWord() may have changed since we stored wasComposing
         if (mWordComposer.isComposingWord()) {
-            final boolean isAutoCorrectionOn = settingsValues.isAutoCorrectionOn();
+            final String typedWord = mWordComposer.getTypedWord();
+            final boolean hasDigits = mWordComposer.hasDigits() || containsDigits(typedWord);
             if (isAvroActive()) {
-                final String typedWord = mWordComposer.getTypedWord();
-                final String rawBangla = mRidmikParser.toBangla(typedWord);
-                if (isAutoCorrectionOn) {
-                    final java.util.List<String> candidates = getBanglaCandidates(
-                            typedWord, mRidmikParser, mDictionaryFacilitator);
-                    final String bangla = (candidates != null && !candidates.isEmpty())
+                final boolean exactPhonetic = isAvroExactPhonetic(settingsValues) || hasDigits;
+                if (!exactPhonetic) {
+                    final java.util.List<String> candidates = getBanglaCandidates(typedWord, mRidmikParser, mDictionaryFacilitator);
+                    final String chosen = (candidates != null && !candidates.isEmpty())
                             ? candidates.get(0)
-                            : rawBangla;
-                    commitChosenWord(settingsValues, bangla,
-                            LastComposedWord.COMMIT_TYPE_DECIDED_WORD,
-                            LastComposedWord.NOT_A_SEPARATOR, -1);
-                    mLastComposedWord.deactivate(); // Prevent revert to raw English
-                    inputTransaction.setDidAutoCorrect();
-                } else {
-                    commitChosenWord(settingsValues, rawBangla,
+                            : mRidmikParser.toBangla(typedWord);
+                    final String rawBangla = mRidmikParser.toBangla(typedWord);
+                    final boolean didAutoCorrect = !TextUtils.equals(chosen, rawBangla);
+                    if (!TextUtils.isEmpty(chosen)) {
+                        if (!TextUtils.isEmpty(typedWord)) {
+                            org.futo.inputmethod.latin.bengali.BanglaSuggestionEngine.learnWord(typedWord, chosen);
+                        }
+                        final String prevWordForBigram = getPreviousWordForContext();
+                        if (!TextUtils.isEmpty(prevWordForBigram)) {
+                            org.futo.inputmethod.latin.bengali.BanglaSuggestionEngine.recordBigram(prevWordForBigram, chosen);
+                        }
+                    }
+                    commitChosenWord(settingsValues, chosen,
                             LastComposedWord.COMMIT_TYPE_USER_TYPED_WORD,
                             LastComposedWord.NOT_A_SEPARATOR, -1);
+                    if (didAutoCorrect) {
+                        inputTransaction.setDidAutoCorrect();
+                    }
                     mLastComposedWord.deactivate();
+                } else {
+                    commitTyped(settingsValues, StringUtils.newSingleCodePointString(codePoint));
                 }
-            } else if (isAutoCorrectionOn) {
+            } else if (isAutoCorrectionOn(settingsValues) && !hasDigits) {
                 final String separator = shouldAvoidSendingCode ? LastComposedWord.NOT_A_SEPARATOR
                         : StringUtils.newSingleCodePointString(codePoint);
                 commitCurrentAutoCorrection(settingsValues, separator, handler);
                 inputTransaction.setDidAutoCorrect();
             } else {
-                commitTyped(settingsValues,
-                        StringUtils.newSingleCodePointString(codePoint));
+                commitTyped(settingsValues, StringUtils.newSingleCodePointString(codePoint));
             }
         }
 
@@ -1104,6 +1247,7 @@ public final class InputLogic {
         if (tryPerformDoubleSpacePeriod(event, inputTransaction)) {
             mSpaceState = SpaceState.DOUBLE;
             inputTransaction.setRequiresUpdateSuggestions();
+            inputTransaction.requireShiftUpdate(InputTransaction.SHIFT_UPDATE_NOW);
             StatsUtils.onDoubleSpacePeriod();
         } else if (swapWeakSpace && trySwapSwapperAndSpace(event, inputTransaction)) {
             mSpaceState = SpaceState.SWAP_PUNCTUATION;
@@ -1114,7 +1258,7 @@ public final class InputLogic {
             }
 
             startDoubleSpacePeriodCountdown(inputTransaction);
-            if (wasComposingWord || mSuggestedWords.isEmpty()) {
+            if (wasComposingWord || mSuggestedWords.isEmpty() || isAvroActive()) {
                 inputTransaction.setRequiresUpdateSuggestions();
             }
 
@@ -1233,9 +1377,31 @@ public final class InputLogic {
             }
             inputTransaction.setRequiresUpdateSuggestions();
         } else {
+            if (mEnteredText != null && mConnection.sameAsTextBeforeCursor(mEnteredText)) {
+                // Cancel multi-character input: remove the text we just entered.
+                // This is triggered on backspace after a key that inputs multiple characters,
+                // like the smiley key, emoji palette, or the .com key.
+                mConnection.deleteTextBeforeCursor(mEnteredText.length());
+                StatsUtils.onDeleteMultiCharInput(mEnteredText.length());
+                mLatinIMELegacy.onCodePointDeleted(mEnteredText);
+                mEnteredText = null;
+                return;
+            }
             if (isBengaliActive() || isAvroActive()) {
                 mLastComposedWord.deactivate();
-                mConnection.deleteSurroundingText(1, 0);
+                final int codePointBeforeCursor = mConnection.getCodePointBeforeCursor();
+                int lengthToDelete = Character.isSupplementaryCodePoint(codePointBeforeCursor) ? 2 : 1;
+                final CharSequence textBeforeCursor = mConnection.getTextBeforeCursor(16, 0);
+                if (textBeforeCursor != null && textBeforeCursor.length() > 0) {
+                    final java.text.BreakIterator breakIterator = java.text.BreakIterator.getCharacterInstance();
+                    breakIterator.setText(textBeforeCursor.toString());
+                    final int end = breakIterator.last();
+                    final int start = breakIterator.previous();
+                    if (start != java.text.BreakIterator.DONE && end > start) {
+                        lengthToDelete = end - start;
+                    }
+                }
+                mConnection.deleteSurroundingText(lengthToDelete, 0);
                 mSpaceState = SpaceState.NONE;
                 inputTransaction.setRequiresUpdateSuggestions();
                 return;
@@ -1267,19 +1433,6 @@ public final class InputLogic {
                     restartSuggestionsOnWordTouchedByCursor(inputTransaction.mSettingsValues,
                             false /* forStartInput */, currentKeyboardScriptId);
                 }
-                return;
-            }
-            if (mEnteredText != null && mConnection.sameAsTextBeforeCursor(mEnteredText)) {
-                // Cancel multi-character input: remove the text we just entered.
-                // This is triggered on backspace after a key that inputs multiple characters,
-                // like the smiley key or the .com key.
-                mConnection.deleteTextBeforeCursor(mEnteredText.length());
-                StatsUtils.onDeleteMultiCharInput(mEnteredText.length());
-                mLatinIMELegacy.onCodePointDeleted(mEnteredText);
-                mEnteredText = null;
-                // If we have mEnteredText, then we know that mHasUncommittedTypedChars == false.
-                // In addition we know that spaceState is false, and that we should not be
-                // reverting any autocorrect at this point. So we can safely return.
                 return;
             }
             if (SpaceState.DOUBLE == inputTransaction.mSpaceState) {
@@ -1352,24 +1505,19 @@ public final class InputLogic {
                     StatsUtils.onBackspacePressed(totalDeletedLength);
                 } else {
                     final int codePointBeforeCursor = mConnection.getCodePointBeforeCursor();
-                    if (codePointBeforeCursor == Constants.NOT_A_CODE) {
-                        // HACK for backward compatibility with broken apps that haven't realized
-                        // yet that hardware keyboards are not the only way of inputting text.
-                        // Nothing to delete before the cursor. We should not do anything, but many
-                        // broken apps expect something to happen in this case so that they can
-                        // catch it and have their broken interface react. If you need the keyboard
-                        // to do this, you're doing it wrong -- please fix your app.
+                    CharSequence textBeforeCursor = mConnection.getTextBeforeCursor(deleteWholeWords ? 48 : 16, 0);
+                    if ((textBeforeCursor == null || textBeforeCursor.length() == 0) && codePointBeforeCursor == Constants.NOT_A_CODE) {
+                        // Truly nothing before cursor according to both cache and InputConnection.
+                        // Fallback delete for apps expecting backspace event to trigger.
                         mConnection.deleteTextBeforeCursor(1);
-                        // TODO: Add a new StatsUtils method onBackspaceWhenNoText()
                         return;
                     }
 
-                    String textDeleted = new String(Character.toChars(codePointBeforeCursor));
-                    int lengthToDelete =
-                            Character.isSupplementaryCodePoint(codePointBeforeCursor) ? 2 : 1;
+                    String textDeleted = codePointBeforeCursor != Constants.NOT_A_CODE
+                            ? new String(Character.toChars(codePointBeforeCursor)) : "";
+                    int lengthToDelete = Character.isSupplementaryCodePoint(codePointBeforeCursor) ? 2 : 1;
 
-                    // Handle emoji sequences (flags, etc)
-                    CharSequence textBeforeCursor = mConnection.getTextBeforeCursor(deleteWholeWords ? 48 : 8, 0);
+                    // Handle emoji sequences (flags, skin tones, ZWJ sequences) and grapheme clusters
                     if (textBeforeCursor != null && textBeforeCursor.length() > 0) {
                         BreakIterator breakIterator;
 
@@ -1386,7 +1534,7 @@ public final class InputLogic {
                             start = breakIterator.previous();
                         }
 
-                        if (start != BreakIterator.DONE) {
+                        if (start != BreakIterator.DONE && end > start) {
                             lengthToDelete = end - start;
                             textDeleted = textBeforeCursor.subSequence(start, end).toString();
                         }
@@ -1604,8 +1752,10 @@ public final class InputLogic {
         if (canBeFollowedByDoubleSpacePeriod(firstCodePoint)) {
             cancelDoubleSpacePeriodCountdown();
             mConnection.deleteTextBeforeCursor(1);
-            final String textToInsert = inputTransaction.mSettingsValues.mSpacingAndPunctuations
-                    .mSentenceSeparatorAndSpace;
+            final String textToInsert = (isAvroActive() || isBengaliActive())
+                    ? "\u0964 "
+                    : inputTransaction.mSettingsValues.mSpacingAndPunctuations
+                            .mSentenceSeparatorAndSpace;
             mConnection.commitText(textToInsert, 1);
             inputTransaction.requireShiftUpdate(InputTransaction.SHIFT_UPDATE_NOW);
             inputTransaction.setRequiresUpdateSuggestions();
@@ -1629,6 +1779,7 @@ public final class InputLogic {
         // TODO: This should probably be a denylist rather than a allowlist.
         // TODO: This should probably be language-dependant...
         return Character.isLetterOrDigit(codePoint)
+                || (codePoint >= 0x0980 && codePoint <= 0x09FF)
                 || codePoint == Constants.CODE_SINGLE_QUOTE
                 || codePoint == Constants.CODE_DOUBLE_QUOTE
                 || codePoint == Constants.CODE_CLOSING_PARENTHESIS
@@ -1677,13 +1828,22 @@ public final class InputLogic {
                 mRecapitalizeStatus.getNewCursorEnd());
     }
 
-    private void performAdditionToUserHistoryDictionary(final SettingsValues settingsValues,
+    /**
+     * Determines whether word learning into user history is permitted.
+     * Word learning must occur whenever a word or suggestion is committed, even if auto-correction
+     * is disabled by user settings, only respecting mInputAttributes.mNoLearning.
+     */
+    public static boolean isLearningAllowed(final boolean autoCorrectionEnabledPerUserSettings, final boolean noLearning) {
+        return !noLearning;
+    }
+
+    void performAdditionToUserHistoryDictionary(final SettingsValues settingsValues,
             final String suggestion, @Nonnull final NgramContext ngramContext, final int importance) {
-        // If correction is not enabled, we don't add words to the user history dictionary.
-        // That's to avoid unintended additions in some sensitive fields, or fields that
-        // expect to receive non-words.
-        if (!settingsValues.mAutoCorrectionEnabledPerUserSettings) return;
-        if (settingsValues.mInputAttributes.mNoLearning) return;
+        // Word learning must occur whenever a word or suggestion is committed, even if auto-correction
+        // is disabled by the user (only respect mInputAttributes.mNoLearning).
+        if (!isLearningAllowed(settingsValues.mAutoCorrectionEnabledPerUserSettings, settingsValues.mInputAttributes.mNoLearning)) {
+            return;
+        }
 
         if (mConnection.hasSlowInputConnection()) {
             // Since we don't unlearn when the user backspaces on a slow InputConnection,
@@ -1885,8 +2045,11 @@ public final class InputLogic {
         if (forStartInput) {
             mConnection.maybeMoveTheCursorAroundAndRestoreToWorkaroundABug();
         }
-        mConnection.setComposingRegion(expectedCursorPosition - numberOfCharsInWordBeforeCursor,
-                expectedCursorPosition + range.getNumberOfCharsInWordAfterCursor());
+        final int compStart = expectedCursorPosition - numberOfCharsInWordBeforeCursor;
+        final int compEnd = expectedCursorPosition + range.getNumberOfCharsInWordAfterCursor();
+        if (compStart >= 0 && compEnd >= compStart) {
+            mConnection.setComposingRegion(compStart, compEnd);
+        }
         if (suggestions.size() <= 1) {
             // If there weren't any suggestion spans on this word, suggestions#size() will be 1
             // if shouldIncludeResumedWordInSuggestions is true, 0 otherwise. In this case, we
@@ -2048,31 +2211,41 @@ public final class InputLogic {
      * @return a caps mode from TextUtils.CAP_MODE_* or Constants.TextUtils.CAP_MODE_OFF.
      */
     public boolean isBengaliActive() {
-        if (isAvroActive()) return true;
+        try {
+            final RichInputMethodManager imm = RichInputMethodManager.getInstance();
+            if (imm != null) {
+                final RichInputMethodSubtype subtype = imm.getCurrentSubtype();
+                if (subtype != null) {
+                    final String layout = subtype.getKeyboardLayoutSetName();
+                    final java.util.Locale locale = subtype.getLocale();
+                    if (layout != null && layout.startsWith("bengali") && !"bengali_avro".equals(layout)) {
+                        return true;
+                    }
+                    if (locale != null && "bn".equals(locale.getLanguage()) && !"bengali_avro".equals(layout)) {
+                        return true;
+                    }
+                }
+            }
+        } catch (final Throwable ignored) {
+        }
         if (mLatinIMELegacy != null && mLatinIMELegacy.mKeyboardSwitcher != null) {
             final org.futo.inputmethod.keyboard.Keyboard keyboard = mLatinIMELegacy.mKeyboardSwitcher.getKeyboard();
             if (keyboard != null && keyboard.mId != null && keyboard.mId.mSubtype != null) {
                 final String layout = keyboard.mId.mSubtype.getKeyboardLayoutSetName();
-                if (layout != null && layout.startsWith("bengali")) {
+                if (layout != null && layout.startsWith("bengali") && !"bengali_avro".equals(layout)) {
                     return true;
                 }
                 final java.util.Locale locale = keyboard.mId.mSubtype.getLocale();
-                if (locale != null && "bn".equals(locale.getLanguage())) {
+                if (locale != null && "bn".equals(locale.getLanguage()) && !"bengali_avro".equals(layout)) {
                     return true;
                 }
-            }
-        }
-        if (mDictionaryFacilitator != null) {
-            final java.util.Locale loc = mDictionaryFacilitator.getLocale();
-            if (loc != null && "bn".equals(loc.getLanguage())) {
-                return true;
             }
         }
         return false;
     }
 
     public int getCurrentAutoCapsState(final SettingsValues settingsValues) {
-        if (isBengaliActive()) {
+        if (isBengaliActive() || isAvroActive()) {
             return Constants.TextUtils.CAP_MODE_OFF;
         }
         if (!settingsValues.mAutoCap) return Constants.TextUtils.CAP_MODE_OFF;
@@ -2174,6 +2347,73 @@ public final class InputLogic {
         return settings.isWordCodePoint(firstCodePoint)
                 && Constants.CODE_SINGLE_QUOTE != firstCodePoint
                 && Constants.CODE_DASH != firstCodePoint;
+    }
+
+    private static boolean isTrailingPunctuation(final char c) {
+        return c == '.' || c == ',' || c == '?' || c == '!' || c == ';' || c == ':'
+                || c == '\u0964' /* । */ || c == '\u0965' /* ॥ */
+                || c == '\'' || c == '"' || c == '-';
+    }
+
+    private static String cleanTrailingPunctuation(String word) {
+        if (word == null) return null;
+        word = word.trim();
+        while (word.length() > 0 && isTrailingPunctuation(word.charAt(word.length() - 1))) {
+            word = word.substring(0, word.length() - 1);
+        }
+        return word.isEmpty() ? null : word;
+    }
+
+    public String getPreviousWordForContext() {
+        if (mConnection == null || !mConnection.isConnected()) {
+            if (mLastComposedWord != null && !TextUtils.isEmpty(mLastComposedWord.mCommittedWord)) {
+                return cleanTrailingPunctuation(mLastComposedWord.mCommittedWord.toString().trim());
+            }
+            return null;
+        }
+
+        final CharSequence before = mConnection.getTextBeforeCursor(64, 0);
+        if (before == null || before.length() == 0) {
+            if (mLastComposedWord != null && !TextUtils.isEmpty(mLastComposedWord.mCommittedWord)) {
+                return cleanTrailingPunctuation(mLastComposedWord.mCommittedWord.toString().trim());
+            }
+            return null;
+        }
+
+        String text = before.toString();
+        if (mWordComposer != null && mWordComposer.isComposingWord()) {
+            final String typed = mWordComposer.getTypedWord();
+            final String displayed = (isAvroActive() && mRidmikParser != null) ? mRidmikParser.toBangla(typed) : typed;
+            if (!TextUtils.isEmpty(displayed) && text.endsWith(displayed)) {
+                text = text.substring(0, text.length() - displayed.length());
+            } else if (!TextUtils.isEmpty(typed) && text.endsWith(typed)) {
+                text = text.substring(0, text.length() - typed.length());
+            }
+        }
+        text = text.trim();
+        if (text.isEmpty()) {
+            if (mLastComposedWord != null && !TextUtils.isEmpty(mLastComposedWord.mCommittedWord)) {
+                return cleanTrailingPunctuation(mLastComposedWord.mCommittedWord.toString().trim());
+            }
+            return null;
+        }
+
+        int end = text.length();
+        while (end > 0 && (Character.isWhitespace(text.charAt(end - 1)) || isTrailingPunctuation(text.charAt(end - 1)))) {
+            end--;
+        }
+        if (end <= 0) {
+            if (mLastComposedWord != null && !TextUtils.isEmpty(mLastComposedWord.mCommittedWord)) {
+                return cleanTrailingPunctuation(mLastComposedWord.mCommittedWord.toString().trim());
+            }
+            return null;
+        }
+        int start = end - 1;
+        while (start >= 0 && !Character.isWhitespace(text.charAt(start)) && !isTrailingPunctuation(text.charAt(start))) {
+            start--;
+        }
+        String cand = text.substring(start + 1, end);
+        return cleanTrailingPunctuation(cand);
     }
 
     /**
@@ -2373,6 +2613,10 @@ public final class InputLogic {
         if (settingsValues.shouldInsertSpacesAutomatically()
                 && settingsValues.mSpacingAndPunctuations.mCurrentLanguageHasSpaces
                 && !mConnection.textBeforeCursorLooksLikeURL()) {
+            final CharSequence before = mConnection.getTextBeforeCursor(1, 0);
+            if (before != null && before.length() > 0 && Character.isWhitespace(before.charAt(before.length() - 1))) {
+                return;
+            }
             sendKeyCodePoint(settingsValues, Constants.CODE_SPACE);
         }
     }
@@ -2419,12 +2663,15 @@ public final class InputLogic {
     public void commitTyped(final SettingsValues settingsValues, final String separatorString) {
         if (!mWordComposer.isComposingWord()) return;
         final String typedWord = mWordComposer.getTypedWord();
-        // In Avro mode, the raw typed word in Bengali is the raw transliteration without suggestion replacement
+        // In Avro mode, commit exact phonetic transliteration (what the user typed)
         final String wordToCommit = isAvroActive() ? mRidmikParser.toBangla(typedWord) : typedWord;
         if (wordToCommit.length() > 0) {
             final boolean isBatchMode = mWordComposer.isBatchMode();
             commitChosenWord(settingsValues, wordToCommit,
                     LastComposedWord.COMMIT_TYPE_USER_TYPED_WORD, separatorString, -1);
+            if (isAvroActive()) {
+                mLastComposedWord.deactivate();
+            }
             StatsUtils.onWordCommitUserTyped(typedWord, isBatchMode);
         }
     }
@@ -2449,24 +2696,37 @@ public final class InputLogic {
             final String separator, final LatinIMELegacy.UIHandler handler) {
         if (isAvroActive()) {
             final String typedWord = mWordComposer.getTypedWord();
-            final String rawBangla = mRidmikParser.toBangla(typedWord);
-            final boolean isAutoCorrectionOn = settingsValues.isAutoCorrectionOn();
-            final String stringToCommit;
-            if (isAutoCorrectionOn) {
-                final java.util.List<String> candidates = getBanglaCandidates(
-                        typedWord, mRidmikParser, mDictionaryFacilitator);
-                stringToCommit = (candidates != null && !candidates.isEmpty())
+            final boolean hasDigits = mWordComposer.hasDigits() || containsDigits(typedWord);
+            final boolean exactPhonetic = isAvroExactPhonetic(settingsValues) || hasDigits;
+            final String chosen;
+            if (!exactPhonetic) {
+                final java.util.List<String> candidates = getBanglaCandidates(typedWord, mRidmikParser, mDictionaryFacilitator);
+                chosen = (candidates != null && !candidates.isEmpty())
                         ? candidates.get(0)
-                        : rawBangla;
+                        : mRidmikParser.toBangla(typedWord);
             } else {
-                stringToCommit = rawBangla;
+                chosen = mRidmikParser.toBangla(typedWord);
             }
-            if (!TextUtils.isEmpty(stringToCommit)) {
-                commitChosenWord(settingsValues, stringToCommit,
-                        isAutoCorrectionOn ? LastComposedWord.COMMIT_TYPE_DECIDED_WORD : LastComposedWord.COMMIT_TYPE_USER_TYPED_WORD,
-                        separator, 0);
+            if (!TextUtils.isEmpty(chosen)) {
+                if (!TextUtils.isEmpty(typedWord)) {
+                    org.futo.inputmethod.latin.bengali.BanglaSuggestionEngine.learnWord(typedWord, chosen);
+                }
+                final String prevWordForBigram = getPreviousWordForContext();
+                if (!TextUtils.isEmpty(prevWordForBigram)) {
+                    org.futo.inputmethod.latin.bengali.BanglaSuggestionEngine.recordBigram(prevWordForBigram, chosen);
+                }
+                commitChosenWord(settingsValues, chosen,
+                        LastComposedWord.COMMIT_TYPE_USER_TYPED_WORD,
+                        separator, -1);
                 mLastComposedWord.deactivate();
             }
+            return;
+        }
+
+        final String typedWord = mWordComposer.getTypedWord();
+        final boolean hasDigits = mWordComposer.hasDigits() || containsDigits(typedWord);
+        if (!isAutoCorrectionOn(settingsValues) || hasDigits) {
+            commitTyped(settingsValues, separator);
             return;
         }
 
@@ -2474,7 +2734,6 @@ public final class InputLogic {
         if(!ensureSuggestionStripCompleted(settingsValues, separator, handler)) return;
 
         final SuggestedWordInfo autoCorrectionOrNull = mWordComposer.getAutoCorrectionOrNull();
-        final String typedWord = mWordComposer.getTypedWord();
         String stringToCommit = (autoCorrectionOrNull != null)
                 ? autoCorrectionOrNull.mWord : typedWord;
         if (stringToCommit != null) {
@@ -2547,24 +2806,6 @@ public final class InputLogic {
             Log.d(TAG, "commitChosenWord() : NgramContext = " + ngramContext);
             startTimeMillis = System.currentTimeMillis();
         }
-        if (!mConnection.hasComposingText() && mWordComposer.isComposingWord()) {
-            final String rawTyped = mWordComposer.getTypedWord();
-            final String displayText = isAvroActive() ? mRidmikParser.toBangla(rawTyped) : rawTyped;
-            final int lenToDelete = (displayText != null && !displayText.isEmpty()) ? displayText.length() : (rawTyped != null ? rawTyped.length() : 0);
-            if (lenToDelete > 0) {
-                final CharSequence textBefore = mConnection.getTextBeforeCursor(lenToDelete, 0);
-                if (textBefore != null && textBefore.toString().equals(displayText)) {
-                    mConnection.deleteTextBeforeCursor(lenToDelete);
-                } else if (rawTyped != null) {
-                    final CharSequence rawBefore = mConnection.getTextBeforeCursor(rawTyped.length(), 0);
-                    if (rawBefore != null && rawBefore.toString().equals(rawTyped)) {
-                        mConnection.deleteTextBeforeCursor(rawTyped.length());
-                    } else if (textBefore != null && textBefore.length() > 0) {
-                        mConnection.deleteTextBeforeCursor(lenToDelete);
-                    }
-                }
-            }
-        }
         mConnection.commitText(chosenWordWithSuggestions, 1);
         if (DebugFlags.DEBUG_ENABLED) {
             long runTimeMillis = System.currentTimeMillis() - startTimeMillis;
@@ -2633,55 +2874,137 @@ public final class InputLogic {
             final String raw = mWordComposer.getTypedWord();
             final String rawBangla = mRidmikParser.toBangla(raw);
             final java.util.List<String> candidates = getBanglaCandidates(raw, mRidmikParser, mDictionaryFacilitator);
-            final java.util.List<String> englishCandidates = org.futo.inputmethod.latin.bengali.BanglaSuggestionEngine.getEnglishCandidates(raw);
 
             final ArrayList<SuggestedWordInfo> list = new ArrayList<>();
-
-            // 1. Primary English candidate (placed at index 0 as KIND_TYPED).
-            // In Compose ActionBar (with offset=1), index 0 is rendered on the Right Slot.
-            // This guarantees the English word is directly selectable with a single tap,
-            // while leaving the Center Primary slot intact for the Bengali auto-correction!
-            final String primaryEnglish = (!englishCandidates.isEmpty()) ? englishCandidates.get(0) : raw;
-            final SuggestedWordInfo englishWordInfo = new SuggestedWordInfo(
-                    primaryEnglish, "", 1, SuggestedWordInfo.KIND_TYPED, null, 0, 0);
-            list.add(englishWordInfo);
-
-            // 2. Primary Bengali candidate (placed at index 1 = INDEX_OF_AUTO_CORRECTION).
-            // Compose ActionBar places index 1 in the CENTER slot as Primary.
-            // When Space is pressed, auto-correction commits this primary Bengali candidate cleanly!
-            int score = SuggestedWordInfo.MAX_SCORE;
             final String primaryBangla = (!candidates.isEmpty()) ? candidates.get(0) : rawBangla;
-            list.add(new SuggestedWordInfo(primaryBangla, "", score, SuggestedWordInfo.KIND_CORRECTION, null, 0, 0));
+
+            // Pure Bengali suggestions for Avro mode (like Ridmik & Gboard)
+            int score = SuggestedWordInfo.MAX_SCORE;
+            final SuggestedWordInfo primaryWordInfo = new SuggestedWordInfo(
+                    primaryBangla, "", score, SuggestedWordInfo.KIND_CORRECTION, null, 0, 0);
+            list.add(primaryWordInfo);
             score--;
 
-            // 3. Alternate Bengali candidates (placed at index 2+, rendered on Left Slot and extended strip)
             for (final String candidate : candidates) {
-                if (!candidate.equals(primaryBangla) && !candidate.equals(rawBangla)) {
+                if (!candidate.equals(primaryBangla)) {
                     list.add(new SuggestedWordInfo(candidate, "", score, SuggestedWordInfo.KIND_CORRECTION, null, 0, 0));
                     score--;
                 }
             }
 
-            // 4. Raw Avro transliterated Bengali (if distinct from primary)
-            if (!rawBangla.equals(primaryBangla)) {
+            if (!rawBangla.equals(primaryBangla) && !candidates.contains(rawBangla)) {
                 list.add(new SuggestedWordInfo(rawBangla, "", score, SuggestedWordInfo.KIND_CORRECTION, null, 0, 0));
                 score--;
             }
 
-            // 5. Remaining English candidates (e.g. raw typed text if different from canonical English)
-            for (final String eng : englishCandidates) {
-                if (!eng.equals(primaryEnglish)) {
-                    list.add(new SuggestedWordInfo(eng, "", score, SuggestedWordInfo.KIND_CORRECTION, null, 0, 0));
-                    score--;
-                }
-            }
-
-            final boolean isAutoCorrectionOn = settingsValues.isAutoCorrectionOn();
-            final boolean willAutoCorrect = isAutoCorrectionOn && list.size() > 1;
+            final SuggestedWordInfo typedWordInfo = new SuggestedWordInfo(
+                    rawBangla, raw, 1, SuggestedWordInfo.KIND_TYPED, null, 0, 0);
+            final boolean hasDigits = mWordComposer.hasDigits() || containsDigits(raw);
+            final boolean isExactPhonetic = isAvroExactPhonetic(settingsValues) || hasDigits;
+            final boolean willAutoCorrect = !isExactPhonetic && !candidates.isEmpty();
             final SuggestedWords words = new SuggestedWords(
-                    list, null, englishWordInfo, true, willAutoCorrect, false, inputStyle, sequenceNumber);
+                    list, null, typedWordInfo, false, willAutoCorrect, false, inputStyle, sequenceNumber);
             callback.onGetSuggestedWords(words);
             return;
+        }
+
+        // Avro Next-Word Prediction (পরবর্তী শব্দ সাজেশন)
+        if (isAvroActive() && !mWordComposer.isComposingWord()) {
+            final String prevWord = getPreviousWordForContext();
+
+            if (!TextUtils.isEmpty(prevWord)) {
+                final java.util.LinkedHashSet<String> predictionCandidates = new java.util.LinkedHashSet<>();
+                final java.util.List<String> enginePredictions = org.futo.inputmethod.latin.bengali.BanglaSuggestionEngine.getNextWordPredictions(prevWord, mDictionaryFacilitator);
+                if (enginePredictions != null) {
+                    predictionCandidates.addAll(enginePredictions);
+                }
+
+                if (mDictionaryFacilitator != null && mDictionaryFacilitator.hasAtLeastOneInitializedMainDictionary()) {
+                    try {
+                        final NgramContext ngramContext = new NgramContext(new NgramContext.WordInfo(prevWord));
+                        final org.futo.inputmethod.latin.utils.SuggestionResults suggestionResults = mDictionaryFacilitator.getSuggestionResults(
+                                mWordComposer.getComposedDataSnapshot(),
+                                ngramContext,
+                                keyboard,
+                                new SettingsValuesForSuggestion(
+                                    settingsValues.mBlockPotentiallyOffensive,
+                                    settingsValues.mTransformerPredictionEnabled
+                                ),
+                                0 /* SESSION_ID_TYPING */,
+                                SuggestedWords.INPUT_STYLE_PREDICTION
+                        );
+                        if (suggestionResults != null) {
+                            for (final SuggestedWordInfo info : suggestionResults) {
+                                if (info != null && !TextUtils.isEmpty(info.mWord)) {
+                                    predictionCandidates.add(info.mWord);
+                                }
+                            }
+                        }
+                    } catch (final Throwable ignored) {}
+                }
+
+                if (!predictionCandidates.isEmpty()) {
+                    final ArrayList<SuggestedWordInfo> list = new ArrayList<>();
+                    int score = SuggestedWordInfo.MAX_SCORE;
+                    SuggestedWordInfo firstInfo = null;
+                    for (final String word : predictionCandidates) {
+                        final SuggestedWordInfo wordInfo = new SuggestedWordInfo(
+                                word, "", score, SuggestedWordInfo.KIND_PREDICTION, null, 0, 0);
+                        if (firstInfo == null) firstInfo = wordInfo;
+                        list.add(wordInfo);
+                        score--;
+                        if (list.size() >= 5) break;
+                    }
+
+                    final SuggestedWordInfo typedWordInfo = new SuggestedWordInfo(
+                            "", "", 1, SuggestedWordInfo.KIND_TYPED, null, 0, 0);
+                    final SuggestedWords words = new SuggestedWords(
+                            list,
+                            null,
+                            firstInfo != null ? firstInfo : typedWordInfo,
+                            false,
+                            false,
+                            false,
+                            SuggestedWords.INPUT_STYLE_PREDICTION,
+                            sequenceNumber);
+                    callback.onGetSuggestedWords(words);
+                    return;
+                }
+            }
+            callback.onGetSuggestedWords(SuggestedWords.getEmptyInstance());
+            return;
+        }
+
+        // Gboard-style dynamic Kar and completions for Bangla Alphabetical layout
+        if (isBengaliActive() && mWordComposer.isComposingWord()) {
+            final String typed = mWordComposer.getTypedWord();
+            if (typed != null && typed.length() == 1) {
+                final char c = typed.charAt(0);
+                if (c >= '\u0995' && c <= '\u09B9') { // Bengali consonant
+                    final ArrayList<SuggestedWordInfo> list = new ArrayList<>();
+                    int score = SuggestedWordInfo.MAX_SCORE;
+                    final String[] kars = new String[] {
+                        c + "\u09BE", // া
+                        c + "\u09BF", // ি
+                        c + "\u09C7", // ে
+                        c + "\u09CB", // ো
+                        c + "\u09C1", // ু
+                        c + "\u09C0", // ী
+                        c + "\u09C8", // ৈ
+                        c + "\u09CC"  // ৌ
+                    };
+                    for (String karWord : kars) {
+                        list.add(new SuggestedWordInfo(karWord, "", score, SuggestedWordInfo.KIND_CORRECTION, null, 0, 0));
+                        score--;
+                    }
+                    final SuggestedWordInfo typedInfo = new SuggestedWordInfo(
+                            typed, "", 1, SuggestedWordInfo.KIND_TYPED, null, 0, 0);
+                    final SuggestedWords words = new SuggestedWords(
+                            list, null, typedInfo, false, false, false, inputStyle, sequenceNumber);
+                    callback.onGetSuggestedWords(words);
+                    return;
+                }
+            }
         }
         mWordComposer.adviseCapitalizedModeBeforeFetchingSuggestions(
                 getActualCapsMode(settingsValues, keyboardShiftMode));
@@ -2697,7 +3020,7 @@ public final class InputLogic {
                     settingsValues.mBlockPotentiallyOffensive,
                     settingsValues.mTransformerPredictionEnabled
                 ),
-                settingsValues.isAutoCorrectionOn(),
+                isAutoCorrectionOn(settingsValues) && !mWordComposer.hasDigits() && !containsDigits(mWordComposer.getTypedWord()),
                 inputStyle, sequenceNumber, callback);
     }
 

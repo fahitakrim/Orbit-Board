@@ -31,8 +31,12 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.MutableState
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
@@ -47,7 +51,9 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.rememberNavController
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.withContext
 import org.futo.inputmethod.latin.BinaryDictionaryGetter
 import org.futo.inputmethod.latin.R
 import org.futo.inputmethod.latin.Subtypes
@@ -55,6 +61,7 @@ import org.futo.inputmethod.latin.SubtypesSetting
 import org.futo.inputmethod.latin.common.Constants
 import org.futo.inputmethod.latin.uix.FileKind
 import org.futo.inputmethod.latin.uix.ResourceHelper
+import org.futo.inputmethod.latin.uix.findVoiceInputModelForLocale
 import org.futo.inputmethod.latin.uix.getSetting
 import org.futo.inputmethod.latin.uix.icon
 import org.futo.inputmethod.latin.uix.kindTitle
@@ -86,6 +93,52 @@ data class LanguageItem (
     val options: LanguageOptions,
     val layouts: List<LayoutToggleItem>
 )
+
+/**
+ * Non-blocking loader for language resources executed on Dispatchers.IO.
+ */
+suspend fun loadLanguageOptions(
+    context: android.content.Context,
+    locale: Locale,
+    cachedModelOptions: Map<String, org.futo.inputmethod.latin.xlm.ModelInfoLoader>? = null
+): LanguageOptions = withContext(Dispatchers.IO) {
+    val voiceInputModel = ResourceHelper.findVoiceInputModelForLocale(context, locale)?.name?.let {
+        context.getString(it)
+    }
+
+    val dictionaryName = ResourceHelper.findKeyForLocaleAndKind(context, locale, FileKind.Dictionary)?.let { key ->
+        val prefName = context.getSetting(FileKind.Dictionary.namePreferenceKeyFor(key), "Dictionary")
+        "$prefName (Imported)"
+    } ?: if (BinaryDictionaryGetter.getDictionaryFiles(locale, context, false, false).isNotEmpty()) {
+        "Built-in Dictionary"
+    } else {
+        null
+    }
+
+    val modelOptions = cachedModelOptions ?: ModelPaths.getModelOptions(context)
+    val transformerName = modelOptions[locale.language]?.loadDetails()?.name
+
+    LanguageOptions(
+        voiceInputModel = voiceInputModel,
+        dictionary = dictionaryName,
+        transformerModel = transformerName
+    )
+}
+
+/**
+ * Instant in-memory fallback for frame 0 to prevent UI flicker and layout shifts.
+ */
+fun getFastInitialLanguageOptions(context: android.content.Context, locale: Locale): LanguageOptions {
+    val dictFallback = if (Dictionaries.getDictionaryId(locale) != 0) "Built-in Dictionary" else null
+    val voiceFallback = ResourceHelper.BuiltInVoiceInputFallbacks[locale.language]?.name?.let {
+        try { context.getString(it) } catch (_: Exception) { null }
+    }
+    return LanguageOptions(
+        voiceInputModel = voiceFallback,
+        dictionary = dictFallback,
+        transformerModel = null
+    )
+}
 
 val TextHeadingMediumMlStyle = Typography.titleLarge.copy(
     fontSize = 20.sp,
@@ -215,6 +268,37 @@ fun LanguageSurface(
                             )
                         }
                     }
+                }
+
+                Spacer(modifier = Modifier.height(14.dp))
+
+                Text(
+                    "Resources & Models",
+                    modifier = Modifier
+                        .alpha(0.75f)
+                        .padding(start = 16.dp, end = 16.dp),
+                    style = TextSmallStyle
+                )
+
+                Spacer(modifier = Modifier.height(4.dp))
+
+                LanguageConfigurable(
+                    kind = FileKind.Dictionary,
+                    selection = item.options.dictionary ?: "(None)"
+                ) { onConfigurableSelected(FileKind.Dictionary) }
+
+                if (item.options.transformerModel != null) {
+                    LanguageConfigurable(
+                        kind = FileKind.Transformer,
+                        selection = item.options.transformerModel
+                    ) { onConfigurableSelected(FileKind.Transformer) }
+                }
+
+                if (item.options.voiceInputModel != null) {
+                    LanguageConfigurable(
+                        kind = FileKind.VoiceInput,
+                        selection = item.options.voiceInputModel
+                    ) { onConfigurableSelected(FileKind.VoiceInput) }
                 }
 
                 Spacer(modifier = Modifier.height(14.dp))
@@ -383,6 +467,8 @@ fun LanguagesScreen(navController: NavHostController = rememberNavController()) 
     val context = LocalContext.current
     val deleteDialogInfo: MutableState<DeleteInfo?> = remember { mutableStateOf(null) }
     val languageDeleteInfo: MutableState<Locale?> = remember { mutableStateOf(null) }
+    var refreshVersion by remember { mutableStateOf(0) }
+    val languageOptionsCache = remember { mutableStateMapOf<String, LanguageOptions>() }
 
     val inputMethods = useDataStoreValue(SubtypesSetting)
     val inputMethodList = remember(inputMethods) {
@@ -391,27 +477,57 @@ fun LanguagesScreen(navController: NavHostController = rememberNavController()) 
 
     val inputMethodKeys = remember(inputMethodList) { inputMethodList.keys.toList().sorted() }
 
-    if(deleteDialogInfo.value != null) {
-        val info = deleteDialogInfo.value!!
-        ConfirmResourceActionDialog(
-            onDismissRequest = { deleteDialogInfo.value = null },
-            onExplore = {
-                context.openURI(info.kind.getAddonUrlForLocale(info.locale), true)
-                deleteDialogInfo.value = null
-            },
-            onDelete = {
-                ResourceHelper.deleteResourceForLanguage(context, info.kind, info.locale)
-                deleteDialogInfo.value = null
-            },
-            onImport = {
-                openModelImporter(context)
-                deleteDialogInfo.value = null
-            },
+    LaunchedEffect(inputMethodKeys, refreshVersion) {
+        withContext(Dispatchers.IO) {
+            val modelOptions = try {
+                ModelPaths.getModelOptions(context)
+            } catch (_: Exception) {
+                emptyMap()
+            }
+            inputMethodKeys.forEach { localeString ->
+                val locale = Subtypes.getLocale(localeString)
+                val options = try {
+                    loadLanguageOptions(context, locale, modelOptions)
+                } catch (_: Exception) {
+                    getFastInitialLanguageOptions(context, locale)
+                }
+                withContext(Dispatchers.Main) {
+                    languageOptionsCache[localeString] = options
+                }
+            }
+        }
+    }
 
-            resourceKind = info.kind,
-            locale = info.locale,
-            isCurrentlySet = runBlocking { ResourceHelper.findFileForKind(context, info.locale, info.kind)?.exists() == true }
-        )
+    val activeDeleteInfo = deleteDialogInfo.value
+    if(activeDeleteInfo != null) {
+        val isCurrentlySet by produceState<Boolean?>(initialValue = null, key1 = activeDeleteInfo) {
+            value = withContext(Dispatchers.IO) {
+                ResourceHelper.findFileForKind(context, activeDeleteInfo.locale, activeDeleteInfo.kind)?.exists() == true
+            }
+        }
+        if(isCurrentlySet != null) {
+            ConfirmResourceActionDialog(
+                onDismissRequest = { deleteDialogInfo.value = null },
+                onExplore = {
+                    context.openURI(activeDeleteInfo.kind.getAddonUrlForLocale(activeDeleteInfo.locale), true)
+                    deleteDialogInfo.value = null
+                },
+                onDelete = {
+                    ResourceHelper.deleteResourceForLanguage(context, activeDeleteInfo.kind, activeDeleteInfo.locale)
+                    deleteDialogInfo.value = null
+                    refreshVersion++
+                },
+                onImport = {
+                    openModelImporter(context)
+                    deleteDialogInfo.value = null
+                    refreshVersion++
+                },
+
+                resourceKind = activeDeleteInfo.kind,
+                locale = activeDeleteInfo.locale,
+                isCurrentlySet = isCurrentlySet == true
+            )
+        }
     }else if(languageDeleteInfo.value != null) {
         val info = languageDeleteInfo.value!!
         ConfirmDeleteLanguageDialog(
@@ -453,31 +569,15 @@ fun LanguagesScreen(navController: NavHostController = rememberNavController()) 
             Spacer(modifier = Modifier.height(12.dp))
         }
 
-        items(inputMethodKeys) { localeString ->
+        items(inputMethodKeys, key = { it }) { localeString ->
             val subtypes = inputMethodList[localeString]!!
 
             val locale = Subtypes.getLocale(localeString)
 
             val name = Subtypes.getName(subtypes.first())
 
-            val voiceInputModelName = ResourceHelper.tryFindingVoiceInputModelForLocale(context, locale)?.name?.let { stringResource(it) }
-            val dictionaryName = runBlocking { ResourceHelper.findKeyForLocaleAndKind(context, locale, FileKind.Dictionary) }?.let {
-                runBlocking { context.getSetting(FileKind.Dictionary.namePreferenceKeyFor(it), "Dictionary") } + " (Imported)"
-            } ?: if(BinaryDictionaryGetter.getDictionaryFiles(locale, context, false, false).isNotEmpty()) {
-                    "Built-in Dictionary"
-            } else {
-                    null
-            }
-
-            val transformerName = runBlocking { ModelPaths.getModelOptions(context) }.get(locale.language)?.let {
-                it.loadDetails()?.name
-            }
-
-            val options = LanguageOptions(
-                voiceInputModel = voiceInputModelName,
-                dictionary = dictionaryName,
-                transformerModel = transformerName
-            )
+            val options = languageOptionsCache[localeString]
+                ?: remember(localeString) { getFastInitialLanguageOptions(context, locale) }
 
 
             val activeLayoutKeys = subtypes.map {

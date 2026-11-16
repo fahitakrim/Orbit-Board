@@ -9,32 +9,6 @@ import androidx.compose.material3.dynamicLightColorScheme
 import org.futo.inputmethod.latin.R
 import org.futo.inputmethod.latin.uix.theme.ThemeOption
 
-val DynamicSystemTheme = ThemeOption(
-    dynamic = true,
-    key = "DynamicSystem",
-    name = R.string.dynamic_system_theme_name,
-    available = { Build.VERSION.SDK_INT >= Build.VERSION_CODES.S },
-    obtainColors = {
-        if(Build.VERSION.SDK_INT < Build.VERSION_CODES.S) {
-            throw IllegalStateException("DynamicSystemTheme obtainColors called when available() == false")
-        }
-
-        val uiModeManager = it.getSystemService(Context.UI_MODE_SERVICE) as UiModeManager
-        when (uiModeManager.nightMode) {
-            UiModeManager.MODE_NIGHT_YES -> dynamicDarkColorScheme(it)
-            UiModeManager.MODE_NIGHT_NO -> dynamicLightColorScheme(it)
-            else -> {
-                val currentNightMode = it.resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK
-                if(currentNightMode == Configuration.UI_MODE_NIGHT_NO) {
-                    dynamicLightColorScheme(it)
-                } else {
-                    dynamicDarkColorScheme(it)
-                }
-            }
-        }
-    }
-)
-
 val DynamicNothing = ThemeOption(
     dynamic = true,
     key = "DynamicNothing",
@@ -42,7 +16,7 @@ val DynamicNothing = ThemeOption(
     available = { Build.VERSION.SDK_INT >= Build.VERSION_CODES.S },
     obtainColors = {
         if(Build.VERSION.SDK_INT < Build.VERSION_CODES.S) {
-            throw IllegalStateException("DynamicSystemTheme obtainColors called when available() == false")
+            throw IllegalStateException("DynamicNothing obtainColors called when available() == false")
         }
 
         val uiModeManager = it.getSystemService(Context.UI_MODE_SERVICE) as UiModeManager

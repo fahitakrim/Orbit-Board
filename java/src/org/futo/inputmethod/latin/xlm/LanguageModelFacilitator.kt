@@ -369,9 +369,15 @@ public class LanguageModelFacilitator(
 
             val bothAlgorithmsCameToSameConclusion = maxWordDict?.mWord == maxWord?.mWord
 
+            val currentSettingsValues = settings.current
+            val isAutoCorrectionOn = currentSettingsValues != null
+                && InputLogic.isAutoCorrectionOn(currentSettingsValues)
+                && !(inputLogic.mWordComposer?.hasDigits() ?: false)
+                && !InputLogic.containsDigits(values.composedData.mTypedWord)
+
             var autocorrectWord: SuggestedWordInfo? = null
             val filtered = mutableListOf<SuggestedWordInfo>()
-            if(bothAlgorithmsCameToSameConclusion && maxWord != null && maxWordDict != null){
+            if(isAutoCorrectionOn && bothAlgorithmsCameToSameConclusion && maxWord != null && maxWordDict != null){
                 // We can be pretty confident about autocorrecting this
                 val clone = maxWord.add(maxWordDict)
                 autocorrectWord = clone
@@ -420,12 +426,19 @@ public class LanguageModelFacilitator(
                 }
             }
 
-            val settingsValues = settings.current ?: return
+            val settingsValues = currentSettingsValues ?: return
             val locale = dictionaryFacilitator.locale ?: return
             val wordComposer = inputLogic.mWordComposer ?: return
 
             val suggestedWords = Suggest.obtainNonBatchedInputSuggestedWords(
-                wordComposer, values.inputStyle, true, -1, locale, suggestionResults, settingsValues.mAutoCorrectionThreshold)
+                wordComposer,
+                values.inputStyle,
+                isAutoCorrectionOn,
+                -1,
+                locale,
+                suggestionResults,
+                if (isAutoCorrectionOn) settingsValues.mAutoCorrectionThreshold else Float.MAX_VALUE
+            )
 
             job.cancel()
 

@@ -253,6 +253,11 @@ public final class Suggest {
                 SuggestedWordInfo.NOT_AN_INDEX /* indexOfTouchPointOfSecondWord */,
                 SuggestedWordInfo.NOT_A_CONFIDENCE /* autoCommitFirstWordConfidence */);
         if (!TextUtils.isEmpty(typedWordString)) {
+            for (int i = suggestionsContainer.size() - 1; i >= 0; --i) {
+                if (typedWordString.equals(suggestionsContainer.get(i).mWord)) {
+                    suggestionsContainer.remove(i);
+                }
+            }
             suggestionsContainer.add(0, typedWordInfo);
         }
 
@@ -339,13 +344,24 @@ public final class Suggest {
         }
         SuggestedWordInfo.removeDups(null /* typedWord */, suggestionsContainer);
 
-        // For some reason some suggestions with MIN_VALUE are making their way here.
-        // TODO: Find a more robust way to detect distracters.
-        for (int i = suggestionsContainer.size() - 1; i >= 0; --i) {
-            if (suggestionsContainer.get(i).mScore < SUPPRESS_SUGGEST_THRESHOLD) {
-                suggestionsContainer.remove(i);
+        // Filter out extreme distracters below threshold, but ensure valid user gestures
+        // are not completely suppressed if all candidates have lower scores.
+        final ArrayList<SuggestedWordInfo> filteredSuggestions = new ArrayList<>();
+        for (int i = 0; i < suggestionsContainer.size(); ++i) {
+            final SuggestedWordInfo info = suggestionsContainer.get(i);
+            if (info.mScore >= SUPPRESS_SUGGEST_THRESHOLD) {
+                filteredSuggestions.add(info);
             }
         }
+        if (filteredSuggestions.isEmpty() && !suggestionsContainer.isEmpty()) {
+            // Keep top candidates rather than suppressing valid user gestures entirely
+            final int keepCount = Math.min(suggestionsContainer.size(), 3);
+            for (int i = 0; i < keepCount; ++i) {
+                filteredSuggestions.add(suggestionsContainer.get(i));
+            }
+        }
+        suggestionsContainer.clear();
+        suggestionsContainer.addAll(filteredSuggestions);
 
         // In the batch input mode, the most relevant suggested word should act as a "typed word"
         // (typedWordValid=true), not as an "auto correct word" (willAutoCorrect=false).

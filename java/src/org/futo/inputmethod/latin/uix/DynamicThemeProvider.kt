@@ -25,6 +25,12 @@ interface DynamicThemeProvider {
     val tapAnimationType: TapAnimationType
         get() = TapAnimationType.NONE
 
+    val laserColor: String
+        get() = "neon"
+
+    val keyPopupStyle: String
+        get() = "orbit_slim"
+
     val keyboardTypeface: Typeface?
         get() = null
 
@@ -59,6 +65,29 @@ interface DynamicThemeProvider {
     fun getKeyRotation(key: Key): Float = 0f
 
     fun getKeyHintCoordinates(key: Key, keyWidth: Int, keyHeight: Int, padding: Float): FloatArray? = null
+    fun getKeyHintCoordinates(key: Key, keyWidth: Int, keyHeight: Int, padding: Float, paint: android.graphics.Paint): FloatArray? = getKeyHintCoordinates(key, keyWidth, keyHeight, padding)
+
+    val shouldSuppressLanguageOnSpacebar: Boolean
+        get() = false
+
+    fun onDrawCustomKeyTopVisuals(
+        key: Key,
+        canvas: android.graphics.Canvas,
+        paint: android.graphics.Paint,
+        keyWidth: Int,
+        keyHeight: Int,
+        animAlpha: Int
+    ): Boolean = false
+
+    fun onPostDrawKeyVisuals(
+        key: Key,
+        canvas: android.graphics.Canvas,
+        paint: android.graphics.Paint,
+        keyWidth: Int,
+        keyHeight: Int,
+        labelX: Float,
+        labelBaseline: Float
+    ) {}
 
     val spacebarShape: String
         get() = "boxy"

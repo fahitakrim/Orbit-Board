@@ -20,6 +20,7 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.withTimeoutOrNull
 import org.futo.inputmethod.latin.uix.PreferenceUtils
 import org.futo.inputmethod.latin.uix.SettingsKey
 import org.futo.inputmethod.latin.uix.dataStore
@@ -36,9 +37,14 @@ val LocalDataStoreCache = staticCompositionLocalOf<DataStoreCache?> {
 fun DataStoreCacheProvider(content: @Composable () -> Unit) {
     val context = LocalContext.current
     val initialPrefs = remember {
-        runBlocking {
-            context.dataStore.data.first()
-        }
+        org.futo.inputmethod.latin.LatinIME.instance?.getLatestPreferences()
+            ?: runCatching {
+                runBlocking(Dispatchers.IO) {
+                    withTimeoutOrNull(200L) {
+                        context.dataStore.data.first()
+                    }
+                }
+            }.getOrNull() ?: androidx.datastore.preferences.core.emptyPreferences()
     }
     val prefs = context.dataStore.data.collectAsState(initialPrefs)
 

@@ -385,8 +385,17 @@ class SystemVoiceInputManager(private val latinIME: LatinIME) : RecognitionListe
                 SpeechRecognizer.ERROR_SPEECH_TIMEOUT, SpeechRecognizer.ERROR_NO_MATCH -> {
                     // User finished speaking or stayed silent: cleanly stop without popup or disturbance
                 }
+                SpeechRecognizer.ERROR_AUDIO -> {
+                    latinIME.uixManager.showAssistantMessage("অডিও রেকর্ডিং এরর")
+                }
+                SpeechRecognizer.ERROR_SERVER -> {
+                    latinIME.uixManager.showAssistantMessage("সার্ভার এরর, পুনরায় চেষ্টা করুন")
+                }
+                SpeechRecognizer.ERROR_RECOGNIZER_BUSY -> {
+                    latinIME.uixManager.showAssistantMessage("ভয়েস ইঞ্জিন ব্যস্ত আছে")
+                }
                 else -> {
-                    // Any other recognizer error: cleanly stopped and reset, keyboard stays open
+                    latinIME.uixManager.showAssistantMessage("ভয়েস ইনপুট এরর ($error)")
                 }
             }
         } catch (t: Throwable) {

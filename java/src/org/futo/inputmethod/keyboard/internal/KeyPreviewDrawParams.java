@@ -33,8 +33,17 @@ public final class KeyPreviewDrawParams {
     // XML attributes of {@link MainKeyboardView}.
     public final int mPreviewOffset;
     public final int mPreviewHeight;
-    public final Drawable mPreviewBackground;
-    public final DynamicThemeProvider mProvider;
+    public Drawable mPreviewBackground;
+    public DynamicThemeProvider mProvider;
+
+    public void setProvider(final DynamicThemeProvider provider) {
+        mProvider = provider;
+        mPreviewBackground = (provider != null) ? provider.getKeyFeedback() : null;
+    }
+
+    public DynamicThemeProvider getProvider() {
+        return mProvider;
+    }
     private final int mShowUpAnimatorResId;
     private final int mDismissAnimatorResId;
     private boolean mHasCustomAnimationParams;

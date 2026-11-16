@@ -16,6 +16,7 @@ import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.RowScope
@@ -233,7 +234,7 @@ class EmojiGridAdapter(
 
     internal inner class CategoryViewHolder(itemView: View) : RecyclerView.ViewHolder(itemView) {
         fun bind(item: CategoryItem) {
-            itemView.layoutParams.width = emojiCellWidth * 9
+            itemView.layoutParams.width = ViewGroup.LayoutParams.MATCH_PARENT
             itemView.layoutParams.height = ViewGroup.LayoutParams.WRAP_CONTENT
             itemView.findViewById<TextView>(R.id.text_section).text = item.title
             itemView.findViewById<TextView>(R.id.text_section).setTextColor(contentColor.toArgb())
@@ -305,167 +306,169 @@ fun Emojis(
     currentCategory: MutableState<CategoryItem>,
     jumpCategory: MutableState<CategoryItem?>
 ) {
-    val emojiWidth = with(LocalDensity.current) {
-        remember {
-            42.dp.toPx().roundToInt()
+    BoxWithConstraints(modifier = modifier) {
+        val totalWidthPx = constraints.maxWidth
+        val columns = 11
+        val emojiWidth = if (totalWidthPx > 0) (totalWidthPx / columns).coerceAtLeast(1) else with(LocalDensity.current) { 36.dp.toPx().roundToInt() }
+
+        var activePopup: PopupInfo? by rememberSaveable { mutableStateOf(null) }
+        var popupIsActive by rememberSaveable { mutableStateOf(false) }
+
+        val color = LocalContentColor.current
+
+        val emojiAdapter = remember(emojiWidth, color) {
+            EmojiGridAdapter(
+                onClick,
+                onSelectSkinTone = {
+                    activePopup = it
+                    popupIsActive = true
+                },
+                emojiWidth,
+                color
+            )
         }
-    }
 
-    var activePopup: PopupInfo? by rememberSaveable { mutableStateOf(null) }
-    var popupIsActive by rememberSaveable { mutableStateOf(false) }
+        LaunchedEffect(emojis) {
+            emojiAdapter.submitList(emojis)
+        }
 
-    val color = LocalContentColor.current
+        var viewWidth by remember { mutableIntStateOf(0) }
+        var viewHeight by remember { mutableIntStateOf(0) }
+        var popupSize by remember { mutableStateOf(IntSize(0, 0)) }
 
-    val emojiAdapter = remember {
-        EmojiGridAdapter(
-            onClick,
-            onSelectSkinTone = {
-                activePopup = it
-                popupIsActive = true
-            },
-            emojiWidth,
-            color
-        )
-    }
+        Box(modifier = Modifier.fillMaxSize()) {
+            AndroidView(
+                factory = { context ->
+                    RecyclerView(context).apply {
+                        layoutManager = GridLayoutManager(context, 11).apply {
+                            spanSizeLookup = object : SpanSizeLookup() {
+                                override fun getSpanSize(position: Int): Int {
+                                    val list = emojiAdapter.currentList
+                                    if (position < 0 || position >= list.size) return 1
+                                    return when(list[position]) {
+                                        is EmojiItemItem -> 1
+                                        is CategoryItem -> 11
+                                    }
+                                }
+                            }
+                        }
 
-    LaunchedEffect(emojis) {
-        emojiAdapter.submitList(emojis)
-    }
+                        adapter = emojiAdapter
 
-    var viewWidth by remember { mutableIntStateOf(0) }
-    var viewHeight by remember { mutableIntStateOf(0) }
-    var popupSize by remember { mutableStateOf(IntSize(0, 0)) }
+                        addOnScrollListener(object : RecyclerView.OnScrollListener() {
+                            override fun onScrolled(recyclerView: RecyclerView, dx: Int, dy: Int) {
+                                super.onScrolled(recyclerView, dx, dy)
+                                val layoutManager = recyclerView.layoutManager as GridLayoutManager
+                                val firstVisiblePosition = layoutManager.findFirstVisibleItemPosition()
+                                val lastVisiblePosition = layoutManager.findLastCompletelyVisibleItemPosition()
 
-    Box(modifier = modifier) {
-        AndroidView(
-            factory = { context ->
-                RecyclerView(context).apply {
-                    layoutManager = GridLayoutManager(context, 8).apply {
-                        spanSizeLookup = object : SpanSizeLookup() {
-                            override fun getSpanSize(position: Int): Int {
-                                return when(emojiAdapter.currentList[position]) {
-                                    is EmojiItemItem -> 1
-                                    is CategoryItem -> spanCount
+                                val finalCategoryIndex = emojis.indexOfLast { it is CategoryItem }
+                                if(finalCategoryIndex == -1) return
+
+                                if(finalCategoryIndex < lastVisiblePosition) {
+                                    currentCategory.value = emojis[finalCategoryIndex] as CategoryItem
+                                } else {
+                                    val itm = emojis.subList(0, (firstVisiblePosition + 1).coerceAtMost(emojis.size))
+                                        .lastOrNull { it is CategoryItem }
+
+                                    if (itm != null) {
+                                        currentCategory.value = itm as CategoryItem
+                                    }
+                                }
+                            }
+                        })
+                    }
+                },
+                update = {
+                    (it.layoutManager as? GridLayoutManager)?.let { lm ->
+                        lm.spanCount = 11
+                    }
+
+                    jumpCategory.value?.let { item ->
+                        val idx = emojis.indexOf(item)
+                        if (idx != -1) {
+                            it.post {
+                                (it.layoutManager as GridLayoutManager).scrollToPositionWithOffset(
+                                    idx,
+                                    0
+                                )
+                            }
+                        }
+                        jumpCategory.value = null
+                    }
+                },
+                modifier = Modifier
+                    .fillMaxSize()
+                    .clipToBounds()
+                    .onSizeChanged {
+                        viewWidth = it.width
+                        viewHeight = it.height
+                    }
+                    .pointerInput(Unit) {
+                        awaitPointerEventScope {
+                            while (true) {
+                                val event = awaitPointerEvent(PointerEventPass.Initial)
+                                if (event.type == PointerEventType.Press && popupIsActive) {
+                                    popupIsActive = false
+                                    event.changes
+                                        .firstOrNull()
+                                        ?.consume()
+                                } else if (event.type == PointerEventType.Move && popupIsActive) {
+                                    event.changes
+                                        .firstOrNull()
+                                        ?.consume()
                                 }
                             }
                         }
                     }
+            )
 
-                    adapter = emojiAdapter
+            val posX = (activePopup?.x ?: 0) - popupSize.width / 2
+            val posY = (activePopup?.y ?: 0) - popupSize.height
 
-                    addOnScrollListener(object : RecyclerView.OnScrollListener() {
-                        override fun onScrolled(recyclerView: RecyclerView, dx: Int, dy: Int) {
-                            super.onScrolled(recyclerView, dx, dy)
-                            val layoutManager = recyclerView.layoutManager as GridLayoutManager
-                            val firstVisiblePosition = layoutManager.findFirstVisibleItemPosition()
-                            val lastVisiblePosition = layoutManager.findLastCompletelyVisibleItemPosition()
+            // Calculate the maximum possible x and y values
+            val maxX = viewWidth - popupSize.width
+            val maxY = viewHeight - popupSize.height
 
-                            val finalCategoryIndex = emojis.indexOfLast { it is CategoryItem }
-                            if(finalCategoryIndex == -1) return
+            // Calculate the x and y values, clamping them to the maximum values if necessary
+            val x = min(maxX, max(0, posX))
+            val y = min(maxY, max(0, posY))
 
-                            if(finalCategoryIndex < lastVisiblePosition) {
-                                currentCategory.value = emojis[finalCategoryIndex] as CategoryItem
-                            } else {
-                                val itm = emojis.subList(0, firstVisiblePosition + 1)
-                                    .lastOrNull { it is CategoryItem }
-
-                                if (itm != null) {
-                                    currentCategory.value = itm as CategoryItem
-                                }
-                            }
-                        }
-                    })
-                }
-            },
-            update = {
-                if (viewWidth > 0) {
-                    (it.layoutManager as GridLayoutManager).spanCount = viewWidth / emojiWidth
-                }
-
-                jumpCategory.value?.let { item ->
-                    val idx = emojis.indexOf(item)
-                    if (idx != -1) {
-                        it.post {
-                            (it.layoutManager as GridLayoutManager).scrollToPositionWithOffset(
-                                idx,
-                                0
-                            )
-                        }
-                    }
-                    jumpCategory.value = null
-                }
-            },
-            modifier = Modifier
-                .fillMaxSize()
-                .clipToBounds()
+            AnimatedVisibility(visible = popupIsActive, modifier = Modifier
                 .onSizeChanged {
-                    viewWidth = it.width
-                    viewHeight = it.height
+                    popupSize = it
                 }
-                .pointerInput(Unit) {
-                    awaitPointerEventScope {
-                        while (true) {
-                            val event = awaitPointerEvent(PointerEventPass.Initial)
-                            if (event.type == PointerEventType.Press && popupIsActive) {
-                                popupIsActive = false
-                                event.changes
-                                    .firstOrNull()
-                                    ?.consume()
-                            } else if (event.type == PointerEventType.Move && popupIsActive) {
-                                event.changes
-                                    .firstOrNull()
-                                    ?.consume()
-                            }
-                        }
-                    }
-                }
-        )
-
-        val posX = (activePopup?.x ?: 0) - popupSize.width / 2
-        val posY = (activePopup?.y ?: 0) - popupSize.height
-
-        // Calculate the maximum possible x and y values
-        val maxX = viewWidth - popupSize.width
-        val maxY = viewHeight - popupSize.height
-
-        // Calculate the x and y values, clamping them to the maximum values if necessary
-        val x = min(maxX, max(0, posX))
-        val y = min(maxY, max(0, posY))
-
-        AnimatedVisibility(visible = popupIsActive, modifier = Modifier
-            .onSizeChanged {
-                popupSize = it
-            }
-            .absoluteOffset {
-                IntOffset(x, y)
-            }) {
-            activePopup?.let { popupInfo ->
-                Box {
-                    Surface(
-                        color = MaterialTheme.colorScheme.primaryContainer,
-                        shape = RoundedCornerShape(8.dp)
-                    ) {
-                        Row {
-                            generateSkinToneVariants(popupInfo.emoji.emoji, emojiMap).map { emoji ->
-                                IconButton(
-                                    onClick = {
-                                        onClick(
-                                            EmojiItem(
-                                                emoji = emoji,
-                                                description = popupInfo.emoji.description,
-                                                category = popupInfo.emoji.category,
-                                                skinTones = false,
-                                                aliases = listOf(),
-                                                tags = listOf()
+                .absoluteOffset {
+                    IntOffset(x, y)
+                }) {
+                activePopup?.let { popupInfo ->
+                    Box {
+                        Surface(
+                            color = MaterialTheme.colorScheme.primaryContainer,
+                            shape = RoundedCornerShape(8.dp)
+                        ) {
+                            Row {
+                                generateSkinToneVariants(popupInfo.emoji.emoji, emojiMap).map { emoji ->
+                                    IconButton(
+                                        onClick = {
+                                            onClick(
+                                                EmojiItem(
+                                                    emoji = emoji,
+                                                    description = popupInfo.emoji.description,
+                                                    category = popupInfo.emoji.category,
+                                                    skinTones = false,
+                                                    aliases = listOf(),
+                                                    tags = listOf()
+                                                )
                                             )
-                                        )
-                                        popupIsActive = false
-                                    }, modifier = Modifier
-                                        .width(42.dp)
-                                        .height(42.dp)
-                                ) {
-                                    Box {
-                                        Text(emoji, modifier = Modifier.align(Alignment.Center))
+                                            popupIsActive = false
+                                        }, modifier = Modifier
+                                            .width(42.dp)
+                                            .height(42.dp)
+                                    ) {
+                                        Box {
+                                            Text(emoji, modifier = Modifier.align(Alignment.Center))
+                                        }
                                     }
                                 }
                             }

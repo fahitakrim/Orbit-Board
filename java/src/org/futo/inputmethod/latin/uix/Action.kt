@@ -53,6 +53,7 @@ interface KeyboardManagerForAction {
 
     fun sendCodePointEvent(codePoint: Int)
     fun sendKeyEvent(keyCode: Int, metaState: Int)
+    fun performEditAction(id: Int)
 
     fun cursorLeft(steps: Int, stepOverWords: Boolean, select: Boolean)
     fun cursorRight(steps: Int, stepOverWords: Boolean, select: Boolean)
@@ -68,6 +69,7 @@ interface KeyboardManagerForAction {
     fun openInputMethodPicker()
     fun activateAction(action: Action)
     fun showActionEditor()
+    fun hideActionEditor()
 
     fun getLatinIMEForDebug(): LatinIME
     fun isDeviceLocked(): Boolean

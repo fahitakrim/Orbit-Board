@@ -2,17 +2,17 @@
 <merge xmlns:latin="http://schemas.android.com/apk/res-auto">
     <Key
         latin:keySpec="!text/keyspec_y"
-        latin:moreKeys="6,!noPanelAutoMoreKey!,!text/morekeys_y" />
+        latin:moreKeys="6,&#x09EC;,!text/morekeys_y" />
     <Key
         latin:keySpec="u"
-        latin:moreKeys="7,!noPanelAutoMoreKey!,!text/morekeys_u" />
+        latin:moreKeys="7,&#x09ED;,!text/morekeys_u" />
     <Key
         latin:keySpec="i"
-        latin:moreKeys="8,!noPanelAutoMoreKey!,!text/morekeys_i" />
+        latin:moreKeys="8,&#x09EE;,!text/morekeys_i" />
     <Key
         latin:keySpec="o"
-        latin:moreKeys="9,!noPanelAutoMoreKey!,!text/morekeys_o" />
+        latin:moreKeys="9,&#x09EF;,!text/morekeys_o" />
     <Key
         latin:keySpec="p"
-        latin:moreKeys="0,!noPanelAutoMoreKey!,!text/morekeys_p" />
+        latin:moreKeys="0,&#x09E6;,!text/morekeys_p" />
 </merge>

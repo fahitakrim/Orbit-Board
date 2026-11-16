@@ -36,6 +36,8 @@ import kotlinx.coroutines.DelicateCoroutinesApi
 import kotlinx.coroutines.GlobalScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import org.futo.inputmethod.latin.uix.BasicThemeProvider
@@ -112,7 +114,7 @@ class SettingsActivity : ComponentActivity(), DynamicThemeProviderOwner {
         androidx.activity.result.contract.ActivityResultContracts.RequestPermission()
     ) { isGranted ->
         if (isGranted) {
-            org.futo.inputmethod.updates.OrbitUpdateScheduler.schedulePeriodicCheck(applicationContext)
+            try { org.futo.inputmethod.updates.OrbitUpdateScheduler.schedulePeriodicCheck(applicationContext) } catch (t: Throwable) { android.util.Log.w("SettingsActivity", "Failed to schedule check", t) }
         }
     }
 
@@ -125,9 +127,8 @@ class SettingsActivity : ComponentActivity(), DynamicThemeProviderOwner {
 
         this.doublePackage.value = this.doublePackage.value || isDoublePackage()
 
-        this.micPermissionGrantedOrUsingSystem.value = (checkSelfPermission(Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED) || runBlocking {
-            getSetting(USE_SYSTEM_VOICE_INPUT)
-        }
+        val hasAudioPerm = checkSelfPermission(Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED
+        if (hasAudioPerm) { this.micPermissionGrantedOrUsingSystem.value = true }
 
         if(!inputMethodEnabled) {
             wasImeEverDisabled = true
@@ -148,7 +149,7 @@ class SettingsActivity : ComponentActivity(), DynamicThemeProviderOwner {
 
         if(!inputMethodEnabled || !inputMethodSelected) {
             if(pollJob == null || !pollJob!!.isActive) {
-                pollJob = GlobalScope.launch {
+                pollJob = lifecycleScope.launch(Dispatchers.IO) {
                     systemStatePoller()
                 }
             }
@@ -157,8 +158,10 @@ class SettingsActivity : ComponentActivity(), DynamicThemeProviderOwner {
 
     private suspend fun systemStatePoller() {
         while(!this.inputMethodEnabled.value || !this.inputMethodSelected.value) {
-            delay(200)
-            updateSystemState()
+            delay(500)
+            withContext(Dispatchers.Main) {
+                updateSystemState()
+            }
         }
     }
 
@@ -184,7 +187,10 @@ class SettingsActivity : ComponentActivity(), DynamicThemeProviderOwner {
                                 micPermissionGrantedOrUsingSystem.value,
                                 doublePackage.value
                             ) {
-                                SettingsNavigator(navController = navController)
+                                val startRoute = intent?.getStringExtra("route")?.takeIf { it.isNotEmpty() }
+                                    ?: intent?.getStringExtra("navDest")?.takeIf { it.isNotEmpty() }
+                                    ?: "home"
+                                SettingsNavigator(navController = navController, startDestination = startRoute)
                             }
                         }
                     }
@@ -197,6 +203,12 @@ class SettingsActivity : ComponentActivity(), DynamicThemeProviderOwner {
         super.onCreate(savedInstanceState)
 
         org.futo.inputmethod.latin.Subtypes.addDefaultSubtypesIfNecessary(this)
+        try {
+            val prefs = org.futo.inputmethod.latin.uix.PreferenceUtils.getDefaultSharedPreferences(this)
+            org.futo.inputmethod.latin.settings.Settings.upgradeAutocorrectionSettings(prefs, resources)
+        } catch (t: Throwable) {
+            android.util.Log.w("SettingsActivity", "Failed to sanitize autocorrection prefs", t)
+        }
 
         enableEdgeToEdge()
 
@@ -209,12 +221,26 @@ class SettingsActivity : ComponentActivity(), DynamicThemeProviderOwner {
                 requestNotificationPermissionLauncher.launch(android.Manifest.permission.POST_NOTIFICATIONS)
             }
         }
-        org.futo.inputmethod.updates.OrbitUpdateScheduler.schedulePeriodicCheck(applicationContext)
+        try {
+            org.futo.inputmethod.updates.OrbitUpdateScheduler.schedulePeriodicCheck(applicationContext)
+        } catch (t: Throwable) {
+            android.util.Log.w("SettingsActivity", "Failed to schedule periodic check", t)
+        }
+
+        // Initialize Compose content ONCE
+        updateContent()
+
+        // Reactively observe voice input setting without blocking main thread
+        lifecycleScope.launch {
+            getSettingFlow(USE_SYSTEM_VOICE_INPUT).collect { usingSystem ->
+                micPermissionGrantedOrUsingSystem.value =
+                    (checkSelfPermission(Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED) || usingSystem
+            }
+        }
 
         lifecycleScope.launch {
             repeatOnLifecycle(Lifecycle.State.STARTED) {
                 updateSystemState()
-                updateContent()
             }
         }
 
@@ -264,7 +290,10 @@ class SettingsActivity : ComponentActivity(), DynamicThemeProviderOwner {
         val intent = intent
         if(intent != null) {
             val destination = intent.getStringExtra("navDest")
-            if(destination != null) {
+            val startRoute = intent.getStringExtra("route")?.takeIf { it.isNotEmpty() }
+                ?: intent.getStringExtra("navDest")?.takeIf { it.isNotEmpty() }
+                ?: "home"
+            if(destination != null && destination != startRoute) {
                 lifecycleScope.launch {
                     // The navigation graph has to initialize, and this can take some time.
                     // For now, just keep trying every 100ms until it doesn't throw an exception
@@ -297,6 +326,16 @@ class SettingsActivity : ComponentActivity(), DynamicThemeProviderOwner {
 
         updateSystemState()
     }
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        val route = intent.getStringExtra("route") ?: intent.getStringExtra("navDest")
+        if (!route.isNullOrEmpty()) {
+            try {
+                navController.navigate(route)
+            } catch (_: Exception) {}
+        }
+    }
 
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
         super.onActivityResult(requestCode, resultCode, data)
@@ -325,7 +364,10 @@ class SettingsActivity : ComponentActivity(), DynamicThemeProviderOwner {
     // Provides theme for keyboard preview
     private var themeProvider: BasicThemeProvider? = null
     override fun getDrawableProvider(): DynamicThemeProvider {
-        return themeProvider!!
+        return themeProvider ?: BasicThemeProvider(
+            context = this@SettingsActivity,
+            overrideColorScheme = DarkColorScheme
+        ).also { themeProvider = it }
     }
 
     fun updateEdgeToEdge() {

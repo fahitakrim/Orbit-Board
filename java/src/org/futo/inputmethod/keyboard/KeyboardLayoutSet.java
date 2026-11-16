@@ -160,7 +160,7 @@ public final class KeyboardLayoutSet {
         clearKeyboardCache();
     }
 
-    private static void clearKeyboardCache() {
+    public static void clearKeyboardCache() {
         sKeyboardCache.clear();
         sUniqueKeysCache.clear();
     }

@@ -38,7 +38,6 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.zIndex
 import androidx.core.content.edit
 import androidx.datastore.preferences.core.booleanPreferencesKey
-import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.navigation.NavGraphBuilder
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.composable
@@ -49,20 +48,10 @@ import org.futo.inputmethod.latin.R
 import org.futo.inputmethod.latin.settings.LongPressKey
 import org.futo.inputmethod.latin.settings.LongPressKeyLayoutSetting
 import org.futo.inputmethod.latin.settings.Settings
-import org.futo.inputmethod.latin.settings.Settings.PREF_VIBRATION_DURATION_SETTINGS
 import org.futo.inputmethod.latin.settings.description
 import org.futo.inputmethod.latin.settings.name
 import org.futo.inputmethod.latin.settings.toEncodedString
 import org.futo.inputmethod.latin.settings.toLongPressKeyLayoutItems
-import org.futo.inputmethod.latin.uix.AndroidTextInput
-import org.futo.inputmethod.latin.uix.KeyHintColorSetting
-import org.futo.inputmethod.latin.uix.KeyHintsSetting
-import org.futo.inputmethod.latin.uix.KeyboardBottomOffsetSetting
-import org.futo.inputmethod.latin.uix.KeyboardFontSetting
-import org.futo.inputmethod.latin.uix.SpacebarColorSetting
-import org.futo.inputmethod.latin.uix.KeyboardHeightMultiplierSetting
-import org.futo.inputmethod.latin.uix.PreferenceUtils
-import org.futo.inputmethod.latin.uix.SHOW_EMOJI_SUGGESTIONS
 import org.futo.inputmethod.latin.uix.SettingsKey
 import org.futo.inputmethod.latin.uix.actions.ActionEditor
 import org.futo.inputmethod.latin.uix.actions.ActionsEditor
@@ -78,7 +67,6 @@ import org.futo.inputmethod.latin.uix.settings.SettingListLazy
 import org.futo.inputmethod.latin.uix.settings.SettingRadio
 import org.futo.inputmethod.latin.uix.settings.SettingSlider
 import org.futo.inputmethod.latin.uix.settings.SettingSliderSharedPrefsInt
-import org.futo.inputmethod.latin.uix.settings.SettingToggleDataStore
 import org.futo.inputmethod.latin.uix.settings.SettingToggleSharedPrefs
 import org.futo.inputmethod.latin.uix.settings.useDataStore
 import org.futo.inputmethod.latin.uix.settings.useSharedPrefsInt
@@ -86,15 +74,6 @@ import kotlin.math.absoluteValue
 import kotlin.math.roundToInt
 import kotlin.math.sign
 
-val vibrationDurationSetting = SettingsKey(
-    intPreferencesKey("vibration_duration"),
-    -1
-)
-
-val soundVolumeSetting = SettingsKey(
-    intPreferencesKey("keypress_sound_volume_percent"),
-    -1
-)
 
 val LongPressShortcutsSetting = SettingsKey(
     booleanPreferencesKey("long_press_cxv_shortcuts"),
@@ -280,26 +259,6 @@ fun LongPressScreen(navController: NavHostController = rememberNavController()) 
             ScreenTitle("Long-Press Keys", showBack = true, navController)
         }
 
-        item {
-            SettingToggleDataStore(
-                title = "Show hints",
-                subtitle = "Display a small hint on each key, showing the primary long-press key",
-                setting = KeyHintsSetting
-            )
-        }
-
-        item {
-            SettingRadio(
-                title = "Symbol & Number Hint Color",
-                options = listOf("subtle", "yellow"),
-                optionNames = listOf("Subtle (Default)", "Yellow Accent"),
-                setting = useDataStore(
-                    key = KeyHintColorSetting.key,
-                    default = KeyHintColorSetting.default
-                )
-            )
-        }
-
         longPressKeyLayoutEditor(
             context = context,
             setting = setting,
@@ -320,15 +279,6 @@ fun LongPressScreen(navController: NavHostController = rememberNavController()) 
         }
 
         item {
-            SettingToggleSharedPrefs(
-                title = "Long-press 'A' to Select All",
-                subtitle = "Long-pressing 'A' performs Select All. Disable to input '@' hint directly",
-                key = Settings.PREF_LONG_PRESS_A_SELECT_ALL,
-                default = false
-            )
-        }
-
-        item {
             SettingRadio(
                 title = "Backspace Behavior when holding/swiping",
                 options = listOf(
@@ -345,196 +295,12 @@ fun LongPressScreen(navController: NavHostController = rememberNavController()) 
                 )
             )
         }
-
-        item {
-            SettingRadio(
-                title = "Spacebar Behavior",
-                options = listOf(
-                    Settings.SPACEBAR_MODE_SWIPE_LANGUAGE,
-                    Settings.SPACEBAR_MODE_SWIPE_CURSOR,
-                    Settings.SPACEBAR_MODE_SWIPE_CURSOR_ONLY
-                ),
-                optionNames = listOf(
-                    "Swiping changes language, long-pressing moves cursor",
-                    "Swiping moves cursor, long-pressing switches language",
-                    "Swiping and long-pressing only moves cursor"
-                ),
-                setting = useSharedPrefsInt(
-                    key = Settings.PREF_SPACEBAR_MODE,
-                    default = Settings.SPACEBAR_MODE_SWIPE_LANGUAGE
-                )
-            )
-        }
     }
 }
 
 @Preview(showBackground = true)
 @Composable
 fun TypingScreen(navController: NavHostController = rememberNavController()) {
-    val context = LocalContext.current
-    val (vibration, _) = useDataStore(key = vibrationDurationSetting.key, default = vibrationDurationSetting.default)
-    val (soundVolume, _) = useDataStore(key = soundVolumeSetting.key, default = soundVolumeSetting.default)
-
-    LaunchedEffect(vibration) {
-        val sharedPrefs = PreferenceUtils.getDefaultSharedPreferences(context)
-        withContext(Dispatchers.Main) {
-            sharedPrefs.edit {
-                putInt(PREF_VIBRATION_DURATION_SETTINGS, vibration)
-            }
-        }
-    }
-
-    LaunchedEffect(soundVolume) {
-        val sharedPrefs = PreferenceUtils.getDefaultSharedPreferences(context)
-        withContext(Dispatchers.Main) {
-            sharedPrefs.edit {
-                if (soundVolume == -1) {
-                    remove(Settings.PREF_KEYPRESS_SOUND_VOLUME)
-                } else {
-                    putFloat(Settings.PREF_KEYPRESS_SOUND_VOLUME, (soundVolume.coerceIn(0, 100)) / 100.0f)
-                }
-            }
-        }
-    }
-
-    ScrollableList {
-        ScreenTitle("Typing preferences", showBack = true, navController)
-
-        NavigationItem(
-            title = "Long-Press Keys & Spacebar",
-            subtitle = "Configure long-press duration, how to order letters/symbols, and behavior of spacebar and delete key.",
-            style = NavigationItemStyle.Misc,
-            navigate = { navController.navigate("longPress") },
-            icon = painterResource(id = R.drawable.arrow_up)
-        )
-
-        NavigationItem(
-            title = "Additional Layouts",
-            subtitle = "Configure additional layouts in the languages screen",
-            style = NavigationItemStyle.Misc,
-            navigate = { navController.navigate("languages") },
-            icon = painterResource(id = R.drawable.keyboard)
-        )
-
-        NavigationItem(
-            title = "Edit Actions",
-            subtitle = "Edit favorite actions, pinned actions, and the action key next to the spacebar",
-            style = NavigationItemStyle.Misc,
-            navigate = { navController.navigate("actionEdit") },
-            icon = painterResource(id = R.drawable.smile)
-        )
-
-        ScreenTitle(title = "Typing preferences")
-
-        SettingToggleSharedPrefs(
-            title = "Swipe Typing (alpha)",
-            subtitle = "Allow swiping from key to key to write words.",
-            key = Settings.PREF_GESTURE_INPUT,
-            default = true,
-            icon = {
-                Icon(painterResource(id = R.drawable.swipe_icon), contentDescription = null,
-                    tint = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.75f))
-            }
-        )
-
-        SettingToggleDataStore(
-            title = "Emoji Suggestions",
-            subtitle = "Suggest emojis while you're typing",
-            setting = SHOW_EMOJI_SUGGESTIONS,
-            icon = {
-                Icon(painterResource(id = R.drawable.smile), contentDescription = null,
-                    tint = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.75f))
-            }
-        )
-
-        SettingToggleSharedPrefs(
-            title = stringResource(R.string.auto_correction),
-            subtitle = stringResource(R.string.auto_correction_summary),
-            key = Settings.PREF_AUTO_CORRECTION,
-            default = false,
-            icon = {
-                Icon(painterResource(id = R.drawable.icon_spellcheck), contentDescription = null,
-                    tint = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.75f))
-            }
-        )
-
-        SettingToggleSharedPrefs(
-            title = stringResource(R.string.auto_cap),
-            subtitle = stringResource(R.string.auto_cap_summary),
-            key = Settings.PREF_AUTO_CAP,
-            default = false,
-            icon = {
-                Text("Aa", style = TextBodyRegularMlStyle, color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.75f))
-            }
-        )
-
-        SettingToggleSharedPrefs(
-            title = stringResource(R.string.use_double_space_period),
-            subtitle = stringResource(R.string.use_double_space_period_summary),
-            key = Settings.PREF_KEY_USE_DOUBLE_SPACE_PERIOD,
-            default = true,
-            icon = {
-                Text(".", style = TextBodyRegularMlStyle, color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.75f))
-            }
-        )
-
-        SettingToggleSharedPrefs(
-            title = stringResource(R.string.sound_on_keypress),
-            key = Settings.PREF_SOUND_ON,
-            default = booleanResource(R.bool.config_default_sound_enabled)
-        )
-
-        SettingSlider(
-            title = stringResource(R.string.prefs_keypress_sound_volume_settings),
-            setting = soundVolumeSetting,
-            range = -1.0f .. 100.0f,
-            hardRange = -1.0f .. 100.0f,
-            transform = { it.roundToInt() },
-            indicator = {
-                if(it == -1) {
-                    "Default"
-                } else {
-                    "$it%"
-                }
-            }
-        )
-        SettingToggleSharedPrefs(
-            title = stringResource(R.string.popup_on_keypress),
-            key = Settings.PREF_POPUP_ON,
-            default = booleanResource(R.bool.config_default_key_preview_popup)
-        )
-
-        SettingToggleSharedPrefs(
-            title = stringResource(R.string.vibrate_on_keypress),
-            key = Settings.PREF_VIBRATE_ON,
-            default = booleanResource(R.bool.config_default_vibration_enabled)
-        )
-
-        SettingSlider(
-            title = "Vibration",
-            setting = vibrationDurationSetting,
-            range = -1.0f .. 100.0f,
-            hardRange = -1.0f .. 2000.0f,
-            transform = { it.roundToInt() },
-            indicator = {
-                if(it == -1) {
-                    "Default"
-                } else {
-                    "$it ms"
-                }
-            }
-        )
-
-        SettingToggleDataStore(
-            title = "Clipboard History",
-            setting = ClipboardHistoryEnabled
-        )
-
-        SettingToggleDataStore(
-            title = "Long Press Shortcuts (C, X, V)",
-            subtitle = "Long press C to copy, X to cut, and V to paste",
-            setting = LongPressShortcutsSetting
-        )
-    }
+    MoreSettingsScreen(navController = navController, showBack = true)
 }
 

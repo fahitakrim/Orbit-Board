@@ -131,7 +131,7 @@ namespace util {
                 const float dotDirection = swipedx * linedx + swipedy * linedy;
 
                 if (dotDirection < 0.0) {
-                    totalDistance += 24.0f * swipelen * -dotDirection;
+                    totalDistance += 12.0f * swipelen * -dotDirection;
                 }
             }
 
@@ -160,7 +160,7 @@ public:
         const float distance = util::getDistanceBetweenPoints(traverseSession, codePoint,
                 traverseSession->getInputSize() - 1);
 
-        if(distance > (distanceThreshold * 128.0f)) {
+        if(distance > (distanceThreshold * 144.0f)) {
 #if(DEBUG_SWIPE)
             AKLOGI("Terminal spatial for %c:%c fails due to exceeding distance", (parentDicNode != nullptr) ? (char)(parentDicNode->getNodeCodePoint()) : '?', (char)codePoint);
             dicNode->dump("TERMINAL");
@@ -185,7 +185,7 @@ public:
                 const int lowerLimit = dicNode->getInputIndex(0);
                 const int upperLimit = traverseSession->getInputSize();
 
-                const float threshold = (distanceThreshold * 86.0f);
+                const float threshold = (distanceThreshold * 128.0f);
 
                 const float extraDistance = 8.0f * util::calcLineDeviationPunishment(
                         traverseSession, codePoint0, codePoint1, lowerLimit, upperLimit, threshold);
@@ -235,7 +235,7 @@ public:
         if(dicNode->isFirstLetter()) { // Add the first point (from when swiping starts)
             const float distance = util::getDistanceBetweenPoints(traverseSession, codePoint, 0);
 
-            if (distance < (40.0f * distanceThreshold)) {
+            if (distance < (64.0f * distanceThreshold)) {
                 inputStateG->mNeedsToUpdateInputStateG = true;
                 inputStateG->mInputIndex = 1;
                 inputStateG->mRawLength = distance;
@@ -277,7 +277,7 @@ public:
             bool found = false;
             bool headedTowardsCharacterYet = false;
 
-            const float keyThreshold = (80.0f * distanceThreshold);
+            const float keyThreshold = (115.0f * distanceThreshold);
 
 #if(DEBUG_SWIPE)
             AKLOGI("commence search for %c", (char)codePoint);
@@ -322,7 +322,7 @@ public:
                     const int lowerLimit = inputIndex;
                     const int upperLimit = minEdgeIndex;
 
-                    const float threshold = (distanceThreshold * 86.0f);
+                    const float threshold = (distanceThreshold * 128.0f);
 
                     const float punishment = util::calcLineDeviationPunishment(
                             traverseSession, codePoint0, codePoint1, lowerLimit, upperLimit,

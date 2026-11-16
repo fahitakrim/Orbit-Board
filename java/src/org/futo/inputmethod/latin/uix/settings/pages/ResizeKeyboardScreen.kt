@@ -267,12 +267,6 @@ fun ResizeKeyboardScreen(
                             fontSize = 15.sp,
                             color = Color.White
                         )
-                        Text(
-                            text = "Vertical scale multiplier",
-                            fontFamily = Inter,
-                            fontSize = 12.sp,
-                            color = TextSecondary
-                        )
                     }
                     Text(
                         text = "${(localHeightMultiplier * 100).roundToInt()}%",
@@ -317,12 +311,6 @@ fun ResizeKeyboardScreen(
                             fontSize = 15.sp,
                             color = Color.White
                         )
-                        Text(
-                            text = "Extra padding above navigation bar",
-                            fontFamily = Inter,
-                            fontSize = 12.sp,
-                            color = TextSecondary
-                        )
                     }
                     Text(
                         text = "${localBottomOffset.roundToInt()} dp",
@@ -366,13 +354,6 @@ fun ResizeKeyboardScreen(
                 fontSize = 15.sp,
                 color = Color.White
             )
-            Spacer(modifier = Modifier.height(2.dp))
-            Text(
-                text = "Updates in real-time as you adjust sliders above.",
-                fontFamily = Inter,
-                fontSize = 12.sp,
-                color = TextSecondary
-            )
         }
 
         Spacer(modifier = Modifier.height(8.dp))
@@ -410,13 +391,6 @@ fun ResizeKeyboardScreen(
                 fontWeight = FontWeight.SemiBold,
                 fontSize = 15.sp,
                 color = Color.White
-            )
-            Spacer(modifier = Modifier.height(2.dp))
-            Text(
-                text = "Tap here to test typing at this height.",
-                fontFamily = Inter,
-                fontSize = 12.sp,
-                color = TextSecondary
             )
         }
 

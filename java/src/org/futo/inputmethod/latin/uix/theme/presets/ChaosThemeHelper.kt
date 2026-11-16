@@ -1,6 +1,7 @@
 package org.futo.inputmethod.latin.uix.theme.presets
 
 import android.graphics.Color
+import android.graphics.Paint
 import android.graphics.drawable.ColorDrawable
 import android.graphics.drawable.Drawable
 import android.graphics.drawable.GradientDrawable
@@ -121,6 +122,19 @@ object ChaosThemeHelper {
         "0" to 180f
     )
 
+    fun getKeyBaseColor(key: Key): Int {
+        if (key.code == Constants.CODE_SPACE) return COLOR_DARK
+        val rawLabel = key.label?.trim()
+        if (rawLabel != null) {
+            val color = colorByLabel[rawLabel] ?: colorByLabel[rawLabel.lowercase()]
+            if (color != null) return color
+        }
+        val code = key.code
+        if (code == Constants.CODE_DELETE || code == Constants.CODE_ENTER) return COLOR_RED
+        if (code == Constants.CODE_SHIFT) return COLOR_BLUE
+        return COLOR_DARK
+    }
+
     fun isBengali(label: String?): Boolean {
         if (label == null) return false
         for (i in 0 until label.length) {
@@ -140,7 +154,7 @@ object ChaosThemeHelper {
         if (code == Constants.CODE_SWITCH_ALPHA_SYMBOL || code == Constants.CODE_SWITCH_BENGALI_NUM) return COLOR_RED
         if (rawLabel == "১২৩" || rawLabel == "123") return COLOR_RED
         if (code == Constants.CODE_EMOJI || code == Constants.CODE_SHORTCUT) return COLOR_BLUE
-        if (code == Constants.CODE_SPACE) return COLOR_YELLOW
+        if (code == Constants.CODE_SPACE) return OrbitThemeHelper.customSpacebarTextColor ?: COLOR_YELLOW
 
         if (rawLabel != null) {
             val c = colorByLabel[rawLabel]
@@ -199,6 +213,24 @@ object ChaosThemeHelper {
         }
     }
 
+    fun getKeyHintCoordinates(key: Key, keyWidth: Int, keyHeight: Int, padding: Float, paint: Paint): FloatArray {
+        val hash = Math.abs(key.code * 31 + key.x * 17 + key.y * 7)
+        val mode = hash % 6
+        val pad = Math.max(padding, 12f)
+        val ascent = -paint.ascent()
+        val hintLabel = key.hintLabel ?: ""
+        val w = if (hintLabel.isNotEmpty()) paint.measureText(hintLabel) else 14f
+
+        return when (mode) {
+            0 -> floatArrayOf(keyWidth - pad - w / 2f, pad + ascent, 0f)               // Top-Right
+            1 -> floatArrayOf(pad + w / 2f, keyHeight - pad - 4f, 0f)                  // Bottom-Left
+            2 -> floatArrayOf(keyWidth - pad - w / 2f, keyHeight - pad - 4f, 0f)      // Bottom-Right
+            3 -> floatArrayOf(pad + w / 2f, pad + ascent, 0f)                          // Top-Left
+            4 -> floatArrayOf(keyWidth * 0.5f, keyHeight - pad - 4f, 0f)              // Bottom-Center
+            else -> floatArrayOf(keyWidth * 0.5f, pad + ascent, 0f)                   // Top-Center
+        }
+    }
+
     private val transparentDrawable = ColorDrawable(Color.TRANSPARENT)
     private val pressedCache = HashMap<Float, Drawable>()
 
@@ -206,9 +238,11 @@ object ChaosThemeHelper {
     fun getKeyBackground(key: Key, isPressed: Boolean, cornerRadius: Float): Drawable {
         if (key.code == Constants.CODE_SPACE) {
             val spaceColor = OrbitThemeHelper.customSpacebarColor ?: 0xFF141416.toInt()
+            val defaultSpaceRadius = if (OrbitThemeHelper.spacebarShape == "roundy") 48f * (cornerRadius / 8f).coerceAtLeast(1f) else cornerRadius
+            val spaceRadius = OrbitThemeHelper.customSpacebarCornerRadius ?: defaultSpaceRadius
             return GradientDrawable().apply {
                 shape = GradientDrawable.RECTANGLE
-                this.cornerRadius = cornerRadius
+                this.cornerRadius = spaceRadius
                 setColor(spaceColor)
                 val borderColor = OrbitThemeHelper.customSpacebarBorderColor
                 if (borderColor != null && OrbitThemeHelper.customSpacebarBorderWidth > 0) {

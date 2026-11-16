@@ -65,6 +65,10 @@ fun applyWindowColors(window: Window, @ColorInt color: Int, statusBar: Boolean) 
     }
     window.navigationBarColor = color
 
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+        window.isNavigationBarContrastEnforced = false
+    }
+
     if(Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
         val view = window.decorView
         val uiFlags = view.systemUiVisibility

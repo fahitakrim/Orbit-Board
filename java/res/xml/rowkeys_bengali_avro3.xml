@@ -3,10 +3,11 @@
     <Key
         latin:keySpec="z"
         latin:keyHintLabel="&quot;"
-        latin:moreKeys="&quot;,!noPanelAutoMoreKey!,!text/morekeys_z" />
+        latin:moreKeys="&quot;,!text/morekeys_z" />
     <Key
         latin:keySpec="x"
-        latin:moreKeys="!text/morekeys_x" />
+        latin:keyHintLabel="&#x09CE;"
+        latin:moreKeys="&#x09CE;,!text/morekeys_x" />
     <Key
         latin:keySpec="c"
         latin:moreKeys="!text/morekeys_c" />
@@ -20,9 +21,9 @@
     <Key
         latin:keySpec="n"
         latin:keyHintLabel=":"
-        latin:moreKeys=":,;,&#x0983;,!noPanelAutoMoreKey!,!text/morekeys_n" />
+        latin:moreKeys=":,&#x0982;,&#x0981;,;,&#x0983;,!text/morekeys_n" />
     <Key
         latin:keySpec="m"
         latin:keyHintLabel="/"
-        latin:moreKeys="/,\\,?,!noPanelAutoMoreKey!,!text/morekeys_m" />
+        latin:moreKeys="/,\\,?,!text/morekeys_m" />
 </merge>

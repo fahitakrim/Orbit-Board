@@ -63,6 +63,7 @@ public final class Settings implements SharedPreferences.OnSharedPreferenceChang
     public static final String PREF_AUTO_CORRECTION_THRESHOLD_OBSOLETE =
             "auto_correction_threshold";
     public static final String PREF_AUTO_CORRECTION = "pref_key_auto_correction";
+    public static final String PREF_AUTO_CORRECTION_SANITIZED_V2 = "pref_key_auto_correction_sanitized_v2";
     // PREF_SHOW_SUGGESTIONS_SETTING_OBSOLETE is obsolete. Use PREF_SHOW_SUGGESTIONS instead.
     public static final String PREF_SHOW_SUGGESTIONS_SETTING_OBSOLETE = "show_suggestions_setting";
     public static final String PREF_SHOW_SUGGESTIONS = "show_suggestions";
@@ -123,12 +124,19 @@ public final class Settings implements SharedPreferences.OnSharedPreferenceChang
     public static final int SPACEBAR_MODE_SWIPE_LANGUAGE = 1; // Swipe switches language, long-press+drag moves cursor
     public static final int SPACEBAR_MODE_SWIPE_CURSOR_ONLY = 2; // Swipe and long-press+drag moves cursor
 
+    public static final String PREF_AVRO_SPACEBAR_MODE = "pref_key_avro_spacebar_mode";
+    public static final String AVRO_SPACEBAR_MODE_SMART_CANDIDATE = "smart_candidate";
+    public static final String AVRO_SPACEBAR_MODE_EXACT_PHONETIC = "exact_phonetic";
+    public static final String DEFAULT_AVRO_SPACEBAR_MODE = AVRO_SPACEBAR_MODE_EXACT_PHONETIC;
+
     public static final String PREF_PIN_KEYBOARD_NAME_ON_SPACEBAR = "pref_pin_keyboard_name_on_spacebar";
     public static final String PREF_LONG_PRESS_A_SELECT_ALL = "pref_long_press_a_select_all";
 
     public static final String PREF_BACKSPACE_MODE = "pref_backspace_mode";
     public static final int BACKSPACE_MODE_CHARACTERS = 0; // Long-press backspace and swipe backspace removes just characters
     public static final int BACKSPACE_MODE_WORDS = 1; // Long-press backspace and swipe backspace removes entire words
+
+    public static final String PREF_VOLUME_KEY_CURSOR = "pref_volume_key_cursor";
 
     // Translation
     public static final String PREF_KEY_LAST_SOURCE_LANG = "pref_key_last_source_lang";
@@ -257,9 +265,11 @@ public final class Settings implements SharedPreferences.OnSharedPreferenceChang
                 res.getBoolean(R.bool.config_default_vibration_enabled));
     }
 
+    public static final boolean DEFAULT_AUTO_CORRECTION = false;
+
     public static boolean readAutoCorrectEnabled(final SharedPreferences prefs,
             final Resources res) {
-        return prefs.getBoolean(PREF_AUTO_CORRECTION, false);
+        return prefs.getBoolean(PREF_AUTO_CORRECTION, DEFAULT_AUTO_CORRECTION);
     }
 
     public static float readPlausibilityThreshold(final Resources res) {
@@ -408,6 +418,10 @@ public final class Settings implements SharedPreferences.OnSharedPreferenceChang
         return prefs.getBoolean(PREF_KEY_IS_INTERNAL, false);
     }
 
+    public static boolean readVolumeKeyCursor(final SharedPreferences prefs) {
+        return prefs.getBoolean(PREF_VOLUME_KEY_CURSOR, false);
+    }
+
     public void writeLastUsedPersonalizationToken(byte[] token) {
         if (token == null) {
             mPrefs.edit().remove(PREF_LAST_USED_PERSONALIZATION_TOKEN).apply();
@@ -469,16 +483,25 @@ public final class Settings implements SharedPreferences.OnSharedPreferenceChang
         return prefs.getInt(PREF_LAST_SHOWN_EMOJI_CATEGORY_ID, defValue);
     }
 
-    private void upgradeAutocorrectionSettings(final SharedPreferences prefs, final Resources res) {
+    public static void upgradeAutocorrectionSettings(final SharedPreferences prefs, final Resources res) {
+        if (prefs == null) {
+            return;
+        }
         final String thresholdSetting =
                 prefs.getString(PREF_AUTO_CORRECTION_THRESHOLD_OBSOLETE, null);
         if (thresholdSetting != null) {
             SharedPreferences.Editor editor = prefs.edit();
             editor.remove(PREF_AUTO_CORRECTION_THRESHOLD_OBSOLETE);
-            final String autoCorrectionOff =
-                    res.getString(R.string.auto_correction_threshold_mode_index_off);
-            editor.putBoolean(PREF_AUTO_CORRECTION, !thresholdSetting.equals(autoCorrectionOff));
+            if (!prefs.contains(PREF_AUTO_CORRECTION)) {
+                editor.putBoolean(PREF_AUTO_CORRECTION, DEFAULT_AUTO_CORRECTION);
+            }
             editor.commit();
+        }
+        if (!prefs.getBoolean(PREF_AUTO_CORRECTION_SANITIZED_V2, false)) {
+            prefs.edit()
+                    .putBoolean(PREF_AUTO_CORRECTION, false)
+                    .putBoolean(PREF_AUTO_CORRECTION_SANITIZED_V2, true)
+                    .apply();
         }
     }
 }

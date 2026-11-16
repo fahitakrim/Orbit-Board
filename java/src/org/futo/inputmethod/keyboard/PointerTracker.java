@@ -87,12 +87,36 @@ public final class PointerTracker implements PointerTrackerQueue.Element,
 
     // Parameters for pointer handling.
     private static PointerTrackerParams sParams;
-    private static final int sPointerStep = (int)(16.0 * Resources.getSystem().getDisplayMetrics().density);
-    private static final int sPointerBigStep = (int)(32.0 * Resources.getSystem().getDisplayMetrics().density);
-    private static final int sPointerHugeStep = Integer.min(
-            (int)(128.0 * Resources.getSystem().getDisplayMetrics().density),
-            Resources.getSystem().getDisplayMetrics().widthPixels * 3 / 2
-    );
+    private static final int sPointerStep = getPointerStep();
+    private static final int sPointerBigStep = getPointerBigStep();
+    private static final int sPointerHugeStep = getPointerHugeStep();
+
+    private static int getPointerStep() {
+        try {
+            return (int)(16.0 * Resources.getSystem().getDisplayMetrics().density);
+        } catch (Throwable e) {
+            return 16;
+        }
+    }
+
+    private static int getPointerBigStep() {
+        try {
+            return (int)(32.0 * Resources.getSystem().getDisplayMetrics().density);
+        } catch (Throwable e) {
+            return 32;
+        }
+    }
+
+    private static int getPointerHugeStep() {
+        try {
+            return Integer.min(
+                    (int)(128.0 * Resources.getSystem().getDisplayMetrics().density),
+                    Resources.getSystem().getDisplayMetrics().widthPixels * 3 / 2
+            );
+        } catch (Throwable e) {
+            return 128;
+        }
+    }
 
     private static GestureStrokeRecognitionParams sGestureStrokeRecognitionParams;
     private static GestureStrokeDrawingParams sGestureStrokeDrawingParams;
@@ -218,6 +242,18 @@ public final class PointerTracker implements PointerTrackerQueue.Element,
 
     public static void cancelAllPointerTrackers() {
         sPointerTrackerQueue.cancelAllPointerTrackers();
+    }
+
+    public static void setDrawingProxy(final DrawingProxy drawingProxy) {
+        sDrawingProxy = drawingProxy;
+    }
+
+    public static void setTimerProxy(final TimerProxy timerProxy) {
+        sTimerProxy = timerProxy;
+    }
+
+    public static DrawingProxy getDrawingProxy() {
+        return sDrawingProxy;
     }
 
     public static void setKeyboardActionListener(final KeyboardActionListener listener) {
@@ -450,6 +486,7 @@ public final class PointerTracker implements PointerTrackerQueue.Element,
         }
 
         final boolean noKeyPreview = sInGesture || needsToSuppressKeyPreviewPopup(eventTime);
+        Log.i(TAG, "onDownEvent: dispatching onKeyPressed key=" + key.getLabel() + " to sDrawingProxy=" + sDrawingProxy);
         sDrawingProxy.onKeyPressed(key, !noKeyPreview);
 
         if (key.isShift() && mKeyboard != null && mKeyboard.mShiftKeys != null) {
@@ -1140,7 +1177,7 @@ public final class PointerTracker implements PointerTrackerQueue.Element,
         return !mIsTrackingForActionDisabled;
     }
 
-    private boolean isEnglishOrAvroAlphabetKeyboard() {
+    private boolean isEnglishAlphabetKeyboard() {
         if (mKeyboard == null || mKeyboard.mId == null) {
             return false;
         }
@@ -1150,12 +1187,6 @@ public final class PointerTracker implements PointerTrackerQueue.Element,
         final java.util.Locale locale = mKeyboard.mId.getLocale();
         if (locale != null && "en".equalsIgnoreCase(locale.getLanguage())) {
             return true;
-        }
-        if (mKeyboard.mId.mSubtype != null) {
-            final String layoutName = mKeyboard.mId.mSubtype.getKeyboardLayoutSetName();
-            if ("bengali_avro".equalsIgnoreCase(layoutName)) {
-                return true;
-            }
         }
         return false;
     }
@@ -1174,26 +1205,26 @@ public final class PointerTracker implements PointerTrackerQueue.Element,
                 return;
             }
             final int code = key.getCode();
-            final boolean isEnglishOrAvro = isEnglishOrAvroAlphabetKeyboard();
-            if (isEnglishOrAvro && Key.isCopyKey(code)) {
+            final boolean isEnglish = isEnglishAlphabetKeyboard();
+            if (isEnglish && Key.isCopyKey(code)) {
                 if (sListener.onCustomRequest(Constants.CUSTOM_CODE_COPY)) {
                     cancelKeyTracking();
                     sListener.onReleaseKey(code, false /* withSliding */);
                     return;
                 }
-            } else if (isEnglishOrAvro && Key.isCutKey(code)) {
+            } else if (isEnglish && Key.isCutKey(code)) {
                 if (sListener.onCustomRequest(Constants.CUSTOM_CODE_CUT)) {
                     cancelKeyTracking();
                     sListener.onReleaseKey(code, false /* withSliding */);
                     return;
                 }
-            } else if (isEnglishOrAvro && Key.isPasteKey(code)) {
+            } else if (isEnglish && Key.isPasteKey(code)) {
                 if (sListener.onCustomRequest(Constants.CUSTOM_CODE_PASTE)) {
                     cancelKeyTracking();
                     sListener.onReleaseKey(code, false /* withSliding */);
                     return;
                 }
-            } else if (isEnglishOrAvro && Key.isSelectAllKey(code)) {
+            } else if (isEnglish && Key.isSelectAllKey(code)) {
                 if (Settings.getInstance().getCurrent().mLongPressASelectAll
                         && sListener.onCustomRequest(Constants.CUSTOM_CODE_SELECT_ALL)) {
                     cancelKeyTracking();
@@ -1220,7 +1251,14 @@ public final class PointerTracker implements PointerTrackerQueue.Element,
                     return;
                 }
             }
-            if (code == Constants.CODE_SPACE || code == Constants.CODE_LANGUAGE_SWITCH) {
+            if (code == Constants.CODE_LANGUAGE_SWITCH) {
+                if (sListener.onCustomRequest(Constants.CUSTOM_CODE_SHOW_INPUT_METHOD_PICKER)) {
+                    cancelKeyTracking();
+                    sListener.onReleaseKey(code, false /* withSliding */);
+                    return;
+                }
+            }
+            if (code == Constants.CODE_SPACE) {
                 if (mCursorMoved) {
                     return;
                 }

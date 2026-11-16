@@ -62,7 +62,18 @@ import org.futo.inputmethod.latin.uix.settings.useSharedPrefsString
 import org.futo.inputmethod.latin.uix.settings.useUpdateSharedPrefString
 
 
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.TextButton
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.PopupProperties
 
 @Composable
@@ -72,9 +83,11 @@ fun LanguageDropdown(
     mSelectedText: MutableState<String>,
     sourceLang: Boolean,
     prefKey: String,
-    onLanguageSelected: () -> Unit = {}
+    onLanguageSelected: () -> Unit = {},
+    openLanguagePicker: ((isSource: Boolean, currentCode: String, onSelect: (String) -> Unit) -> Unit)? = null
 ) {
     val updateSharedPref = useUpdateSharedPrefString()
+
     Row(modifier = Modifier.fillMaxWidth()) {
         Surface(
             color = MaterialTheme.colorScheme.surfaceBright,
@@ -153,6 +166,24 @@ fun LanguageDropdown(
                     } else null
                 )
             }
+
+            DropdownMenuItem(
+                text = {
+                    Text(
+                        text = "Others... (অন্যান্য)",
+                        fontWeight = FontWeight.SemiBold,
+                        color = MaterialTheme.colorScheme.primary
+                    )
+                },
+                onClick = {
+                    mExpanded.value = false
+                    openLanguagePicker?.invoke(sourceLang, mSelectedText.value) { code ->
+                        mSelectedText.value = code
+                        updateSharedPref(prefKey, code)
+                        onLanguageSelected()
+                    }
+                }
+            )
         }
     }
 }
@@ -163,7 +194,8 @@ fun LanguageSelector(
     isLoading: Boolean,
     mSelectedLanguage1: MutableState<String>,
     mSelectedLanguage2: MutableState<String>,
-    onLanguageSelected: () -> Unit = {}
+    onLanguageSelected: () -> Unit = {},
+    openLanguagePicker: ((isSource: Boolean, currentCode: String, onSelect: (String) -> Unit) -> Unit)? = null
 ) {
     val mExpanded1 = remember { mutableStateOf(false) }
     val mExpanded2 = remember { mutableStateOf(false) }
@@ -171,7 +203,7 @@ fun LanguageSelector(
 
     Row(modifier = modifier) {
         Column (modifier = Modifier.weight(5f)) {
-            LanguageDropdown(mLanguages, mExpanded1, mSelectedLanguage1, true, Settings.PREF_KEY_LAST_SOURCE_LANG, onLanguageSelected)
+            LanguageDropdown(mLanguages, mExpanded1, mSelectedLanguage1, true, Settings.PREF_KEY_LAST_SOURCE_LANG, onLanguageSelected, openLanguagePicker)
         }
         Column (modifier = Modifier
             .weight(1f)
@@ -215,7 +247,7 @@ fun LanguageSelector(
             }
         }
         Column (modifier = Modifier.weight(5f)) {
-            LanguageDropdown(mLanguages, mExpanded2, mSelectedLanguage2, false, Settings.PREF_KEY_LAST_TARGET_LANG, onLanguageSelected)
+            LanguageDropdown(mLanguages, mExpanded2, mSelectedLanguage2, false, Settings.PREF_KEY_LAST_TARGET_LANG, onLanguageSelected, openLanguagePicker)
         }
     }
 }
@@ -330,15 +362,25 @@ fun SourceTextInput(
     }
 }
 
+data class LanguagePickerState(
+    val isSource: Boolean,
+    val currentCode: String,
+    val onSelect: (String) -> Unit
+)
+
 @Composable
 fun TranslateScreen(
     isLoading: Boolean,
+    errorMessage: String? = null,
+    onRetry: () -> Unit = {},
+    onLanguageChanged: () -> Unit = {},
     onTextChange: (String) -> Int,
     languageFrom: MutableState<String>,
     languageTo: MutableState<String>
 ) {
     val searchText = remember { mutableStateOf("") }
     val editTextRef = remember { mutableStateOf<ActionEditText?>(null) }
+    var languagePickerState by remember { mutableStateOf<LanguagePickerState?>(null) }
 
     val onLanguageSelected: () -> Unit = {
         editTextRef.value?.let { edit ->
@@ -346,30 +388,157 @@ fun TranslateScreen(
                 edit.requestFocus()
             }
         }
+        onLanguageChanged()
     }
 
-    Row(modifier = Modifier.fillMaxSize()) {
-        Column(modifier = Modifier
-            .fillMaxHeight()
-            .weight(1.0f)) {
-            LanguageSelector(
+    Box(modifier = Modifier.fillMaxSize()) {
+        Row(modifier = Modifier.fillMaxSize()) {
+            Column(modifier = Modifier
+                .fillMaxHeight()
+                .weight(1.0f)) {
+                LanguageSelector(
+                    modifier = Modifier
+                        .weight(1.0f)
+                        .fillMaxWidth()
+                        .fillMaxHeight(),
+                    isLoading,
+                    mSelectedLanguage1 = languageFrom,
+                    mSelectedLanguage2 = languageTo,
+                    onLanguageSelected = onLanguageSelected,
+                    openLanguagePicker = { isSource, currentCode, onSelect ->
+                        languagePickerState = LanguagePickerState(isSource, currentCode, onSelect)
+                    }
+                )
+                if (errorMessage != null) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 8.dp, vertical = 2.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Text(
+                            text = errorMessage,
+                            color = MaterialTheme.colorScheme.error,
+                            style = MaterialTheme.typography.bodySmall,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                            modifier = Modifier.weight(1f)
+                        )
+                        TextButton(
+                            onClick = onRetry,
+                            contentPadding = PaddingValues(horizontal = 8.dp, vertical = 0.dp)
+                        ) {
+                            Text(
+                                text = "Retry (পুনরায় চেষ্টা)",
+                                color = MaterialTheme.colorScheme.primary,
+                                style = MaterialTheme.typography.labelSmall
+                            )
+                        }
+                    }
+                }
+                SourceTextInput(
+                    modifier = Modifier
+                        .weight(2.0f)
+                        .fillMaxWidth(),
+                    searchText,
+                    editTextRef,
+                    onTextChange,
+                )
+            }
+        }
+
+        // In-place modal overlay inside TranslateScreen replacing AlertDialog to prevent WindowManager$BadTokenException
+        languagePickerState?.let { picker ->
+            var pickerSearchQuery by remember { mutableStateOf("") }
+            val languages = remember { TranslationHelper.getLanguages() }
+            val filteredLanguages = remember(pickerSearchQuery, picker.isSource) {
+                languages.entries
+                    .filter { (code, name) ->
+                        if (!picker.isSource && code == "auto") false
+                        else if (pickerSearchQuery.isBlank()) true
+                        else name.contains(pickerSearchQuery, ignoreCase = true) || code.contains(pickerSearchQuery, ignoreCase = true)
+                    }
+                    .sortedBy { it.value }
+            }
+
+            Box(
                 modifier = Modifier
-                    .weight(1.0f)
-                    .fillMaxWidth()
-                    .fillMaxHeight(),
-                isLoading,
-                mSelectedLanguage1 = languageFrom,
-                mSelectedLanguage2 = languageTo,
-                onLanguageSelected = onLanguageSelected
-            )
-            SourceTextInput(
-                modifier = Modifier
-                    .weight(2.0f)
-                    .fillMaxWidth(),
-                searchText,
-                editTextRef,
-                onTextChange,
-            )
+                    .fillMaxSize()
+                    .background(MaterialTheme.colorScheme.surface)
+                    .padding(8.dp)
+            ) {
+                Column(modifier = Modifier.fillMaxSize()) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(bottom = 6.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = "Select Language (ভাষা নির্বাচন)",
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 16.sp,
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
+                        TextButton(
+                            onClick = { languagePickerState = null },
+                            contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp)
+                        ) {
+                            Text(
+                                text = "Close",
+                                fontWeight = FontWeight.SemiBold,
+                                color = MaterialTheme.colorScheme.primary
+                            )
+                        }
+                    }
+
+                    OutlinedTextField(
+                        value = pickerSearchQuery,
+                        onValueChange = { pickerSearchQuery = it },
+                        placeholder = { Text("Search language...", fontSize = 14.sp) },
+                        singleLine = true,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(bottom = 6.dp)
+                    )
+
+                    LazyColumn(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .weight(1f)
+                    ) {
+                        items(filteredLanguages) { (code, name) ->
+                            val isSelected = picker.currentCode == code
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clip(RoundedCornerShape(8.dp))
+                                    .clickable {
+                                        picker.onSelect(code)
+                                        languagePickerState = null
+                                    }
+                                    .padding(horizontal = 12.dp, vertical = 8.dp),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text(
+                                    text = name,
+                                    fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
+                                    color = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface,
+                                    fontSize = 14.sp
+                                )
+                                Text(
+                                    text = code,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    fontSize = 12.sp
+                                )
+                            }
+                        }
+                    }
+                }
+            }
         }
     }
 }
@@ -396,63 +565,80 @@ val TranslateAction = Action(
                 val languageTo = remember { mutableStateOf(targetPref) }
                 val isLoading = remember { mutableStateOf(false) }
                 val error = remember { mutableStateOf<String?>(null) }
+                val currentText = remember { mutableStateOf("") }
 
                 val debounceJob = remember { mutableStateOf<Job?>(null) }
                 val lastTranslatedLen = remember { mutableStateOf(0) }
 
                 val coroutineScope = rememberCoroutineScope()
 
+                fun performTranslate(textToTranslate: String) {
+                    debounceJob.value?.cancel()
+                    if (textToTranslate.isNotEmpty()) {
+                        debounceJob.value = coroutineScope.launch {
+                            isLoading.value = true
+                            error.value = null
+                            delay(500)
+                            if (languageFrom.value == languageTo.value) {
+                                manager.replaceTranslationSessionText(textToTranslate, lastTranslatedLen.value)
+                                lastTranslatedLen.value = textToTranslate.length
+                                isLoading.value = false
+                            } else {
+                                val result = CloudTranslationHandler.translate(
+                                    languageFrom.value,
+                                    languageTo.value,
+                                    textToTranslate
+                                )
+                                result.fold(
+                                    onSuccess = {
+                                        Log.d(
+                                            TAG,
+                                            "Translation Success"
+                                        )
+                                        manager.replaceTranslationSessionText(it, lastTranslatedLen.value)
+                                        lastTranslatedLen.value = it.length
+                                        isLoading.value = false
+                                        error.value = null
+                                    },
+                                    onFailure = {
+                                        Log.d(
+                                            TAG,
+                                            "Translation fail"  
+                                        )
+                                        error.value = it.message ?: "Translation failed"
+                                        isLoading.value = false
+                                    }
+                                )
+                            }
+                        }
+                    } else {
+                        if (lastTranslatedLen.value > 0) {
+                            manager.replaceTranslationSessionText("", lastTranslatedLen.value)
+                            lastTranslatedLen.value = 0
+                        }
+                        isLoading.value = false
+                        error.value = null
+                    }
+                }
+
                 TranslateScreen(
                     isLoading = isLoading.value,
-                    onTextChange = {updatedString ->
-                        debounceJob.value?.cancel()
-                        if (updatedString.isNotEmpty()) {
-                            debounceJob.value = coroutineScope.launch {
-                                isLoading.value = true
-                                error.value = null
-                                delay(500)
-                                if (languageFrom.value == languageTo.value) {
-                                    manager.replaceTranslationSessionText(updatedString, lastTranslatedLen.value)
-                                    lastTranslatedLen.value = updatedString.length
-                                    isLoading.value = false
-                                } else {
-                                    val result = CloudTranslationHandler.translate(
-                                        languageFrom.value,
-                                        languageTo.value,
-                                        updatedString
-                                    )
-                                    result.fold(
-                                        onSuccess = {
-                                            Log.d(
-                                                TAG,
-                                                "Translation Success"
-                                            )
-                                            manager.replaceTranslationSessionText(it, lastTranslatedLen.value)
-                                            lastTranslatedLen.value = it.length
-                                            isLoading.value = false
-                                        },
-                                        onFailure = {
-                                            Log.d(
-                                                TAG,
-                                                "Translation fail"  
-                                            )
-                                            error.value = it.message
-                                            isLoading.value = false
-                                        }
-                                    )
-                                }
-                            }
-                        } else {
-                            if (lastTranslatedLen.value > 0) {
-                                manager.replaceTranslationSessionText("", lastTranslatedLen.value)
-                                lastTranslatedLen.value = 0
-                            }
-                            isLoading.value = false
-                        }
-                        Log.d(TAG, "Initiated Translation")
+                    errorMessage = error.value,
+                    onRetry = {
+                        performTranslate(currentText.value)
                     },
-                    languageFrom,
-                    languageTo,
+                    onLanguageChanged = {
+                        if (currentText.value.isNotEmpty()) {
+                            performTranslate(currentText.value)
+                        }
+                    },
+                    onTextChange = { updatedString ->
+                        currentText.value = updatedString
+                        performTranslate(updatedString)
+                        0
+                    },
+                    languageFrom = languageFrom,
+                    languageTo = languageTo,
                 )
             }
 

@@ -3,37 +3,37 @@
     <Key
         latin:keySpec="a"
         latin:keyHintLabel="\@"
-        latin:moreKeys="@,!noPanelAutoMoreKey!,!text/morekeys_a" />
+        latin:moreKeys="@,!text/morekeys_a" />
     <Key
         latin:keySpec="s"
         latin:keyHintLabel="\#"
-        latin:moreKeys="#,!noPanelAutoMoreKey!,!text/morekeys_s" />
+        latin:moreKeys="#,!text/morekeys_s" />
     <Key
         latin:keySpec="d"
         latin:keyHintLabel="$"
-        latin:moreKeys="$,&amp;,|,!noPanelAutoMoreKey!,!text/morekeys_d" />
+        latin:moreKeys="$,&#x09CD;,&amp;,|,!text/morekeys_d" />
     <Key
         latin:keySpec="f"
         latin:keyHintLabel="*"
-        latin:moreKeys="*,^,!noPanelAutoMoreKey!,!text/morekeys_f" />
+        latin:moreKeys="*,^,!text/morekeys_f" />
     <Key
         latin:keySpec="g"
         latin:keyHintLabel="-"
-        latin:moreKeys="-,~,_,!noPanelAutoMoreKey!,!text/morekeys_g" />
+        latin:moreKeys="-,~,_,!text/morekeys_g" />
     <Key
         latin:keySpec="h"
         latin:keyHintLabel="!"
-        latin:moreKeys="!,!noPanelAutoMoreKey!,!text/morekeys_h" />
+        latin:moreKeys="!,&#x0983;,!text/morekeys_h" />
     <Key
         latin:keySpec="j"
         latin:keyHintLabel="\?"
-        latin:moreKeys="?,!noPanelAutoMoreKey!,!text/morekeys_j" />
+        latin:moreKeys="?,!text/morekeys_j" />
     <Key
         latin:keySpec="k"
         latin:keyHintLabel="("
-        latin:moreKeys="(,[,{,!noPanelAutoMoreKey!,!text/morekeys_k" />
+        latin:moreKeys="(,[,{,!text/morekeys_k" />
     <Key
         latin:keySpec="l"
         latin:keyHintLabel=")"
-        latin:moreKeys="),},],!noPanelAutoMoreKey!,!text/morekeys_l" />
+        latin:moreKeys="),},],!text/morekeys_l" />
 </merge>

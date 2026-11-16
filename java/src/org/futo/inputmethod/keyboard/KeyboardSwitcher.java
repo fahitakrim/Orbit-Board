@@ -43,6 +43,7 @@ import org.futo.inputmethod.latin.settings.Settings;
 import org.futo.inputmethod.latin.settings.SettingsValues;
 import org.futo.inputmethod.latin.utils.CapsModeUtils;
 import org.futo.inputmethod.latin.utils.LanguageOnSpacebarUtils;
+import org.futo.inputmethod.latin.uix.KeyboardDisplayModeManager;
 import org.futo.inputmethod.latin.utils.RecapitalizeStatus;
 import org.futo.inputmethod.latin.utils.ResourceUtils;
 import org.futo.inputmethod.latin.utils.ScriptUtils;
@@ -94,9 +95,26 @@ public final class KeyboardSwitcher implements KeyboardState.SwitchActions {
         final boolean themeUpdated = updateKeyboardThemeAndContextThemeWrapper(
                 displayContext, KeyboardTheme.getKeyboardTheme(displayContext /* context */));
         if (themeUpdated && mKeyboardView != null) {
-            ((LatinIME)mLatinIMELegacy.getInputMethodService()).updateLegacyView(onCreateInputView(
-                    displayContext, mIsHardwareAcceleratedDrawingEnabled));
-            mLatinIMELegacy.updateMainKeyboardViewSettings();
+            final boolean isAttached = mKeyboardView.isAttachedToWindow()
+                    || (mCurrentInputView != null && mCurrentInputView.isAttachedToWindow());
+            final boolean isStartingInput = (mLatinIMELegacy != null && mLatinIMELegacy.isStartingInputView())
+                    || (mLatinIMELegacy != null && mLatinIMELegacy.getInputMethodService() instanceof LatinIME
+                        && ((LatinIME) mLatinIMELegacy.getInputMethodService()).isStartingInputView());
+            final boolean isShown = mLatinIMELegacy != null && mLatinIMELegacy.getInputMethodService() != null
+                    && mLatinIMELegacy.getInputMethodService().isInputViewShown();
+            if (isAttached || isStartingInput || isShown) {
+                if (mLatinIMELegacy != null) {
+                    mLatinIMELegacy.updateMainKeyboardViewSettings();
+                }
+                return;
+            }
+            if (mLatinIMELegacy != null && mLatinIMELegacy.getInputMethodService() instanceof LatinIME) {
+                ((LatinIME) mLatinIMELegacy.getInputMethodService()).updateLegacyView(onCreateInputView(
+                        displayContext, mIsHardwareAcceleratedDrawingEnabled));
+            }
+            if (mLatinIMELegacy != null) {
+                mLatinIMELegacy.updateMainKeyboardViewSettings();
+            }
         }
     }
 
@@ -133,13 +151,29 @@ public final class KeyboardSwitcher implements KeyboardState.SwitchActions {
         return autoCapsFlags;
     }
 
+    public boolean hasThemeContext() {
+        return mThemeContext != null;
+    }
+
     public void loadKeyboard(final EditorInfo editorInfo, final SettingsValues settingsValues,
             final int currentAutoCapsState, final int currentRecapitalizeState) {
+        if (mThemeContext == null) {
+            if (mLatinIMELegacy != null && mLatinIMELegacy.getInputMethodService() != null) {
+                final Context context = mLatinIMELegacy.getInputMethodService();
+                updateKeyboardThemeAndContextThemeWrapper(
+                        context, KeyboardTheme.getKeyboardTheme(context));
+            }
+            if (mThemeContext == null) {
+                Log.w(TAG, "loadKeyboard: mThemeContext is null, aborting load");
+                return;
+            }
+        }
         final KeyboardLayoutSet.Builder builder = new KeyboardLayoutSet.Builder(
                 mThemeContext, editorInfo);
         final Resources res = mThemeContext.getResources();
-        final int keyboardWidth = ResourceUtils.getDefaultKeyboardWidth(res);
-        final int keyboardHeight = ResourceUtils.getKeyboardHeight(res, settingsValues);
+        final int defaultWidth = ResourceUtils.getDefaultKeyboardWidth(res);
+        final int keyboardWidth = (int)(defaultWidth * KeyboardDisplayModeManager.getWidthMultiplier(res));
+        final int keyboardHeight = (int)(ResourceUtils.getKeyboardHeight(res, settingsValues) * KeyboardDisplayModeManager.getHeightMultiplier(res));
         builder.setKeyboardGeometry(keyboardWidth, keyboardHeight);
         builder.setSubtype(mRichImm.getCurrentSubtype());
         builder.setVoiceInputKeyEnabled(settingsValues.mShowsVoiceInputKey);
@@ -180,6 +214,9 @@ public final class KeyboardSwitcher implements KeyboardState.SwitchActions {
         setMainKeyboardFrame(currentSettingsValues, toggleState);
         // TODO: pass this object to setKeyboard instead of getting the current values.
         final MainKeyboardView keyboardView = mKeyboardView;
+        if (keyboardView == null) {
+            return;
+        }
         final Keyboard oldKeyboard = keyboardView.getKeyboard();
         if (mKeyboardLayoutSet == null) {
             return;
@@ -210,9 +247,13 @@ public final class KeyboardSwitcher implements KeyboardState.SwitchActions {
             }
         }
         keyboardView.setKeyboard(newKeyboard);
-        mCurrentInputView.setKeyboardTopPadding(newKeyboard.mTopPadding);
+        if (mCurrentInputView != null) {
+            mCurrentInputView.setKeyboardTopPadding(newKeyboard.mTopPadding);
+        }
+        final org.futo.inputmethod.latin.uix.DynamicThemeProvider provider = keyboardView.getDrawableProvider();
+        final boolean isPopupOff = (provider != null) && ("off".equalsIgnoreCase(provider.getKeyPopupStyle()) || "none".equalsIgnoreCase(provider.getKeyPopupStyle()));
         keyboardView.setKeyPreviewPopupEnabled(
-                currentSettingsValues.mKeyPreviewPopupOn,
+                currentSettingsValues.mKeyPreviewPopupOn && !isPopupOff,
                 currentSettingsValues.mKeyPreviewPopupDismissDelay);
         keyboardView.setKeyPreviewAnimationParams(
                 currentSettingsValues.mHasCustomKeyPreviewAnimationParams,
@@ -227,7 +268,10 @@ public final class KeyboardSwitcher implements KeyboardState.SwitchActions {
                 || !newKeyboard.mId.mSubtype.equals(oldKeyboard.mId.mSubtype);
         final int languageOnSpacebarFormatType = LanguageOnSpacebarUtils
                 .getLanguageOnSpacebarFormatType(newKeyboard.mId.mSubtype);
-        final boolean hasMultipleEnabledIMEsOrSubtypes = Subtypes.INSTANCE.hasMultipleEnabledSubtypes(mThemeContext);
+        final Context contextForSubtypes = mThemeContext != null ? mThemeContext :
+                (mLatinIMELegacy != null ? mLatinIMELegacy.getInputMethodService() : null);
+        final boolean hasMultipleEnabledIMEsOrSubtypes = contextForSubtypes != null &&
+                Subtypes.INSTANCE.hasMultipleEnabledSubtypes(contextForSubtypes);
         keyboardView.startDisplayLanguageOnSpacebar(subtypeChanged, languageOnSpacebarFormatType,
                 hasMultipleEnabledIMEsOrSubtypes);
     }
@@ -405,11 +449,15 @@ public final class KeyboardSwitcher implements KeyboardState.SwitchActions {
             @Nonnull final KeyboardSwitchState toggleState) {
         final int visibility =  isImeSuppressedByHardwareKeyboard(settingsValues, toggleState)
                 ? View.GONE : View.VISIBLE;
-        mKeyboardView.setVisibility(visibility);
+        if (mKeyboardView != null) {
+            mKeyboardView.setVisibility(visibility);
+        }
         // The visibility of {@link #mKeyboardView} must be aligned with {@link #MainKeyboardFrame}.
         // @see #getVisibleKeyboardView() and
         // @see LatinIME#onComputeInset(android.inputmethodservice.InputMethodService.Insets)
-        mMainKeyboardFrame.setVisibility(visibility);
+        if (mMainKeyboardFrame != null) {
+            mMainKeyboardFrame.setVisibility(visibility);
+        }
     }
 
     // Implements {@link KeyboardState.SwitchActions}.

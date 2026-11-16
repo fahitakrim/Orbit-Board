@@ -35,7 +35,7 @@ import javax.annotation.Nullable;
 
 public final class KeyVisualAttributes {
     @Nullable
-    public final Typeface mTypeface;
+    public Typeface mTypeface;
 
     public final float mLetterRatio;
     public final int mLetterSize;

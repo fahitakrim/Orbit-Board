@@ -46,8 +46,8 @@ public class AvroComposingLogicTest {
         assertFalse("Question mark is not a word code point", InputLogic.isAvroWordCodePoint('?'));
         assertFalse("Exclamation mark is not a word code point", InputLogic.isAvroWordCodePoint('!'));
         assertFalse("Dollar is not a word code point", InputLogic.isAvroWordCodePoint('$'));
-        assertFalse("Digit 0 is not a word code point", InputLogic.isAvroWordCodePoint('0'));
-        assertFalse("Digit 9 is not a word code point", InputLogic.isAvroWordCodePoint('9'));
+        assertTrue("Digit 0 is an Avro word code point for numeral transliteration", InputLogic.isAvroWordCodePoint('0'));
+        assertTrue("Digit 9 is an Avro word code point for numeral transliteration", InputLogic.isAvroWordCodePoint('9'));
     }
 
     @Test
@@ -105,21 +105,10 @@ public class AvroComposingLogicTest {
         assertFalse(candidates.isEmpty());
         assertEquals("Primary suggestion for 'kmn' is 'কেমন'", "কেমন", candidates.get(0));
 
-        // When auto-correction is OFF:
-        final boolean isAutoCorrectionOn = false;
-        final String stringToCommit = isAutoCorrectionOn
-                ? (!candidates.isEmpty() ? candidates.get(0) : rawBangla)
-                : rawBangla;
-
-        assertEquals("When auto-correction is OFF, rawBangla must be committed", "কম্ন", stringToCommit);
-
-        // When auto-correction is ON:
-        final boolean isAutoCorrectionOnTrue = true;
-        final String stringToCommitOn = isAutoCorrectionOnTrue
-                ? (!candidates.isEmpty() ? candidates.get(0) : rawBangla)
-                : rawBangla;
-
-        assertEquals("When auto-correction is ON, suggested candidate must be committed", "কেমন", stringToCommitOn);
+        // In Avro mode: spacebar/separator unconditionally commits rawBangla
+        // with zero forced auto-correction from candidate 0.
+        final String stringToCommit = rawBangla;
+        assertEquals("In Avro mode, spacebar must unconditionally commit rawBangla", "কম্ন", stringToCommit);
     }
 
     @Test

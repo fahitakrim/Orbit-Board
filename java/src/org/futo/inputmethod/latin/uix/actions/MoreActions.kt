@@ -113,7 +113,7 @@ fun MoreActionsView() {
     }
 
     val map = remember(actionList) {
-        actionList.toActionEditorItems().toActionMap()
+        actionList.toActionEditorItems().ensureWellFormed().toActionMap()
     }
 
     val actions = remember(actionList) {
@@ -176,10 +176,6 @@ fun ActionsEditor(header: @Composable () -> Unit) {
     val reorderableLazyListState = rememberReorderableLazyGridState(lazyListState) { from, to ->
         val itemToAdd = list.removeAt(from.index)
         list.add(to.index, itemToAdd)
-        if (!isInspection) {
-            val map = list.toActionMap()
-            context.updateSettingsWithNewActions(map)
-        }
         view.performHapticFeedback(HapticFeedbackConstants.SEGMENT_FREQUENT_TICK)
     }
 
@@ -287,7 +283,7 @@ fun ActionEditor() {
             ) {
                 ScreenTitle(title = "Edit actions")
                 Button(
-                    onClick = { manager?.closeActionWindow() },
+                    onClick = { manager?.hideActionEditor() },
                     shape = RoundedCornerShape(16.dp)
                 ) {
                     Text("Done")
@@ -317,8 +313,14 @@ val MoreActionsAction = Action(
             override fun WindowTitleBar(rowScope: RowScope) {
                 super.WindowTitleBar(rowScope)
 
-                OutlinedButton(onClick = { manager.showActionEditor() }, modifier = Modifier.padding(8.dp, 0.dp)) {
-                    Text("Edit actions", color = MaterialTheme.colorScheme.onBackground)
+                OutlinedButton(
+                    onClick = { manager.showActionEditor() },
+                    modifier = Modifier
+                        .height(32.dp)
+                        .padding(end = 8.dp),
+                    contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 10.dp, vertical = 2.dp)
+                ) {
+                    Text("Edit actions", color = MaterialTheme.colorScheme.onBackground, style = MaterialTheme.typography.labelMedium)
                 }
             }
 

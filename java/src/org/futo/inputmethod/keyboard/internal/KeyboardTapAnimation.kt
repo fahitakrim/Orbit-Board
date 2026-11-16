@@ -1,8 +1,11 @@
 package org.futo.inputmethod.keyboard.internal
 
+import android.content.res.Resources
 import android.graphics.Canvas
 import android.graphics.Color
+import android.graphics.LinearGradient
 import android.graphics.Paint
+import android.graphics.Shader
 import android.os.SystemClock
 import kotlin.math.cos
 import kotlin.math.sin
@@ -12,7 +15,8 @@ enum class TapAnimationType {
     NONE,
     RADAR_WAVE,
     PARTICLE_BURST,
-    CONSTELLATION_WEB
+    CONSTELLATION_WEB,
+    LASER_RETICLE
 }
 
 interface TapEffect {
@@ -404,15 +408,480 @@ class ConstellationWebEffect(
 }
 
 /**
+ * Border Collision & Gutter Flow Touch Effect (কী-এর বর্ডারে ধাক্কা খেয়ে ফাঁকা দিয়ে ছড়িয়ে পড়া):
+ * Organic, asymmetric neon energy bursts outward from the tap origin, collides with the keycap
+ * perimeters, and courses dynamically along the channels, alleys, and crevices between key borders.
+ *
+ * Design Specifications:
+ * 1. Asymmetric & Organic Randomness: 2 to 4 random asymmetric branches along key border gutters,
+ *    randomized reach lengths (~1.2 to 2.4 keys reach, ~140-180dp total span), randomized speeds,
+ *    and slight crevice branching angles/bends.
+ * 2. Border Collision & Gutter Traversal: Energy bursts outward from tap origin, collides with
+ *    the keycap perimeter with an impact spark, and flows strictly through inter-key channels/gaps.
+ *    Keycap faces (letters/symbols) remain clean and unobstructed.
+ * 3. Multi-Color Vibrant Futuristic Neon: Random vibrant neon palette (Cyan, Neon Pink, Cyber Yellow,
+ *    Electric Green, Nothing Red, Electric Violet, Sky Blue, Electric Orange) glowing intensely.
+ * 4. Layered Neon Aesthetics: Soft glowing diffusion halo + saturated vibrant body + intense core.
+ * 5. Allocation-free execution during updateAndDraw for ultra-smooth 120 FPS frame rate.
+ */
+typealias BorderCollisionEffect = LaserReticleEffect
+
+class LaserReticleEffect @JvmOverloads constructor(
+    private val originX: Float,
+    private val originY: Float,
+    private val colorMode: String = "neon", // "white", "yellow", "cyan", "pink", "green", "red", "purple", "blue", "orange", "mix", "neon", "random"
+    private val startTimeMs: Long = SystemClock.uptimeMillis(),
+    private val durationMs: Float = 450f,
+    val chosenColor: Int = resolveColor(colorMode),
+    private val keyWidth: Float = 0f,
+    private val keyHeight: Float = 0f
+) : TapEffect {
+
+    companion object {
+        // 3 Signature Colors: Pure White, Nothing Red, Cyber Yellow
+        val SIGNATURE_COLORS = intArrayOf(
+            0xFFFFFFFF.toInt(), // Pure White
+            0xFFD71921.toInt(), // Nothing Red
+            0xFFFED700.toInt()  // Cyber Yellow
+        )
+
+        // Multi-color vibrant futuristic neon palette for random selection per tap:
+        // Cyan #00E5FF, Neon Pink #FF1493, Cyber Yellow #FED700, Electric Green #00E676,
+        // Nothing Red #D71921, Electric Violet #D500F9, Sky Blue #00B0FF, Electric Orange #FF6D00
+        val NEON_PALETTE = intArrayOf(
+            0xFF00E5FF.toInt(), // Cyan
+            0xFFFF1493.toInt(), // Neon Pink
+            0xFFFED700.toInt(), // Cyber Yellow
+            0xFF00E676.toInt(), // Electric Green
+            0xFFD71921.toInt(), // Nothing Red
+            0xFFD500F9.toInt(), // Electric Violet
+            0xFF00B0FF.toInt(), // Sky Blue
+            0xFFFF6D00.toInt()  // Electric Orange
+        )
+
+        @JvmStatic
+        fun resolveColor(mode: String): Int = when (mode.lowercase()) {
+            "white" -> 0xFFFFFFFF.toInt()
+            "yellow" -> 0xFFFED700.toInt()
+            "cyan" -> 0xFF00E5FF.toInt()
+            "pink" -> 0xFFFF1493.toInt()
+            "green" -> 0xFF00E676.toInt()
+            "red" -> 0xFFD71921.toInt()
+            "purple", "violet" -> 0xFFD500F9.toInt()
+            "blue", "skyblue" -> 0xFF00B0FF.toInt()
+            "orange" -> 0xFFFF6D00.toInt()
+            "mix" -> 0 // Chromatic Rainbow
+            "random" -> SIGNATURE_COLORS.random()
+            "neon" -> NEON_PALETTE.random()
+            else -> NEON_PALETTE.random()
+        }
+    }
+
+    constructor(originX: Float, originY: Float, startTimeMs: Long) : this(originX, originY, "neon", startTimeMs, 450f)
+
+    private val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        strokeCap = Paint.Cap.ROUND
+        strokeJoin = Paint.Join.ROUND
+    }
+
+    private fun easeOutCubic(t: Float): Float {
+        val f = 1f - t.coerceIn(0f, 1f)
+        return 1f - f * f * f
+    }
+
+    private class BranchData(
+        val p0x: Float, val p0y: Float,
+        val p1x: Float, val p1y: Float,
+        val p2x: Float, val p2y: Float,
+        val p3x: Float, val p3y: Float,
+        val len0: Float,
+        val len1: Float,
+        val len2: Float,
+        val totalGutterLen: Float,
+        val speedMult: Float,
+        val startDelayMs: Float,
+        val r: Int, val g: Int, val b: Int,
+        val coreR: Int, val coreG: Int, val coreB: Int
+    )
+
+    private val branches: Array<BranchData>
+    private val safeOriginX: Float = if (originX.isNaN() || originX.isInfinite()) 0f else originX
+    private val safeOriginY: Float = if (originY.isNaN() || originY.isInfinite()) 0f else originY
+    private val density: Float
+
+    init {
+        density = try {
+            Resources.getSystem().displayMetrics.density.coerceIn(1.0f, 4.0f)
+        } catch (_: Exception) {
+            2.5f
+        }
+
+        val kw = if (keyWidth > 10f) keyWidth else 38f * density
+        val kh = if (keyHeight > 10f) keyHeight else 52f * density
+        val halfW = kw * 0.5f
+        val halfH = kh * 0.5f
+
+        val topEdgeY = safeOriginY - halfH
+        val bottomEdgeY = safeOriginY + halfH
+        val leftEdgeX = safeOriginX - halfW
+        val rightEdgeX = safeOriginX + halfW
+
+        // 1. Asymmetric & Organic Randomness: Pick 2 to 4 distinct branches per tap
+        val branchCount = Random.nextInt(2, 5)
+        val routeIndices = (0..11).shuffled().take(branchCount)
+
+        val isMix = colorMode.equals("mix", ignoreCase = true)
+
+        branches = Array(branchCount) { i ->
+            val route = routeIndices[i]
+            val branchColor = if (isMix) {
+                NEON_PALETTE[i % NEON_PALETTE.size]
+            } else if (chosenColor == 0xFFFFFFFF.toInt() || chosenColor == 0 || colorMode.equals("white", ignoreCase = true) || colorMode.equals("default", ignoreCase = true)) {
+                NEON_PALETTE.random()
+            } else {
+                chosenColor
+            }
+            val bR = Color.red(branchColor)
+            val bG = Color.green(branchColor)
+            val bB = Color.blue(branchColor)
+
+            // Center highlight core: subtle 20% lightness blend, preserving intense neon chromaticity
+            val cR = (bR * 0.80f + 255 * 0.20f).toInt().coerceIn(0, 255)
+            val cG = (bG * 0.80f + 255 * 0.20f).toInt().coerceIn(0, 255)
+            val cB = (bB * 0.80f + 255 * 0.20f).toInt().coerceIn(0, 255)
+
+            // Asymmetric randomized gutter reach (~1.2 to 2.2 keys reach)
+            val runLen = 1.15f + Random.nextFloat() * 1.05f
+            // Asymmetric crevice bend (~0.5 to 1.1 keys into perpendicular alley)
+            val bendLen = 0.50f + Random.nextFloat() * 0.55f
+            val jitter = (Random.nextFloat() * 4f - 2f) * density
+
+            val p0x = safeOriginX
+            val p0y = safeOriginY
+            val p1x: Float
+            val p1y: Float
+            val p2x: Float
+            val p2y: Float
+            val p3x: Float
+            val p3y: Float
+
+            // 12 Organic Gutter Routes (along key borders, inter-key alleys & crevices)
+            when (route) {
+                0 -> { // Top gutter -> courses Right -> bends Down into column crevice
+                    val collisionOffset = (Random.nextFloat() * 0.4f - 0.2f) * kw
+                    p1x = (safeOriginX + collisionOffset).coerceIn(leftEdgeX, rightEdgeX)
+                    p1y = topEdgeY
+                    p2x = rightEdgeX + runLen * kw
+                    p2y = topEdgeY + jitter * 0.4f
+                    p3x = p2x + jitter * 0.5f
+                    p3y = p2y + bendLen * kh
+                }
+                1 -> { // Top gutter -> courses Left -> bends Down into column crevice
+                    val collisionOffset = (Random.nextFloat() * 0.4f - 0.2f) * kw
+                    p1x = (safeOriginX + collisionOffset).coerceIn(leftEdgeX, rightEdgeX)
+                    p1y = topEdgeY
+                    p2x = leftEdgeX - runLen * kw
+                    p2y = topEdgeY + jitter * 0.4f
+                    p3x = p2x + jitter * 0.5f
+                    p3y = p2y + bendLen * kh
+                }
+                2 -> { // Bottom gutter -> courses Right -> bends Up into column crevice
+                    val collisionOffset = (Random.nextFloat() * 0.4f - 0.2f) * kw
+                    p1x = (safeOriginX + collisionOffset).coerceIn(leftEdgeX, rightEdgeX)
+                    p1y = bottomEdgeY
+                    p2x = rightEdgeX + runLen * kw
+                    p2y = bottomEdgeY + jitter * 0.4f
+                    p3x = p2x + jitter * 0.5f
+                    p3y = p2y - bendLen * kh
+                }
+                3 -> { // Bottom gutter -> courses Left -> bends Up into column crevice
+                    val collisionOffset = (Random.nextFloat() * 0.4f - 0.2f) * kw
+                    p1x = (safeOriginX + collisionOffset).coerceIn(leftEdgeX, rightEdgeX)
+                    p1y = bottomEdgeY
+                    p2x = leftEdgeX - runLen * kw
+                    p2y = bottomEdgeY + jitter * 0.4f
+                    p3x = p2x + jitter * 0.5f
+                    p3y = p2y - bendLen * kh
+                }
+                4 -> { // Right crevice -> courses Up -> bends Right into horizontal row gutter
+                    val collisionOffset = (Random.nextFloat() * 0.4f - 0.2f) * kh
+                    p1x = rightEdgeX
+                    p1y = (safeOriginY + collisionOffset).coerceIn(topEdgeY, bottomEdgeY)
+                    p2x = rightEdgeX + jitter * 0.4f
+                    p2y = topEdgeY - runLen * kh
+                    p3x = p2x + bendLen * kw
+                    p3y = p2y + jitter * 0.5f
+                }
+                5 -> { // Right crevice -> courses Down -> bends Right into horizontal row gutter
+                    val collisionOffset = (Random.nextFloat() * 0.4f - 0.2f) * kh
+                    p1x = rightEdgeX
+                    p1y = (safeOriginY + collisionOffset).coerceIn(topEdgeY, bottomEdgeY)
+                    p2x = rightEdgeX + jitter * 0.4f
+                    p2y = bottomEdgeY + runLen * kh
+                    p3x = p2x + bendLen * kw
+                    p3y = p2y + jitter * 0.5f
+                }
+                6 -> { // Left crevice -> courses Up -> bends Left into horizontal row gutter
+                    val collisionOffset = (Random.nextFloat() * 0.4f - 0.2f) * kh
+                    p1x = leftEdgeX
+                    p1y = (safeOriginY + collisionOffset).coerceIn(topEdgeY, bottomEdgeY)
+                    p2x = leftEdgeX + jitter * 0.4f
+                    p2y = topEdgeY - runLen * kh
+                    p3x = p2x - bendLen * kw
+                    p3y = p2y + jitter * 0.5f
+                }
+                7 -> { // Left crevice -> courses Down -> bends Left into horizontal row gutter
+                    val collisionOffset = (Random.nextFloat() * 0.4f - 0.2f) * kh
+                    p1x = leftEdgeX
+                    p1y = (safeOriginY + collisionOffset).coerceIn(topEdgeY, bottomEdgeY)
+                    p2x = leftEdgeX + jitter * 0.4f
+                    p2y = bottomEdgeY + runLen * kh
+                    p3x = p2x - bendLen * kw
+                    p3y = p2y + jitter * 0.5f
+                }
+                8 -> { // Top gutter -> courses Right -> bends Up into row above
+                    val collisionOffset = (Random.nextFloat() * 0.4f - 0.2f) * kw
+                    p1x = (safeOriginX + collisionOffset).coerceIn(leftEdgeX, rightEdgeX)
+                    p1y = topEdgeY
+                    p2x = rightEdgeX + runLen * kw
+                    p2y = topEdgeY - jitter * 0.4f
+                    p3x = p2x + jitter * 0.5f
+                    p3y = p2y - bendLen * kh
+                }
+                9 -> { // Top gutter -> courses Left -> bends Up into row above
+                    val collisionOffset = (Random.nextFloat() * 0.4f - 0.2f) * kw
+                    p1x = (safeOriginX + collisionOffset).coerceIn(leftEdgeX, rightEdgeX)
+                    p1y = topEdgeY
+                    p2x = leftEdgeX - runLen * kw
+                    p2y = topEdgeY - jitter * 0.4f
+                    p3x = p2x + jitter * 0.5f
+                    p3y = p2y - bendLen * kh
+                }
+                10 -> { // Bottom gutter -> courses Right -> bends Down into row below
+                    val collisionOffset = (Random.nextFloat() * 0.4f - 0.2f) * kw
+                    p1x = (safeOriginX + collisionOffset).coerceIn(leftEdgeX, rightEdgeX)
+                    p1y = bottomEdgeY
+                    p2x = rightEdgeX + runLen * kw
+                    p2y = bottomEdgeY + jitter * 0.4f
+                    p3x = p2x + jitter * 0.5f
+                    p3y = p2y + bendLen * kh
+                }
+                else -> { // Bottom gutter -> courses Left -> bends Down into row below
+                    val collisionOffset = (Random.nextFloat() * 0.4f - 0.2f) * kw
+                    p1x = (safeOriginX + collisionOffset).coerceIn(leftEdgeX, rightEdgeX)
+                    p1y = bottomEdgeY
+                    p2x = leftEdgeX - runLen * kw
+                    p2y = bottomEdgeY + jitter * 0.4f
+                    p3x = p2x + jitter * 0.5f
+                    p3y = p2y + bendLen * kh
+                }
+            }
+
+            val l0 = Math.hypot((p1x - p0x).toDouble(), (p1y - p0y).toDouble()).toFloat().coerceAtLeast(1f)
+            val l1 = Math.hypot((p2x - p1x).toDouble(), (p2y - p1y).toDouble()).toFloat().coerceAtLeast(1f)
+            val l2 = Math.hypot((p3x - p2x).toDouble(), (p3y - p2y).toDouble()).toFloat().coerceAtLeast(1f)
+
+            BranchData(
+                p0x = p0x, p0y = p0y,
+                p1x = p1x, p1y = p1y,
+                p2x = p2x, p2y = p2y,
+                p3x = p3x, p3y = p3y,
+                len0 = l0,
+                len1 = l1,
+                len2 = l2,
+                totalGutterLen = l1 + l2,
+                speedMult = 0.85f + Random.nextFloat() * 0.35f,
+                startDelayMs = Random.nextFloat() * 25f,
+                r = bR, g = bG, b = bB,
+                coreR = cR, coreG = cG, coreB = cB
+            )
+        }
+    }
+
+    override fun updateAndDraw(canvas: Canvas, currentTimeMs: Long): Boolean {
+        val elapsed = currentTimeMs - startTimeMs
+        if (elapsed >= durationMs) return false
+
+        val safeElapsed = elapsed.coerceAtLeast(0L)
+        val progress = (safeElapsed / durationMs).coerceIn(0f, 1f)
+
+        // Smooth ease-out fade curve with glowing luminescence
+        val alpha = ((1f - progress) * (1f - progress * 0.25f)).coerceIn(0f, 1f)
+        if (alpha <= 0.005f) return false
+
+        val width = canvas.width.toFloat()
+        val height = canvas.height.toFloat()
+        if (width <= 0f || height <= 0f) return true
+
+        val haloStroke = (6.0f * density).coerceIn(14f, 26f)
+        val bodyStroke = (2.6f * density).coerceIn(6f, 11f)
+        val coreStroke = (1.0f * density).coerceIn(2.2f, 4.2f)
+
+        // Phase 1: Tap Contact Burst to Border (First 65ms):
+        // Fast electric filament darts from tap origin to perimeter collision point p1,
+        // then completely disappears so keycap face (letter/symbol) remains 100% clean!
+        for (i in branches.indices) {
+            val b = branches[i]
+            val branchElapsed = (safeElapsed - b.startDelayMs).coerceAtLeast(0f)
+            if (branchElapsed in 1f..65f) {
+                val burstProgress = (branchElapsed / 50f).coerceIn(0f, 1f)
+                val burstAlpha = (1f - branchElapsed / 65f) * alpha
+                val burstDist = b.len0 * easeOutCubic(burstProgress)
+                val ratio = (burstDist / b.len0).coerceIn(0f, 1f)
+                val curX = b.p0x + (b.p1x - b.p0x) * ratio
+                val curY = b.p0y + (b.p1y - b.p0y) * ratio
+
+                paint.style = Paint.Style.STROKE
+                paint.strokeWidth = 2.2f * density
+                paint.color = Color.argb((burstAlpha * 0.95f * 255).toInt(), b.r, b.g, b.b)
+                canvas.drawLine(b.p0x, b.p0y, curX, curY, paint)
+
+                paint.strokeWidth = 1.0f * density
+                paint.color = Color.argb((burstAlpha * 0.95f * 255).toInt(), b.coreR, b.coreG, b.coreB)
+                canvas.drawLine(b.p0x, b.p0y, curX, curY, paint)
+            }
+        }
+
+        // Phase 2: Border Collision Impact Sparks on perimeter (কী-এর বর্ডারে ধাক্কা খেয়ে)
+        paint.style = Paint.Style.FILL
+        for (i in branches.indices) {
+            val b = branches[i]
+            val branchElapsed = (safeElapsed - b.startDelayMs).coerceAtLeast(0f)
+            if (branchElapsed in 35f..160f) {
+                val impactElapsed = branchElapsed - 35f
+                val impactProgress = (impactElapsed / 125f).coerceIn(0f, 1f)
+                val impactAlpha = (1f - impactProgress) * alpha
+
+                // Outer collision flare: saturated neon bloom
+                paint.color = Color.argb((impactAlpha * 0.65f * 255).toInt(), b.r, b.g, b.b)
+                canvas.drawCircle(b.p1x, b.p1y, 4.8f * density * (1f - impactProgress * 0.35f), paint)
+                // Inner collision core: luminous neon core
+                paint.color = Color.argb((impactAlpha * 0.95f * 255).toInt(), b.coreR, b.coreG, b.coreB)
+                canvas.drawCircle(b.p1x, b.p1y, 2.0f * density, paint)
+            }
+        }
+
+        // Phase 3: Gutter Flow Traversal strictly along inter-key crevices & alleys (p1 -> p2 -> p3)
+        // Keycap face remains clean and unobstructed.
+        // Pass 1: Glowing Soft Diffusion Halo along the alleys
+        paint.style = Paint.Style.STROKE
+        paint.strokeWidth = haloStroke
+        for (i in branches.indices) {
+            val b = branches[i]
+            val branchElapsed = (safeElapsed - b.startDelayMs).coerceAtLeast(0f)
+            if (branchElapsed <= 35f) continue
+            val gutterElapsed = branchElapsed - 35f
+            val gutterProgress = (gutterElapsed / (durationMs * 0.78f * b.speedMult)).coerceIn(0f, 1f)
+            val currentGutterDist = b.totalGutterLen * easeOutCubic(gutterProgress)
+            if (currentGutterDist <= 0.5f) continue
+
+            paint.color = Color.argb((alpha * 0.55f * 255).toInt(), b.r, b.g, b.b)
+            drawGutterPath(canvas, b, currentGutterDist)
+        }
+
+        // Pass 2: Saturated Vibrant Neon Line Body
+        paint.strokeWidth = bodyStroke
+        for (i in branches.indices) {
+            val b = branches[i]
+            val branchElapsed = (safeElapsed - b.startDelayMs).coerceAtLeast(0f)
+            if (branchElapsed <= 35f) continue
+            val gutterElapsed = branchElapsed - 35f
+            val gutterProgress = (gutterElapsed / (durationMs * 0.78f * b.speedMult)).coerceIn(0f, 1f)
+            val currentGutterDist = b.totalGutterLen * easeOutCubic(gutterProgress)
+            if (currentGutterDist <= 0.5f) continue
+
+            paint.color = Color.argb((alpha * 0.95f * 255).toInt(), b.r, b.g, b.b)
+            drawGutterPath(canvas, b, currentGutterDist)
+        }
+
+        // Pass 3: Intense Center Luminescence (subtle 25% lightness blend, vibrant neon)
+        paint.strokeWidth = coreStroke
+        for (i in branches.indices) {
+            val b = branches[i]
+            val branchElapsed = (safeElapsed - b.startDelayMs).coerceAtLeast(0f)
+            if (branchElapsed <= 35f) continue
+            val gutterElapsed = branchElapsed - 35f
+            val gutterProgress = (gutterElapsed / (durationMs * 0.78f * b.speedMult)).coerceIn(0f, 1f)
+            val currentGutterDist = b.totalGutterLen * easeOutCubic(gutterProgress)
+            if (currentGutterDist <= 0.5f) continue
+
+            paint.color = Color.argb((alpha * 0.95f * 255).toInt(), b.coreR, b.coreG, b.coreB)
+            drawGutterPath(canvas, b, currentGutterDist)
+        }
+
+        // Pass 4: Advancing Tip Sparks / Electric Beads at leading edge along gutter
+        paint.style = Paint.Style.FILL
+        for (i in branches.indices) {
+            val b = branches[i]
+            val branchElapsed = (safeElapsed - b.startDelayMs).coerceAtLeast(0f)
+            if (branchElapsed <= 35f) continue
+            val gutterElapsed = branchElapsed - 35f
+            val gutterProgress = (gutterElapsed / (durationMs * 0.78f * b.speedMult)).coerceIn(0f, 1f)
+            val currentGutterDist = b.totalGutterLen * easeOutCubic(gutterProgress)
+            if (currentGutterDist <= 0.5f) continue
+
+            val tipX: Float
+            val tipY: Float
+            if (currentGutterDist <= b.len1) {
+                val ratio = currentGutterDist / b.len1
+                tipX = b.p1x + (b.p2x - b.p1x) * ratio
+                tipY = b.p1y + (b.p2y - b.p1y) * ratio
+            } else {
+                val rem = currentGutterDist - b.len1
+                val ratio = (rem / b.len2).coerceAtMost(1f)
+                tipX = b.p2x + (b.p3x - b.p2x) * ratio
+                tipY = b.p2y + (b.p3y - b.p2y) * ratio
+            }
+
+            // Outer tip glow: saturated neon bloom
+            paint.color = Color.argb((alpha * 0.70f * 255).toInt(), b.r, b.g, b.b)
+            canvas.drawCircle(tipX, tipY, 4.0f * density, paint)
+            // Core spark: luminous neon core
+            paint.color = Color.argb((alpha * 0.95f * 255).toInt(), b.coreR, b.coreG, b.coreB)
+            canvas.drawCircle(tipX, tipY, 1.8f * density, paint)
+        }
+
+        return true
+    }
+
+    private fun drawGutterPath(canvas: Canvas, b: BranchData, dist: Float) {
+        if (dist <= 0.5f) return
+        if (dist <= b.len1) {
+            val ratio = dist / b.len1
+            val curX = b.p1x + (b.p2x - b.p1x) * ratio
+            val curY = b.p1y + (b.p2y - b.p1y) * ratio
+            canvas.drawLine(b.p1x, b.p1y, curX, curY, paint)
+        } else {
+            canvas.drawLine(b.p1x, b.p1y, b.p2x, b.p2y, paint)
+            val rem = dist - b.len1
+            val ratio = (rem / b.len2).coerceAtMost(1f)
+            val curX = b.p2x + (b.p3x - b.p2x) * ratio
+            val curY = b.p2y + (b.p3y - b.p2y) * ratio
+            canvas.drawLine(b.p2x, b.p2y, curX, curY, paint)
+        }
+    }
+}
+
+/**
  * Manager that holds and coordinates active tap animations on the keyboard canvas.
  * UI-thread optimized, bounded, thread-safe, and allocation-free on frame updates.
  */
 class KeyboardTapAnimationManager {
     private val activeEffects = ArrayList<TapEffect>()
     private val maxConcurrent = 10
+    var currentLaserColor: String = "neon"
+    private var lastColorIndex: Int = -1
 
+    @JvmOverloads
     @Synchronized
-    fun spawnAnimation(type: TapAnimationType, x: Float, y: Float) {
+    fun spawnAnimation(
+        type: TapAnimationType,
+        x: Float,
+        y: Float,
+        laserColor: String = currentLaserColor,
+        keyWidth: Float = 0f,
+        keyHeight: Float = 0f
+    ) {
         if (type == TapAnimationType.NONE) return
 
         // Prune older effects if queue exceeds limit
@@ -424,6 +893,36 @@ class KeyboardTapAnimationManager {
             TapAnimationType.RADAR_WAVE -> RadarPulseEffect(x, y)
             TapAnimationType.PARTICLE_BURST -> ParticleBurstEffect(x, y)
             TapAnimationType.CONSTELLATION_WEB -> ConstellationWebEffect(x, y)
+            TapAnimationType.LASER_RETICLE -> {
+                val isRandomOrNeon = laserColor.isEmpty() ||
+                        laserColor.equals("random", ignoreCase = true) ||
+                        laserColor.equals("neon", ignoreCase = true) ||
+                        laserColor.equals("white", ignoreCase = true) ||
+                        laserColor.equals("default", ignoreCase = true) ||
+                        laserColor.equals("theme", ignoreCase = true)
+                var chosenNeon = if (isRandomOrNeon) {
+                    var newIndex = (0 until LaserReticleEffect.NEON_PALETTE.size).random()
+                    if (newIndex == lastColorIndex && LaserReticleEffect.NEON_PALETTE.size > 1) {
+                        newIndex = (newIndex + 1) % LaserReticleEffect.NEON_PALETTE.size
+                    }
+                    lastColorIndex = newIndex
+                    LaserReticleEffect.NEON_PALETTE[newIndex]
+                } else {
+                    LaserReticleEffect.resolveColor(laserColor)
+                }
+                if (chosenNeon == 0xFFFFFFFF.toInt() || chosenNeon == 0) {
+                    chosenNeon = LaserReticleEffect.NEON_PALETTE.random()
+                }
+                val mode = if (isRandomOrNeon) "neon" else laserColor
+                LaserReticleEffect(
+                    originX = x,
+                    originY = y,
+                    colorMode = mode,
+                    chosenColor = chosenNeon,
+                    keyWidth = keyWidth,
+                    keyHeight = keyHeight
+                )
+            }
             TapAnimationType.NONE -> return
         }
         activeEffects.add(effect)
@@ -457,6 +956,9 @@ class KeyboardTapAnimationManager {
 
     @Synchronized
     fun hasActiveEffects(): Boolean = activeEffects.isNotEmpty()
+
+    @Synchronized
+    fun getActiveCount(): Int = activeEffects.size
 
     @Synchronized
     fun clear() {

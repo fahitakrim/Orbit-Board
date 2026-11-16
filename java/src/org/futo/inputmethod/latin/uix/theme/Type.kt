@@ -48,6 +48,12 @@ val Inter = FontFamily(
     ),
 )
 
+val Ndot = FontFamily(
+    Font(resId = R.font.ndot, weight = FontWeight.Normal),
+    Font(resId = R.font.ndot, weight = FontWeight.Medium),
+    Font(resId = R.font.ndot, weight = FontWeight.Bold)
+)
+
 val Qurova = FontFamily(
     Font(resId = R.font.qurova, weight = FontWeight.Normal),
     Font(resId = R.font.qurova, weight = FontWeight.Medium)
